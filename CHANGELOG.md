@@ -8,7 +8,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking
 
-1. **The Angular package is renamed** `@kerusiweb/angular` → `@kerusiweb/angular`,
+1. **The Angular package is renamed** `ngx-kerusi-seatmap` → `@kerusiweb/angular`,
    joining `@kerusiweb/core` and `@kerusiweb/react` under one scope. The `ngx-`
    prefix is Angular's convention for _unscoped_ packages, where it exists to
    signal the framework in npm's flat namespace; a scope plus a framework
@@ -26,7 +26,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-1. **The repository is renamed** `@kerusiweb/angular` → `kerusiweb`, and the
+1. **The repository is renamed** `ngx-kerusi-seatmap` → `kerusiweb`, and the
    demos move to `shadahm.github.io/kerusiweb/`. GitHub redirects the old URLs.
    The repo is no longer an Angular library that grew a React port; it is a
    seat-map renderer with framework bindings, and the name, the docs and the
@@ -265,9 +265,9 @@ folded into this release.
 ### Breaking
 
 1. **The package is renamed** `ngx-keruc-seatpicker` → `ngx-kerusi-seatmap`.
-   The repository moved to `github.com/ShadAhm/kerusiweb` (GitHub
+   The repository moved to `github.com/ShadAhm/ngx-kerusi-seatmap` (GitHub
    redirects the old URL), and the demo now lives at
-   `shadahm.github.io/kerusiweb/`.
+   `shadahm.github.io/ngx-kerusi-seatmap/`.
 
 2. **The Angular prefix is `kerusi`, not `keruc`.** `<keruc-seatpicker>` is now
    `<kerusi-seatpicker>`, and the CSS classes `.keruc-seat` / `.keruc-element`

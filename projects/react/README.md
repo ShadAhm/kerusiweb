@@ -303,4 +303,4 @@ import {
 
 ---
 
-MIT © Arshad Ahmad
+MIT © Arsyad "Shad Ahm" Ahmad

@@ -183,4 +183,4 @@ binding among several rather than the project itself. See
 
 ## License
 
-MIT © Arshad Ahmad
+MIT © Arsyad "Shad Ahm" Ahmad

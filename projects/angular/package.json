@@ -17,7 +17,7 @@
     "venue"
   ],
   "license": "MIT",
-  "author": "Arshad Ahmad",
+  "author": "Arsyad \"Shad Ahm\" Ahmad",
   "repository": {
     "type": "git",
     "url": "https://github.com/ShadAhm/kerusiweb.git",
@@ -32,5 +32,8 @@
   "dependencies": {
     "tslib": "^2.3.0"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  }
 }

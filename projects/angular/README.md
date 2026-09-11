@@ -333,4 +333,4 @@ Deltas that are stale, duplicate or scoped to another session are discarded.
 
 ---
 
-MIT © Arshad Ahmad
+MIT © Arsyad "Shad Ahm" Ahmad

@@ -62,3 +62,7 @@ import { validateDocumentSet } from '@kerusiweb/core';
 
 See [docs/architecture.md](../../docs/architecture.md) for what belongs here and
 what belongs in a framework binding.
+
+---
+
+MIT © Arsyad "Shad Ahm" Ahmad

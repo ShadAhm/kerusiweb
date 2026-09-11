@@ -51,6 +51,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    `CONTRIBUTING.md`, issue templates and a PR template, each asking which
    package a report concerns.
 
+### Fixed
+
+1. **Every package now ships its licence text.** All three declared
+   `"license": "MIT"` while the only `LICENSE` file sat at the repository root,
+   which npm does not include in a workspace package's tarball — so each one
+   would have published an MIT claim with nothing behind it. `@kerusiweb/core`,
+   `@kerusiweb/angular` and `@kerusiweb/react` each carry a copy now.
+
+2. **`@kerusiweb/angular` declares `publishConfig.access: "public"`**, as the
+   other two packages already did. Scoped packages default to restricted
+   access, which a free npm organisation cannot host, so publishing it would
+   have failed until `--access public` was passed by hand.
+
 ### Added
 
 1. **A React binding, `@kerusiweb/react`.** Same components, same props, same

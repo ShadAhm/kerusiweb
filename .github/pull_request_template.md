@@ -15,7 +15,7 @@
 
 - [ ] `npm run test:ci` passes
 - [ ] Behaviour that a second binding would otherwise have to reimplement lives
-      in core, per [docs/architecture.md](../docs/architecture.md) — or this PR
+      in core, per [docs/architecture.md](../docs/architecture.md), or this PR
       says why not
 - [ ] A rendering change is covered by both bindings' specs, which assert
       byte-identical SVG for the same documents

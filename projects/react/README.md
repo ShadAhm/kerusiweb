@@ -10,7 +10,7 @@ npm install @kerusiweb/core @kerusiweb/react
 Requires React 18.3+ or 19. Function components and hooks; no context, no
 provider, no global state.
 
-This package is the React binding only — the components and the `useKerusiState`
+This package is the React binding only: the components and the `useKerusiState`
 hook. The document types, the conformance validator, the render model and its
 geometry live in its peer
 [`@kerusiweb/core`](https://www.npmjs.com/package/@kerusiweb/core), which is
@@ -24,7 +24,7 @@ Once, anywhere in your app:
 import '@kerusiweb/react/styles.css';
 ```
 
-It carries layout, opacity, cursor, paint order and the focus ring — nothing
+It carries layout, opacity, cursor, paint order and the focus ring, and nothing
 else. Every colour is bound inline by the components, so the theming tiers below
 keep working.
 
@@ -77,14 +77,14 @@ export function Booking({ map, state }: { map: KerusiMap; state: KerusiState }) 
 | `selectableStatuses` | `SeatRenderStatus[]`            | `['available']` | Which statuses a seat may be picked in.                                 |
 | `companionMode`      | `'auto' \| 'independent'`       | `'auto'`        | `auto` selects a seat's whole companion closure together (§4.6).        |
 | `maxSelection`       | `number`                        | —               | Cap on selected seats. Counts a companion closure as its full size.     |
-| `seatSelectable`     | `(seat: RenderSeat) => boolean` | —               | A final say, applied after the status test. **Memoize it** — see below. |
+| `seatSelectable`     | `(seat: RenderSeat) => boolean` | —               | A final say, applied after the status test. **Memoize it** (see below). |
 | `interactive`        | `boolean`                       | `true`          | `false` renders read-only.                                              |
 
 Controlled and uncontrolled work the way they do for `<input>`: pass
 `selection` + `onSelectionChange` to own it yourself, or pass neither and let
 the component keep it. Passing `selection` without `onSelectionChange` renders a
-selection the user cannot change — occasionally what you want, usually a
-mistake.
+selection the user cannot change. That is occasionally what you want, but
+usually a mistake.
 
 **Appearance**
 
@@ -157,11 +157,11 @@ only need to think about them if you pass your own.
 ### The seat glyph
 
 **Colour means seat type; shape means status.** A seat's fill is always its
-`SeatType.color`, or the theme's `availableBg` when the type has none — it does
-not change when the seat is held or booked. `selected` is the one deliberate
+`SeatType.color`, or the theme's `availableBg` when the type has none. It does
+not change when the seat is held or booked. `selected` is the one
 exception: it owns the seat's colour outright, so your own picks are never
 ambiguous, and a purple fill on its own would in any case fail WCAG 1.4.1 (Use
-of Colour) for anyone who cannot distinguish it — hence the shape cues. Held
+of Colour) for anyone who cannot distinguish it, hence the shape cues. Held
 seats take a wash and a hollow occupant figure; booked ones a wash and a solid
 figure; selected ones a bright core inside a frame.
 
@@ -170,13 +170,13 @@ figure; selected ones a bright core inside a frame.
 Colors resolve through three tiers, highest first:
 
 1. A `--kerusi-*` custom property in **your** stylesheet.
-2. The **`colors` prop** — a partial `KerusiSeatmapColors`, merged over the defaults.
+2. The **`colors` prop**: a partial `KerusiSeatmapColors`, merged over the defaults.
 3. The library default.
 
 The library never writes a `--kerusi-*` property onto its own root, which is
 what keeps that order true: every fill is emitted as
-`var(--kerusi-selected-bg, <the resolved prop value>)`. Use whichever tier fits
-— the prop for values known at build time, CSS for anything that has to respond
+`var(--kerusi-selected-bg, <the resolved prop value>)`. Use whichever tier fits:
+the prop for values known at build time, CSS for anything that has to respond
 to a media query or a theme class.
 
 ```css
@@ -210,7 +210,7 @@ Every key of `KerusiSeatmapColors` has a property, kebab-cased:
 ### Keyboard
 
 Tab moves between sections; each section keeps its own tab stop. Within a
-section, arrow keys follow the §4.3.1 `col` order — so an aisle, which is a
+section, arrow keys follow the §4.3.1 `col` order, so an aisle, which is a
 column no seat occupies, is stepped across rather than into.
 
 | Key                      |                                    |
@@ -238,7 +238,7 @@ Rendered inline by `showLegend`, or placed anywhere yourself:
 ```
 
 It resolves swatches through the same path as the seat fills, so the two cannot
-drift apart. Every availability swatch — not just **Selected** — draws the seat
+drift apart. Every availability swatch, not just **Selected**, draws the seat
 glyph itself rather than a flat colour, because shape is the cue the map uses
 for status.
 
@@ -267,7 +267,7 @@ useEffect(() => {
 ```
 
 `apply`, `reset` and `tick` keep a stable identity across renders, so an effect
-can subscribe once. It also exposes `needsRefetch` and `heldSeats` — every
+can subscribe once. It also exposes `needsRefetch` and `heldSeats`: every
 currently-held seat with the time left on its hold, soonest first.
 
 Deltas that are stale, duplicate or scoped to another session are discarded.
@@ -275,7 +275,7 @@ Deltas that are stale, duplicate or scoped to another session are discarded.
 > **Gap detection needs a sequence.** §5.2 requires `updatedAt` to be strictly
 > increasing but not contiguous, so it cannot by itself distinguish "a delta was
 > lost" from "nothing happened for a while". The hook detects gaps when the
-> transport supplies a monotonic sequence — `metadata.seq` by default, or your
+> transport supplies a monotonic sequence: `metadata.seq` by default, or your
 > own `sequenceOf` reader. A gapped delta is still applied, so the map degrades
 > rather than freezes while you re-fetch.
 
@@ -283,7 +283,7 @@ Deltas that are stale, duplicate or scoped to another session are discarded.
 
 ## Working with the format directly
 
-All of this lives in `@kerusiweb/core` and is pure — no React import — so it can
+All of this lives in `@kerusiweb/core` and is pure (no React import), so it can
 run in a test, a build step, a server component or a route loader.
 
 ```ts

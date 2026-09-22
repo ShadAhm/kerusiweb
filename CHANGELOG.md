@@ -16,7 +16,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    signal the framework in npm's flat namespace; a scope plus a framework
    segment already says the same thing, which is why every current
    multi-framework family names its bindings this way. No version of either
-   name was ever published to npm, so there is no migration path to document —
+   name was ever published to npm, so there is no migration path to document;
    nothing depends on the old name.
 
    The import changes accordingly:
@@ -37,8 +37,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 2. **Nothing in the workspace privileges one framework.** `projects/` now reads
    `core/`, `angular/`, `react/`, `angular-demo/`, `react-demo/`. Every npm
    script names its framework (`start:angular`, `build:react`, `test:angular`),
-   and the bare `start` / `build` / `test` scripts — all of which meant Angular
-   — are gone. `@angular/*` moved from the workspace root's `dependencies` to
+   and the bare `start` / `build` / `test` scripts (all of which meant Angular)
+   are gone. `@angular/*` moved from the workspace root's `dependencies` to
    its `devDependencies`, alongside `react`, and the root `tsconfig.json` is
    framework-neutral: `angularCompilerOptions` moved into a new
    `tsconfig.angular.json` that only the Angular binding and demo extend, so
@@ -57,7 +57,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 1. **Every package now ships its licence text.** All three declared
    `"license": "MIT"` while the only `LICENSE` file sat at the repository root,
-   which npm does not include in a workspace package's tarball — so each one
+   which npm does not include in a workspace package's tarball, so each one
    would have published an MIT claim with nothing behind it. `@kerusiweb/core`,
    `@kerusiweb/angular` and `@kerusiweb/react` each carry a copy now.
 
@@ -92,14 +92,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    The package is built by `tsc` alone, with no bundler, and declares `react`
    and `@kerusiweb/core` as peers.
 
-2. **`projects/react-demo/`** — a Vite React demo showing the same five venues
+2. **`projects/react-demo/`**: a Vite React demo showing the same five venues
    as the Angular one. The venue documents moved to `projects/demo-scenarios/`
    so both demos render the same fixtures rather than two copies drifting apart.
    The published GitHub Pages site remains the Angular demo.
 
 3. **Three functions promoted into `@kerusiweb/core`**, each of which the React
    binding would otherwise have retyped verbatim from the Angular one:
-   `isRtlLocale` (`view/rtl.ts`), `heldSeats` (`kerusi/kerusi-state.ts` — core
+   `isRtlLocale` (`view/rtl.ts`), `heldSeats` (`kerusi/kerusi-state.ts`; core
    already exported the `HeldSeat` type with nothing producing it), and
    `resolveColors` (`view/kerusi-seatmap-colors.ts`). All three are additive;
    the Angular binding now calls them instead of its own copies.
@@ -110,20 +110,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    The Kerusi document types, the conformance validator, the price/locale/row
    resolution, the render model and its geometry, and the colour, ARIA and
    selection helpers all moved out of the Angular library into
-   `projects/core/`. `@kerusiweb/angular` is now the Angular binding alone —
-   three components and the signal-backed `KerusiStateStore` — and declares
+   `projects/core/`. `@kerusiweb/angular` is now the Angular binding alone
+   (three components and the signal-backed `KerusiStateStore`) and declares
    `@kerusiweb/core` as a peer dependency.
 
    The split was mostly already there: only four files imported `@angular/core`
-   and none imported RxJS. The one genuinely mixed file was
+   and none imported RxJS. The one mixed file was
    `kerusi-state-store.ts`, whose pure delta-ordering and hold-expiry functions
    are now `@kerusiweb/core`'s `kerusi-state`, with the signal wrapper left
    behind in the Angular package. No logic changed. See
    [docs/architecture.md](docs/architecture.md) for what belongs where.
 
    Core compiles under `strict` with no framework, no DOM and no `any`, tests
-   under plain Vitest, and — because it is `"type": "module"` with explicit
-   import extensions — loads in Node ESM without a bundler, so validation can
+   under plain Vitest, and, because it is `"type": "module"` with explicit
+   import extensions, loads in Node ESM without a bundler, so validation can
    run server-side or in a build step.
 
 ### Breaking
@@ -139,7 +139,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   import type { KerusiMap, KerusiState } from '@kerusiweb/core';
   ```
 
-  No symbol was renamed, removed or changed in behaviour — only its package.
+  No symbol was renamed, removed or changed in behaviour; only its package moved.
 
 ## [1.1.0] - 2026-08-29
 
@@ -158,7 +158,7 @@ requirement. `docs/kerusi-conformance.md` is reassessed against rev 13.
    cross-aisle between two rows.
 
    Rows were derived from the seats that referenced them, so a seatless row
-   simply vanished and a grid cinema had nowhere to put its screen — §4.3.2
+   vanished and a grid cinema had nowhere to put its screen. §4.3.2
    mandated an `Element` for labelled space that grid mode gave that `Element`
    nowhere to occupy. The row order of §4.2.1 is now explicit too: indexed rows
    first ascending, then unindexed ones in declaration order, with `index`
@@ -167,7 +167,7 @@ requirement. `docs/kerusi-conformance.md` is reassessed against rev 13.
    navigation steps over the empty ones rather than into them.
 
 2. **`Section.directions` (§4.10),** localized onto `RenderSection.directions`.
-   A purely informational label for what an addressing axis means physically —
+   A purely informational label for what an addressing axis means physically:
    "front of train" / "back of train", or compass points for open-air seating.
    Never validated against, and never read to decide layout or screen placement.
 
@@ -175,7 +175,7 @@ requirement. `docs/kerusi-conformance.md` is reassessed against rev 13.
    documents from the spec repository are vendored under
    `src/lib/kerusi/conformance/` and asserted file by file: the conformant ones
    accepted, the semantically invalid ones rejected by rule id. Five
-   schema-invalid fixtures are accepted on purpose — one because §2 and §7
+   schema-invalid fixtures are accepted on purpose: one because §2 and §7
    require a consumer to ignore unrecognized members, four because they fail a
    producer-side shape constraint the published JSON Schemas own. That folder's
    README says which is which.
@@ -184,7 +184,7 @@ requirement. `docs/kerusi-conformance.md` is reassessed against rev 13.
 
 1. **An element is now bound to its section's positioning mode, and its grid
    spans must be positive integers (§4.4.1).** Rev 12 gave `Element.width` and
-   `height` normative units — column and row spans in cells, defaulting to 1 —
+   `height` normative units (column and row spans in cells, defaulting to 1)
    and bound an element to its section's mode as §4.5 already bound its seats.
    Four rules enforce it, and all four are **errors** where the nearest previous
    check was a warning:
@@ -198,7 +198,7 @@ requirement. `docs/kerusi-conformance.md` is reassessed against rev 13.
 
    `element-position-mode` is gone; it warned about the first of these and its
    name did not survive the promotion. A document that only drew oddly before is
-   now rejected — most often a grid element positioned with a percentage `y`,
+   now rejected. The most common case is a grid element positioned with a percentage `y`,
    which should become a `row` anchored to an empty row. An element positioned
    no way at all is still a warning: §4.4 does not require one to be placed.
    Omitting `col` now spans the section's full column extent, per §4.4.1.
@@ -206,9 +206,9 @@ requirement. `docs/kerusi-conformance.md` is reassessed against rev 13.
 2. **Timestamps must be RFC 3339 `date-time` (§5.1.1).** `KerusiState.updatedAt`,
    `SeatStatus.holdExpires`, `KerusiStateDelta.updatedAt`,
    `KerusiSession.startsAt` and `endsAt` are now format-checked, calendar
-   included, and a document failing the check is rejected —
-   `state-updatedat-format`, `seat-status-hold-expires-format`,
-   `session-startsat-format`, `session-endsat-format`.
+   included, and a document failing the check is rejected
+   (`state-updatedat-format`, `seat-status-hold-expires-format`,
+   `session-startsat-format`, `session-endsat-format`).
 
    Rev 13 narrowed the requirement from "ISO 8601", which admits forms a
    consumer cannot reliably parse: seconds omitted, the basic format without
@@ -220,8 +220,8 @@ requirement. `docs/kerusi-conformance.md` is reassessed against rev 13.
    now a frame around a `selectedFg` core, and the number, occupant figure and
    wheelchair marker are tinted `selectedBg` to read against that core.
 
-   It was the other way round before — a near-white rim around a mid-purple
-   middle — which put the low-contrast tone on the outside boundary. A selected
+   It was the other way round before (a near-white rim around a mid-purple
+   middle), which put the low-contrast tone on the outside boundary. A selected
    seat therefore dissolved into a light page and sank into a dark one, and it
    separated poorly from its neighbours in both. Holding a light tone and a dark
    one at once means one of them always separates, whichever way the page is
@@ -233,7 +233,7 @@ requirement. `docs/kerusi-conformance.md` is reassessed against rev 13.
    on a selected seat are now measured from the core's box rather than the
    seat's, so they no longer cross the frame. And the number carries a
    core-coloured halo, because it sits on the occupant silhouette rather than on
-   bare core — that lifts its real contrast from 2.6:1 to the full 4.95:1.
+   bare core. That lifts its contrast from 2.6:1 to the full 4.95:1.
 
    If you set `selectedBg` and left `selectedFg` at its default, set both now:
    `selectedFg` is most of a selected seat's area rather than just a label tint.
@@ -249,7 +249,7 @@ requirement. `docs/kerusi-conformance.md` is reassessed against rev 13.
 
 1. **The `headroomRows` input.** It reserved rows' worth of space above a grid
    section's first row, and was never released. Rev 12 considered exactly this
-   field on the document side and rejected it — a renderer hint in a format §2
+   field on the document side and rejected it: a renderer hint in a format §2
    keeps renderer-agnostic, solving the top margin and leaving mid-section space
    unrepresentable. Declare the rows instead: `{ id: 'throw' }` with no seats
    reserves the same space, travels with the document, and works between two
@@ -321,8 +321,8 @@ folded into this release.
   `reason: 'companion-unavailable'`.
 - The document now drives the picture: `SeatType.color` colours an available
   seat (with a contrast-correct label), `Element.kind` chooses a shape, prices
-  render, and grid-addressed elements finally appear — the pre-1.0 renderer drew
-  elements only in freeform sections.
+  render, and grid-addressed elements now appear (the pre-1.0 renderer drew
+  elements only in freeform sections).
 - Rich events: `seatSelect`, `seatDeselect`, `seatDisallowed` (with a typed
   reason), `seatFocus`, `validationIssues`.
 - `<kerusi-legend>` (`KerusiLegendComponent`), opt-in via `[showLegend]`. It
@@ -331,7 +331,7 @@ folded into this release.
 
 **Accessibility**, previously absent entirely
 
-- Every seat is a `role="button"` with a per-section roving tabindex — Tab moves
+- Every seat is a `role="button"` with a per-section roving tabindex: Tab moves
   between sections, arrows move within.
 - Arrow keys follow the §4.3.1 `col` order, including in `mixed` sections, so an
   aisle (a column no seat occupies) is stepped across rather than into.
@@ -374,7 +374,7 @@ folded into this release.
 - **`formatMoney` reads the currency's minor-unit exponent** instead of dividing
   by 100, which rendered JPY 100× too small and KWD 10× too large.
 - Element ids now survive into the render model.
-- `CSS.escape` is no longer used to locate a seat node — it is undefined in
+- `CSS.escape` is no longer used to locate a seat node, since it is undefined in
   jsdom and under SSR.
 
 ## [0.1.0] - 2026-08-16

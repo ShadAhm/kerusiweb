@@ -9,7 +9,7 @@ npm install @kerusiweb/core @kerusiweb/angular
 
 Requires Angular 22+. Standalone, signal-based, zoneless-friendly.
 
-This package is the Angular binding only — the components and the signal-backed
+This package is the Angular binding only: the components and the signal-backed
 `KerusiStateStore`. The document types, the conformance validator, the render
 model and its geometry live in its peer
 [`@kerusiweb/core`](https://www.npmjs.com/package/@kerusiweb/core), which is
@@ -47,14 +47,14 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 
 **Selection**
 
-| Input                | Type                            | Default         |                                                                                 |
-| -------------------- | ------------------------------- | --------------- | ------------------------------------------------------------------------------- |
-| `selection`          | `readonly string[]`             | `[]`            | Selected seat ids. Two-way — `[(selection)]` — or read-only with `[selection]`. |
-| `selectableStatuses` | `SeatRenderStatus[]`            | `['available']` | Which statuses a seat may be picked in.                                         |
-| `companionMode`      | `'auto' \| 'independent'`       | `'auto'`        | `auto` selects a seat's whole companion closure together (§4.6).                |
-| `maxSelection`       | `number`                        | —               | Cap on selected seats. Counts a companion closure as its full size.             |
-| `seatSelectable`     | `(seat: RenderSeat) => boolean` | —               | A final say, applied after the status test.                                     |
-| `interactive`        | `boolean`                       | `true`          | `false` renders read-only.                                                      |
+| Input                | Type                            | Default         |                                                                            |
+| -------------------- | ------------------------------- | --------------- | -------------------------------------------------------------------------- |
+| `selection`          | `readonly string[]`             | `[]`            | Selected seat ids. Two-way (`[(selection)]`) or read-only (`[selection]`). |
+| `selectableStatuses` | `SeatRenderStatus[]`            | `['available']` | Which statuses a seat may be picked in.                                    |
+| `companionMode`      | `'auto' \| 'independent'`       | `'auto'`        | `auto` selects a seat's whole companion closure together (§4.6).           |
+| `maxSelection`       | `number`                        | —               | Cap on selected seats. Counts a companion closure as its full size.        |
+| `seatSelectable`     | `(seat: RenderSeat) => boolean` | —               | A final say, applied after the status test.                                |
+| `interactive`        | `boolean`                       | `true`          | `false` renders read-only.                                                 |
 
 **Appearance**
 
@@ -100,18 +100,18 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 ### The seat glyph
 
 **Colour means seat type; shape means status.** A seat's fill is always its
-`SeatType.color`, or the theme's `availableBg` when the type has none — it
+`SeatType.color`, or the theme's `availableBg` when the type has none. It
 does not change when the seat is held or booked. Overloading fill with both
 type and status hid the type colour on exactly the seats a busy map has most
 of; see the doc comment on `seatFill` for the full argument. `selected` is the
-one deliberate exception: it still owns the seat's colour outright, so your own picks
+one exception: it still owns the seat's colour outright, so your own picks
 are never ambiguous, and a purple fill on its own would in any case fail WCAG
-1.4.1 (Use of Colour) for anyone who cannot distinguish it — hence the shape
+1.4.1 (Use of Colour) for anyone who cannot distinguish it, hence the shape
 cues below.
 
 The seat body itself carries orientation: square-ish at the front, tapered at
 the back, so which way a seat faces is legible from its outline alone.
-`Seat.rotation` turns the whole group, and the taper turns with it — no
+`Seat.rotation` turns the whole group, and the taper turns with it; no
 separate frame is drawn on top. This is what makes a fanned lecture theatre or
 a stadium stand read at a glance. The seat number counter-rotates and stays
 upright regardless.
@@ -122,30 +122,29 @@ Status is read from two marks layered over the body, never from its colour:
 | --------- | ---------------------------------------------- | ---------- | ---------------------------------------------------- |
 | Available | type colour                                    | —          | —                                                    |
 | Selected  | `selectedBg` **frame** + `selectedFg` **core** | —          | solid, tinted `selectedBg`                           |
-| Held      | type colour                                    | `heldBg`   | **hollow**, stroked `heldFg` — a hold is provisional |
-| Booked    | type colour                                    | `bookedBg` | solid, tinted `bookedFg` — settled, someone else's   |
+| Held      | type colour                                    | `heldBg`   | **hollow**, stroked `heldFg` (a hold is provisional) |
+| Booked    | type colour                                    | `bookedBg` | solid, tinted `bookedFg` (settled, someone else's)   |
 | Blocked   | `blockedBg`                                    | —          | — (withheld by the venue; no one is there)           |
 
-Solid vs. hollow is the real distinction — settled vs. still in progress — and
+Solid vs. hollow is the main distinction (settled vs. still in progress), and
 every figure leans with the seat rather than staying upright, so it doubles as
 an orientation cue too.
 
-Selection is the only state drawn from **two** tones rather than one, and that
-is deliberate. `selectedBg` frames the seat; `selectedFg` fills a core inside
+Selection is the only state drawn from **two** tones rather than one. `selectedBg` frames the seat; `selectedFg` fills a core inside
 that frame and is what the number and the figure are read against. Because the
 treatment always holds a light tone and a dark one at once, one of the two
-separates from the page whichever way you have themed it — so the library never
+separates from the page whichever way you have themed it, so the library never
 has to detect a colour scheme, and there is no `prefers-color-scheme` default to
 fight with your own. An earlier revision had this inverted, a near-white rim
 around a mid-purple middle, which put the low-contrast tone on the outside
 boundary: a selected seat dissolved into a light page and sank into a dark one.
 
-Both tokens therefore carry real visual weight — override them as a pair. Swapping
+Both tokens therefore carry visual weight, so override them as a pair. Swapping
 the two gives the inverse treatment, a light frame around a dark core, which works
 just as well.
 
 A theme that overrides `heldFg`/`bookedFg` owns the contrast of that mark
-against whatever `SeatType.color` the document supplies — the library cannot
+against whatever `SeatType.color` the document supplies. The library cannot
 know the pairing in advance, since the figure tint is fixed while the type
 colour underneath it is not. The shipped defaults are light marks over a
 darkened wash, which reads across the tier colours in the demo fixtures.
@@ -154,7 +153,7 @@ The geometry is exported, if you want to draw a matching seat elsewhere:
 `seatBodyPath`, `seatSelectedFrame`, `seatOccupantPath`, `seatOccupantStroke`.
 (`seatRingStroke` is the old name for `seatSelectedFrame` and still resolves to
 it.) A seat is always square, which makes `seatBodyPath`'s `inset` an exact
-scaled copy about the centre — that is how the selected core is derived, and why
+scaled copy about the centre. That is how the selected core is derived, and why
 marks drawn to the core's box keep every clearance they had against the body.
 
 ### Theming
@@ -162,13 +161,13 @@ marks drawn to the core's box keep every clearance they had against the body.
 Colors resolve through three tiers, highest first:
 
 1. A `--kerusi-*` custom property in **your** stylesheet.
-2. The **`[colors]` input** — a partial `KerusiSeatmapColors`, merged over the defaults.
+2. The **`[colors]` input**: a partial `KerusiSeatmapColors`, merged over the defaults.
 3. The library default.
 
 The library never writes a `--kerusi-*` property onto its own host, which is
 what keeps that order true: every fill is emitted as
 `var(--kerusi-selected-bg, <the resolved input value>)`. Use whichever tier
-fits — the input for values known at build time, CSS for anything that has to
+fits: the input for values known at build time, CSS for anything that has to
 respond to a media query or a theme class.
 
 ```css
@@ -199,15 +198,15 @@ Every key of `KerusiSeatmapColors` has a property, kebab-cased:
 | `focusRing`                           | `--kerusi-focus-ring`                                       |
 | `backdrop`                            | `--kerusi-backdrop`                                         |
 
-A `SeatType.color` from the document is deliberately **not** themable — it is
+A `SeatType.color` from the document is **not** themable, because it is
 the map's own value under §4.7. Turn it off wholesale with
 `[typeColors]="false"` if you want the theme to own every fill.
 
 Overriding `selectedBg` does not cost you the selected cue: the core and the
-figure are shape, not color. Do set `selectedFg` alongside it, though — it is the
+figure are shape, not color. Do set `selectedFg` alongside it, though. It is the
 core's fill, so it is most of a selected seat's area rather than just a label
 tint, and the two are read against each other. `heldBg`/`bookedBg` are the wash
-drawn over a taken seat's type colour, not the seat's own fill — see
+drawn over a taken seat's type colour, not the seat's own fill. See
 [The seat glyph](#the-seat-glyph) for the full state table.
 
 If you need the pre-1.1 flat selected seat back, the core is its own node:
@@ -242,7 +241,7 @@ Inside a seat: `.kerusi-seat__box`, `__wash`, `__core`, `__occupant`
 ### Keyboard
 
 Tab moves between sections; each section keeps its own tab stop. Within a
-section, arrow keys follow the §4.3.1 `col` order — so an aisle, which is a
+section, arrow keys follow the §4.3.1 `col` order, so an aisle, which is a
 column no seat occupies, is stepped across rather than into.
 
 | Key                      |                                    |
@@ -270,7 +269,7 @@ Rendered inline by `[showLegend]="true"`, or placed anywhere yourself:
 ```
 
 It resolves swatches through the same path as the seat fills, so the two cannot
-drift apart. Every availability swatch — not just **Selected** — draws the
+drift apart. Every availability swatch, not just **Selected**, draws the
 seat glyph itself (wash, ring, occupant, as it applies) rather than a flat
 colour, because shape is the cue the map uses for status.
 
@@ -278,7 +277,7 @@ colour, because shape is the cue the map uses for status.
 
 ## Working with the format directly
 
-All of this lives in `@kerusiweb/core` and is pure — no Angular import — so it
+All of this lives in `@kerusiweb/core` and is pure (no Angular import), so it
 can run in a test, a build step or on a server.
 
 ```ts
@@ -327,7 +326,7 @@ Deltas that are stale, duplicate or scoped to another session are discarded.
 > **Gap detection needs a sequence.** §5.2 requires `updatedAt` to be strictly
 > increasing but not contiguous, so it cannot by itself distinguish "a delta was
 > lost" from "nothing happened for a while". The store detects gaps when the
-> transport supplies a monotonic sequence — `metadata.seq` by default, or your
+> transport supplies a monotonic sequence: `metadata.seq` by default, or your
 > own `sequenceOf` reader. A gapped delta is still applied, so the map degrades
 > rather than freezes while you re-fetch.
 

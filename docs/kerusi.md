@@ -5,13 +5,13 @@ Format**](https://github.com/ShadAhm/kerusi) natively: a static `KerusiMap`
 (layout, seat types, pricing) plus a live `KerusiState` (availability) go
 straight into the seat-map component of whichever binding you install.
 
-Kerusi is a vendor-neutral, domain-agnostic JSON format — cinema, flight, bus,
-theatre, stadium, train — and this page shows how each part of it turns into
+Kerusi is a vendor-neutral, domain-agnostic JSON format (cinema, flight, bus,
+theatre, stadium, train), and this page shows how each part of it turns into
 something on screen. See the standard for the normative rules.
 
 Everything below is framework-neutral unless it says otherwise: the documents
 are just JSON, the resolution rules live in core, and the component inputs are
-named identically in every binding — written `[input]="value"` in an Angular
+named identically in every binding: written `[input]="value"` in an Angular
 template and `input={value}` as a React prop.
 
 ## The minimum
@@ -30,7 +30,7 @@ const map: KerusiMap = {
       seats: [
         { id: '1A', row: '1', col: 1, type: 'standard' },
         { id: '1B', row: '1', col: 2, type: 'standard' },
-        // col 3 is omitted — that gap is the aisle (no filler seat, §4.3.2)
+        // col 3 is omitted; that gap is the aisle (no filler seat, §4.3.2)
         { id: '1C', row: '1', col: 4, type: 'standard' },
         { id: '1D', row: '1', col: 5, type: 'standard' },
       ],
@@ -67,7 +67,7 @@ that breaks it is invalid, and the library rejects it.
 ### `grid`
 
 Every seat has `col`; no seat has `x` or `y`. `col` is required explicitly on
-every seat — it is never inferred from array order, because `Section.seats` is
+every seat. It is never inferred from array order, because `Section.seats` is
 an unordered list.
 
 ```ts
@@ -93,7 +93,7 @@ the canvas proportions so those percentages mean the same thing at any size.
 ]}
 ```
 
-A `row` is still allowed here, purely as a label — it carries no positional
+A `row` is still allowed here, purely as a label. It carries no positional
 information, so it does not break the constraint, and the renderer uses it for
 grouping and keyboard order.
 
@@ -113,7 +113,7 @@ adjacency ordinal, which is what arrow keys and screen readers follow (§4.3.1).
 ### Inference and rejection
 
 Omit `layout` and it is inferred: all-`col`-no-coordinates is `grid`,
-all-`x`-and-`y`-no-`col` is `freeform`. Anything else is rejected — there is no
+all-`x`-and-`y`-no-`col` is `freeform`. Anything else is rejected. There is no
 inference for `mixed`, so a seat carrying all three must say so.
 
 ```ts
@@ -144,7 +144,7 @@ Sections render in `Section.index` order. Restrict or reorder them with
 
 ## Rows and vertical space (§4.2)
 
-`Section.rows` is not a container — seats never live inside a row. But where a
+`Section.rows` is not a container; seats never live inside a row. But where a
 section declares it, it is that section's **complete row registry**: the rows
 come from it rather than from the seats that happen to reference one.
 
@@ -157,11 +157,11 @@ mid-section, by declaring rows for them.
 ```ts
 { id: 'stalls', layout: 'grid',
   rows: [
-    { id: 'screen', index: 0 },       // no seats — the screen sits here
-    { id: 'throw', index: 1 },        // no seats — the gap in front of row A
+    { id: 'screen', index: 0 },       // no seats: the screen sits here
+    { id: 'throw', index: 1 },        // no seats: the gap in front of row A
     { id: 'A', label: 'A', index: 2 },
     { id: 'B', label: 'B', index: 3 },
-    { id: 'cross-aisle', index: 4 },  // no seats — a walkway
+    { id: 'cross-aisle', index: 4 },  // no seats: a walkway
     { id: 'C', label: 'C', index: 5 },
   ],
   elements: [{ id: 'screen', kind: 'screen', label: 'SCREEN', row: 'screen' }],
@@ -181,7 +181,7 @@ are exactly the ones its seats name, in first-appearance order.
 
 ## Elements (§4.4)
 
-Non-bookable fixtures — screens, stages, exits, lavatories, gaps, tables. An
+Non-bookable fixtures: screens, stages, exits, lavatories, gaps, tables. An
 element is bound to its section's positioning mode exactly as a seat is
 (§4.4.1), and `id` and `kind` are required.
 
@@ -190,7 +190,7 @@ elements: [
   // Freeform: x/y/width/height are percentages of the section canvas.
   { id: 'screen', kind: 'screen', label: 'SCREEN', x: 50, y: 7, width: 66, height: 4 },
   // Grid: row and col place it in the cell grid; width and height are cell
-  // spans — positive integers, defaulting to 1.
+  // spans: positive integers, defaulting to 1.
   { id: 'lav', kind: 'lavatory', label: 'WC', row: '16', col: 7, width: 2 },
   // Omitting col spans the section's full column extent, the usual form for a
   // screen or a stage. height: 2 reaches into the row after this one.
@@ -199,8 +199,8 @@ elements: [
 ```
 
 A grid element carrying `x`/`y`, a freeform one carrying `col`, a fractional
-span, or a row span reaching past the section's last row are all rejected —
-`element-layout-mismatch`, `element-span-invalid`, `element-row-span-overrun`.
+span, or a row span reaching past the section's last row are all rejected
+(`element-layout-mismatch`, `element-span-invalid`, `element-row-span-overrun`).
 
 `kind` drives the shape: a `screen` draws as an arc, a `stage` as a raised
 platform, an `exit` in the accent colour, an `aisle` or `gap` as a dashed
@@ -209,7 +209,7 @@ outline. An unrecognized kind draws as a labelled rectangle.
 ## Direction labels (§4.10)
 
 `Section.directions` names what an addressing axis means in the physical
-world — which end of a train a row is nearer, which compass direction a stand
+world: which end of a train a row is nearer, which compass direction a stand
 faces:
 
 ```ts
@@ -219,18 +219,18 @@ directions: [{ axis: 'row', low: 'front of train', high: 'back of train' }];
 Both ends may be a locale map, and both arrive localized on
 `RenderSection.directions`. It is purely informational: no document is rejected
 over it, and nothing here reads it to decide layout or which edge of the screen
-an axis is drawn on — that stays a rendering decision.
+an axis is drawn on. That stays a rendering decision.
 
 ## Seat types, pricing and the legend
 
 `SeatType.color` is the standard's suggested render colour, and an available
-seat takes it. Availability still outranks it — a booked seat renders as booked,
+seat takes it. Availability still outranks it: a booked seat renders as booked,
 never in its type's colour.
 
 Price resolves through the §4.9 order: `Seat.price`, then `Seat.priceTier`, then
 `SeatType.defaultPriceTier`, then unpriced (a valid terminal state). Amounts are
 minor units, and `formatMoney` reads the currency's exponent rather than
-assuming two digits — so JPY and KWD come out right.
+assuming two digits, so JPY and KWD come out right.
 
 ```ts
 import { summarizeSelection, formatMoney, buildRenderModel } from '@kerusiweb/core';
@@ -284,7 +284,7 @@ linked, not merely implied.
 ## Localization
 
 `Section.label` and `SeatType.label` may be locale maps. Resolution walks the
-BCP-47 chain — `ms-MY` → `ms` → the fallback locale → the first key — so a map
+BCP-47 chain (`ms-MY` → `ms` → the fallback locale → the first key), so a map
 localized into languages you did not ask for still renders something.
 
 ```ts
@@ -293,7 +293,7 @@ legend: [{ id: 'standard', label: { en: 'Standard', 'ms-MY': 'Biasa' } }];
 
 `locale` overrides `KerusiMap.locale`. `rtl` defaults to `auto` and derives
 the direction from the resolved locale, mirroring the layout and the arrow keys
-while leaving `col` order — and so reading order — untouched.
+while leaving `col` order, and so reading order, untouched.
 
 ## Live availability (§5.1, §5.2)
 
@@ -302,8 +302,8 @@ A `KerusiState` is sparse: a seat absent from `seats` is available. Statuses are
 all four render distinctly and only `available` is selectable by default.
 
 For a push transport, each binding wraps core's `applyStateDeltaOrdered` in its
-own reactive primitive — `KerusiStateStore` in `@kerusiweb/angular`,
-`useKerusiState` in `@kerusiweb/react` — and both report the same outcome for a
+own reactive primitive (`KerusiStateStore` in `@kerusiweb/angular`,
+`useKerusiState` in `@kerusiweb/react`), and both report the same outcome for a
 `KerusiStateDelta`:
 
 ```ts

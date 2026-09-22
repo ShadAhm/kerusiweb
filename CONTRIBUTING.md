@@ -12,10 +12,9 @@ A new colour rule, a new layout mode, a new validator check, a new seat shape,
 a new price resolution: **core**. A new component input, a new template branch,
 a new `effect` or `useMemo`: **the binding**.
 
-[docs/architecture.md](docs/architecture.md) is the full contract — what core
+[docs/architecture.md](docs/architecture.md) is the full contract: what core
 may and may not import, what a binding is allowed to add, and what a third
-binding would have to supply. Read it before adding code; it settles most
-review arguments before they start.
+binding would have to supply. Read it before adding code.
 
 Two consequences worth stating plainly:
 
@@ -25,8 +24,8 @@ Two consequences worth stating plainly:
 - **A change to rendering behaviour lands in core and is asserted in both
   bindings.** `projects/react/src/kerusi-seatmap.spec.tsx` runs the Angular
   component spec's assertions against React-rendered DOM: for the same
-  documents the two bindings emit byte-identical SVG. That equivalence is a
-  feature, not a coincidence, and a PR that breaks it needs to say why.
+  documents the two bindings emit byte-identical SVG. A PR that breaks this
+  needs to say why.
 
 No binding is the default one. If you add a capability to Angular that React
 could have, either add it to both or say in the PR why it cannot cross.
@@ -38,7 +37,7 @@ npm install
 npm run build:core     # every binding resolves core through the workspace, so this comes first
 ```
 
-Then run whichever demo you're working against — both run against **source**,
+Then run whichever demo you're working against. Both run against **source**,
 so a change in core or in a binding hot-reloads:
 
 ```bash
@@ -59,8 +58,8 @@ npm run build:react
 npx prettier --check .
 ```
 
-There is deliberately no bare `npm start` / `npm test` / `npm run build` — every
-script names its framework.
+There is no bare `npm start` / `npm test` / `npm run build`. Every script names
+its framework.
 
 ## Working on the format itself
 
@@ -72,7 +71,7 @@ a conformant document is rendered, validated and interacted with.
 If a change affects conformance, update
 [docs/kerusi-conformance.md](docs/kerusi-conformance.md) in the same PR, and
 cite the section of the standard (`§4.3.1`, and so on) in the code comment and
-the changelog entry — the existing entries show the house style.
+the changelog entry. The existing entries show the house style.
 
 ## Commits and changelog
 

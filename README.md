@@ -177,8 +177,11 @@ Releases are cut manually (CI never publishes to npm):
 
 ## History
 
-This began as a small AngularJS 1.x directive called `keruSVG`, revived as a
-modern standalone Angular library. Version 1.0 rebuilt it around the Kerusi
+This started as a fun little idea in
+[angularJs.keruC](https://github.com/ShadAhm/angularJs.keruC), a canvas-based
+seat map picker for AngularJS 1.x, and was later revived as a modern standalone
+Angular library.
+Version 1.0 rebuilt it around the Kerusi
 format, and 1.1 extracted the framework-agnostic core, which made Angular one
 binding among several rather than the project itself. 2.0 renamed the packages
 under the `@kerusiweb` scope and is the first release published to npm. See

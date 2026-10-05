@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-05
+
 ### Added
 
 1. A `label` element kind draws its text only, with no fill and no outline, so a
@@ -414,6 +416,7 @@ Carried over from the legacy directive:
 - Rendering is per-instance (no global element id lookup), so multiple pickers
   can coexist on one page.
 
+[2.1.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.1.0
 [2.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.0.0
 [1.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v1.0.0
 [0.1.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v0.1.0

@@ -249,6 +249,17 @@ export class KerusiSectionComponent {
     return elementStyle(placed.element.kind);
   }
 
+  /** A text element with no label draws nothing, rather than an empty box. */
+  protected drawsElement(placed: PlacedElement): boolean {
+    const style = this.style(placed);
+    return style.shape !== 'text' || (!!placed.element.label && style.showLabel);
+  }
+
+  /** A label on a shape stays upright; a text element's own label is what rotates. */
+  protected labelTransform(placed: PlacedElement): string | null {
+    return this.style(placed).shape === 'text' ? null : this.counterRotate(placed);
+  }
+
   protected elementFillOf(placed: PlacedElement): string {
     return elementFill(this.style(placed).tone, this.colors());
   }

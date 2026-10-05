@@ -16,7 +16,9 @@ export type ElementShape =
   /** A rectangle with a heavier outline, reading as a raised platform. */
   | 'stage'
   /** A dashed outline: space that is deliberately empty. */
-  | 'void';
+  | 'void'
+  /** Only the label: no fill, no outline. A free text caption on the map. */
+  | 'text';
 
 export interface ElementStyle {
   shape: ElementShape;
@@ -41,6 +43,7 @@ const STYLES: Readonly<Record<string, ElementStyle>> = {
   aisle: { shape: 'void', tone: 'muted', showLabel: false },
   gap: { shape: 'void', tone: 'muted', showLabel: true },
   stairs: { shape: 'void', tone: 'muted', showLabel: true },
+  label: { shape: 'text', tone: 'neutral', showLabel: true },
 };
 
 /** The style for an element kind. Unknown kinds get the labelled rectangle. */

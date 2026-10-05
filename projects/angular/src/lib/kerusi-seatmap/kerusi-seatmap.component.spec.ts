@@ -147,6 +147,62 @@ describe('KerusiSeatmapComponent', () => {
     });
   });
 
+  describe('text label elements', () => {
+    const withLabels = (): KerusiMap => {
+      const map: KerusiMap = JSON.parse(JSON.stringify(VENUE));
+      map.sections[1].elements = [
+        { id: 'heading', kind: 'Label', label: 'Balcony', x: 50, y: 10, width: 20, height: 8 },
+        {
+          id: 'turned',
+          kind: 'label',
+          label: 'Table 3',
+          x: 20,
+          y: 50,
+          width: 10,
+          height: 6,
+          rotation: 90,
+        },
+        { id: 'blank', kind: 'label', x: 80, y: 50, width: 10, height: 6 },
+      ];
+      return map;
+    };
+
+    const labelEl = (id: string) =>
+      [...el.querySelectorAll<SVGGElement>('.kerusi-element--label, .kerusi-element--Label')].find(
+        (g) => g.textContent?.trim() === id,
+      );
+
+    beforeEach(() => {
+      host.map.set(withLabels());
+      fixture.detectChanges();
+    });
+
+    it('draws only the text, with no rect or path', () => {
+      const g = labelEl('Balcony')!;
+      expect(g).toBeDefined();
+      expect(g.querySelectorAll('rect, path')).toHaveLength(0);
+      const text = g.querySelector('text')!;
+      expect(text.getAttribute('text-anchor')).toBe('middle');
+      expect(g.getAttribute('transform')).toBeNull();
+    });
+
+    it('rotates the text about the box centre without counter-rotating it', () => {
+      const g = labelEl('Table 3')!;
+      expect(g.getAttribute('transform')).toMatch(/^rotate\(90 [\d.]+ [\d.]+\)$/);
+      expect(g.querySelector('text')!.getAttribute('transform')).toBeNull();
+    });
+
+    it('draws nothing for an element with no label', () => {
+      const labels = el.querySelectorAll('.kerusi-element--label, .kerusi-element--Label');
+      expect(labels).toHaveLength(2);
+    });
+
+    it('leaves other element kinds drawn as before', () => {
+      const exit = el.querySelector('.kerusi-element--exit')!;
+      expect(exit.querySelector('rect')).not.toBeNull();
+    });
+  });
+
   describe('localization', () => {
     it('renders localized section labels for the map locale', () => {
       host.locale.set('ms');

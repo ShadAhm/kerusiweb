@@ -345,3 +345,55 @@ describe('mixed layout', () => {
     expect(placed(stand, { freeformBasis: 1000 }).height).toBe(250);
   });
 });
+
+describe('text element layout', () => {
+  const withLabel = (label: string | undefined, extra = {}) =>
+    mapWith({
+      id: 'house',
+      layout: 'freeform',
+      aspectRatio: '2:1',
+      seats: [{ id: 'A1', x: 50, y: 50, type: 'standard' }],
+      elements: [
+        { id: 'l', kind: 'label', label, x: 50, y: 8, width: 20, height: 5, ...extra },
+        { id: 'x', kind: 'exit', label: 'Exit', x: 50, y: 90, width: 20, height: 5 },
+      ],
+    }).sections[0];
+
+  // A 1000 x 500 viewBox, so the label box is 200 x 25.
+  const layoutOf = (label: string | undefined, extra = {}) =>
+    placed(withLabel(label, extra), { freeformBasis: 1000 });
+
+  it('sizes a short label from the box height', () => {
+    const [text] = layoutOf('Balcony').elements;
+    expect(text.fontSize).toBeCloseTo(25 * 0.6);
+  });
+
+  it('shrinks a long label so it fits the box width', () => {
+    const label = 'A very long section heading over the seats';
+    const [text] = layoutOf(label).elements;
+    expect(text.fontSize).toBeLessThan(25 * 0.6);
+    expect(label.length * text.fontSize * 0.6).toBeLessThanOrEqual(200 + 1e-9);
+  });
+
+  it('keeps a floor on the height-derived size', () => {
+    const [text] = placed(withLabel('Hi', { height: 0.5 }), { freeformBasis: 1000 }).elements;
+    expect(text.fontSize).toBe(6);
+  });
+
+  it('does not depend on the width for a label that fits', () => {
+    const narrow = layoutOf('Hi', { width: 10 }).elements[0];
+    const wide = layoutOf('Hi', { width: 40 }).elements[0];
+    expect(narrow.fontSize).toBe(wide.fontSize);
+  });
+
+  it('keeps the old size rule for other kinds', () => {
+    const exit = layoutOf('Balcony').elements[1];
+    expect(exit.fontSize).toBe(Math.max(Math.min(25 * 0.5, 200 * 0.18), 6));
+  });
+
+  it('carries rotation through and centres the box', () => {
+    const [text] = layoutOf('Balcony', { rotation: 90 }).elements;
+    expect(text.rotation).toBe(90);
+    expect(text.centerX).toBe(500);
+  });
+});

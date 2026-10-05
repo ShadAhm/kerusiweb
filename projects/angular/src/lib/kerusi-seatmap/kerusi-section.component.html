@@ -18,51 +18,54 @@
 
   <!-- Elements first, so a screen or stage sits behind the seats it faces. -->
   @for (placed of layout().elements; track placed.element.id) {
-    <g
-      class="kerusi-element kerusi-element--{{ placed.element.kind }}"
-      [attr.transform]="transform(placed)"
-    >
-      @switch (style(placed).shape) {
-        @case ('screen') {
-          <path [attr.d]="screenPathOf(placed)" [style.fill]="elementFillOf(placed)" />
+    @if (drawsElement(placed)) {
+      <g
+        class="kerusi-element kerusi-element--{{ placed.element.kind }}"
+        [attr.transform]="transform(placed)"
+      >
+        @switch (style(placed).shape) {
+          @case ('screen') {
+            <path [attr.d]="screenPathOf(placed)" [style.fill]="elementFillOf(placed)" />
+          }
+          @case ('text') {}
+          @case ('void') {
+            <rect
+              class="kerusi-element__void"
+              [attr.x]="placed.x"
+              [attr.y]="placed.y"
+              [attr.width]="placed.width"
+              [attr.height]="placed.height"
+              [style.stroke]="elementTextFillOf(placed)"
+              fill="none"
+            />
+          }
+          @default {
+            <rect
+              [attr.x]="placed.x"
+              [attr.y]="placed.y"
+              [attr.width]="placed.width"
+              [attr.height]="placed.height"
+              [attr.rx]="radiusOf(placed)"
+              [style.fill]="elementFillOf(placed)"
+            />
+          }
         }
-        @case ('void') {
-          <rect
-            class="kerusi-element__void"
-            [attr.x]="placed.x"
-            [attr.y]="placed.y"
-            [attr.width]="placed.width"
-            [attr.height]="placed.height"
-            [style.stroke]="elementTextFillOf(placed)"
-            fill="none"
-          />
+        @if (placed.element.label && style(placed).showLabel) {
+          <text
+            class="kerusi-element__label"
+            text-anchor="middle"
+            dominant-baseline="central"
+            [attr.x]="placed.centerX"
+            [attr.y]="placed.centerY"
+            [attr.font-size]="placed.fontSize"
+            [style.fill]="elementTextFillOf(placed)"
+            [attr.transform]="labelTransform(placed)"
+          >
+            {{ placed.element.label }}
+          </text>
         }
-        @default {
-          <rect
-            [attr.x]="placed.x"
-            [attr.y]="placed.y"
-            [attr.width]="placed.width"
-            [attr.height]="placed.height"
-            [attr.rx]="radiusOf(placed)"
-            [style.fill]="elementFillOf(placed)"
-          />
-        }
-      }
-      @if (placed.element.label && style(placed).showLabel) {
-        <text
-          class="kerusi-element__label"
-          text-anchor="middle"
-          dominant-baseline="central"
-          [attr.x]="placed.centerX"
-          [attr.y]="placed.centerY"
-          [attr.font-size]="placed.fontSize"
-          [style.fill]="elementTextFillOf(placed)"
-          [attr.transform]="counterRotate(placed)"
-        >
-          {{ placed.element.label }}
-        </text>
-      }
-    </g>
+      </g>
+    }
   }
 
   @for (placed of layout().seats; track placed.seat.id) {

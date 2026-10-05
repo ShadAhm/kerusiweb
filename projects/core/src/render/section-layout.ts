@@ -1,3 +1,4 @@
+import { elementStyle } from './element-shapes.js';
 import { RenderElement, RenderSeat, RenderSection } from './render-model.js';
 
 /**
@@ -274,7 +275,21 @@ function elementBox(
     height,
     centerX: x + width / 2,
     centerY: y + height / 2,
-    fontSize: Math.max(Math.min(height * 0.5, width * 0.18), 6),
+    fontSize: elementFontSize(element, width, height),
     rotation: element.rotation ?? 0,
   };
+}
+
+/** Average glyph advance as a fraction of the font size, for fitting text to a width. */
+const GLYPH_WIDTH = 0.6;
+
+function elementFontSize(element: RenderElement, width: number, height: number): number {
+  if (elementStyle(element.kind).shape !== 'text') {
+    return Math.max(Math.min(height * 0.5, width * 0.18), 6);
+  }
+  // A text element has no box to read from, so the height sets the size and the
+  // width only shrinks it, so the whole label fits however long it is.
+  const base = Math.max(height * 0.6, 6);
+  const length = element.label?.length ?? 0;
+  return length ? Math.min(base, width / (length * GLYPH_WIDTH)) : base;
 }

@@ -319,6 +319,31 @@ function SectionElement({
   const fill = elementFill(style.tone, colors);
   const textFill = elementTextFill(style.tone, colors);
 
+  if (style.shape === 'text') {
+    // Only the label: no box. The <g> rotation turns the text itself, so unlike
+    // a label on a shape it is not counter-rotated. With no label there is
+    // nothing to draw, rather than an empty box.
+    if (!placed.element.label || !style.showLabel) return null;
+    return (
+      <g
+        className={`kerusi-element kerusi-element--${placed.element.kind}`}
+        transform={transform(placed) ?? undefined}
+      >
+        <text
+          className="kerusi-element__label"
+          textAnchor="middle"
+          dominantBaseline="central"
+          x={placed.centerX}
+          y={placed.centerY}
+          fontSize={placed.fontSize}
+          style={{ fill: textFill }}
+        >
+          {placed.element.label}
+        </text>
+      </g>
+    );
+  }
+
   return (
     <g
       className={`kerusi-element kerusi-element--${placed.element.kind}`}

@@ -204,7 +204,10 @@ span, or a row span reaching past the section's last row are all rejected
 
 `kind` drives the shape: a `screen` draws as an arc, a `stage` as a raised
 platform, an `exit` in the accent colour, an `aisle` or `gap` as a dashed
-outline. An unrecognized kind draws as a labelled rectangle.
+outline. A `label` draws only its text, with no box: sized from the element's
+height, shrunk to fit its width, and turned by `rotation`. An element of this
+kind with no `label` draws nothing. An unrecognized kind draws as a labelled
+rectangle.
 
 ## Direction labels (§4.10)
 

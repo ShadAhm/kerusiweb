@@ -6,6 +6,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+1. A `label` element kind draws its text only, with no fill and no outline, so a
+   map can carry section names such as "Balcony" or "Table 3" that read as text
+   rather than as a tag (§4.4 allows implementation-defined kinds). The text is
+   centred in the element's box and takes its colour from the usual element
+   tokens. Its size follows the box height and shrinks so the whole label fits
+   the box width. `rotation` turns the text about the box centre. An element
+   with no `label` string draws nothing. `elementStyle` gains a `text` shape for
+   it, and both the React and Angular renderers draw it. No other kind changes.
+
 ## [2.0.0] - 2026-09-12
 
 ### Breaking

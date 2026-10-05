@@ -93,6 +93,29 @@ export const STADIUM_MAP: KerusiMap = {
         { id: 'pitch', kind: 'pitch', label: 'PITCH', x: 50, y: 50, width: 34, height: 40 },
         { id: 'gate-n', kind: 'exit', label: 'Gate N', x: 50, y: 3, width: 9, height: 4 },
         { id: 'gate-s', kind: 'exit', label: 'Gate S', x: 50, y: 97, width: 9, height: 4 },
+        // Free text: drawn as bare text, no box (kind 'label').
+        { id: 'name-n', kind: 'label', label: 'North Stand', x: 50, y: 36, width: 24, height: 5 },
+        { id: 'name-s', kind: 'label', label: 'South Stand', x: 50, y: 64, width: 24, height: 5 },
+        {
+          id: 'name-w',
+          kind: 'label',
+          label: 'West Stand',
+          x: 36,
+          y: 50,
+          width: 18,
+          height: 5,
+          rotation: -90,
+        },
+        {
+          id: 'name-e',
+          kind: 'label',
+          label: 'East Stand',
+          x: 64,
+          y: 50,
+          width: 18,
+          height: 5,
+          rotation: 90,
+        },
       ],
       seats: [
         // North side, facing down toward the pitch.

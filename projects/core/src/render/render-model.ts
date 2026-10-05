@@ -81,7 +81,7 @@ export interface RenderSeat {
 export interface RenderElement {
   /** `Element.id` — REQUIRED by §4.4, and preserved here unlike in the adapter. */
   id: string;
-  /** `Element.kind`: "screen" | "stage" | "exit" | "lavatory" | "gap" | ... */
+  /** `Element.kind`: "screen" | "stage" | "exit" | "lavatory" | "gap" | "label" | ... */
   kind: string;
   label?: string;
   row?: string;

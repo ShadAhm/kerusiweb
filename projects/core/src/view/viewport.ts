@@ -270,6 +270,25 @@ export function keyboardViewport(
   }
 }
 
+/**
+ * Whether a key event came from somewhere text is typed.
+ *
+ * A host can put its own controls inside the map, and `+`, `-` and `0` are
+ * characters before they are shortcuts. Takes the target structurally so core
+ * never has to name a DOM type.
+ */
+export function isTextEntryTarget(
+  target: { tagName?: string; isContentEditable?: boolean } | null | undefined,
+): boolean {
+  if (!target) {
+    return false;
+  }
+  const tag = target.tagName?.toUpperCase();
+  return (
+    tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable === true
+  );
+}
+
 /** Whether two viewports are the same view, ignoring sub-pixel noise. */
 export function viewportsEqual(a: KerusiViewport, b: KerusiViewport): boolean {
   return (

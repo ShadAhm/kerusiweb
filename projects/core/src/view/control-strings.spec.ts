@@ -29,7 +29,6 @@ describe('controlStyle', () => {
     expect(style.buttonBorder).toBe(
       `var(--kerusi-element-muted-fg, ${DEFAULT_KERUSI_COLORS.elementMutedFg})`,
     );
-    expect(style.focusRing).toBe(`var(--kerusi-focus-ring, ${DEFAULT_KERUSI_COLORS.focusRing})`);
   });
 
   it('falls back to the page canvas behind a maximized map when the backdrop is transparent', () => {

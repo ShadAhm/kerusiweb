@@ -1,10 +1,132 @@
 <div
   class="kerusi-seatmap"
+  [class.kerusi-seatmap--maximized]="maximized()"
   role="group"
   [attr.aria-label]="mapLabel()"
   [attr.dir]="isRtl() ? 'rtl' : null"
   [attr.lang]="resolvedLocale()"
+  [style.background]="maximized() ? controlColors().maximizedBackground : null"
+  [style.color]="maximized() ? controlColors().maximizedColor : null"
+  (keydown)="onRootKeydown($event)"
 >
+  @if (zoomable() || maximizable()) {
+    <!-- Only when a zoom or maximize feature is on, so a plain map's markup is
+         exactly what it was before they existed. -->
+    <div class="kerusi-seatmap__stage">
+      @if (showToolbar()) {
+        <div
+          class="kerusi-toolbar"
+          role="toolbar"
+          [attr.aria-label]="strings().toolbar"
+          [style.--kerusi-focus-ring-input]="resolvedColors().focusRing"
+        >
+          @if (zoomable() && showZoomControls()) {
+            <button
+              type="button"
+              class="kerusi-control kerusi-control--zoom-in"
+              [attr.aria-label]="strings().zoomIn"
+              [attr.aria-disabled]="atMaxZoom()"
+              [style.background]="controlColors().buttonBackground"
+              [style.color]="controlColors().buttonColor"
+              [style.border-color]="controlColors().buttonBorder"
+              (click)="zoomIn()"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="kerusi-control kerusi-control--zoom-out"
+              [attr.aria-label]="strings().zoomOut"
+              [attr.aria-disabled]="atFit()"
+              [style.background]="controlColors().buttonBackground"
+              [style.color]="controlColors().buttonColor"
+              [style.border-color]="controlColors().buttonBorder"
+              (click)="zoomOut()"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M5 12h14" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="kerusi-control kerusi-control--zoom-reset"
+              [attr.aria-label]="strings().zoomReset"
+              [attr.aria-disabled]="atFit()"
+              [style.background]="controlColors().buttonBackground"
+              [style.color]="controlColors().buttonColor"
+              [style.border-color]="controlColors().buttonBorder"
+              (click)="resetZoom()"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" />
+              </svg>
+            </button>
+          }
+          @if (maximizable()) {
+            <button
+              type="button"
+              class="kerusi-control kerusi-control--maximize"
+              [attr.aria-label]="maximized() ? strings().restore : strings().maximize"
+              [style.background]="controlColors().buttonBackground"
+              [style.color]="controlColors().buttonColor"
+              [style.border-color]="controlColors().buttonBorder"
+              (click)="toggleMaximized()"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                @if (maximized()) {
+                  <path d="M9 4v5H4M15 4v5h5M15 20v-5h5M9 20v-5H4" />
+                } @else {
+                  <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+                }
+              </svg>
+            </button>
+          }
+        </div>
+      }
+
+      @if (zoomable()) {
+        <div
+          #viewport
+          class="kerusi-viewport"
+          role="group"
+          tabindex="0"
+          [attr.aria-label]="strings().viewport"
+          [style.touch-action]="touchAction()"
+          [style.--kerusi-focus-ring-input]="resolvedColors().focusRing"
+        >
+          <div
+            #content
+            class="kerusi-viewport__content"
+            [class.kerusi-viewport__content--animated]="animated()"
+            [style.transform]="transform()"
+          >
+            <ng-container [ngTemplateOutlet]="sections" />
+          </div>
+        </div>
+      } @else {
+        <ng-container [ngTemplateOutlet]="sections" />
+      }
+    </div>
+  } @else {
+    <ng-container [ngTemplateOutlet]="sections" />
+  }
+
+  @if (showLegend()) {
+    <kerusi-legend
+      [legend]="renderMap().legend"
+      [locale]="resolvedLocale()"
+      [colors]="resolvedColors()"
+      [typeColors]="typeColors()"
+      [showPrices]="showLegendPrices()"
+    />
+  }
+
+  <p class="kerusi-sr-only" aria-live="polite" aria-atomic="true">{{ liveMessage() }}</p>
+</div>
+
+<ng-template #sections>
   @for (section of renderMap().sections; track section.id) {
     <section
       class="kerusi-seatmap__section kerusi-seatmap__section--{{ section.layoutMode }}"
@@ -32,16 +154,4 @@
       />
     </section>
   }
-
-  @if (showLegend()) {
-    <kerusi-legend
-      [legend]="renderMap().legend"
-      [locale]="resolvedLocale()"
-      [colors]="resolvedColors()"
-      [typeColors]="typeColors()"
-      [showPrices]="showLegendPrices()"
-    />
-  }
-
-  <p class="kerusi-sr-only" aria-live="polite" aria-atomic="true">{{ liveMessage() }}</p>
-</div>
+</ng-template>

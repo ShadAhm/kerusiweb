@@ -42,16 +42,17 @@ export function resolveControlStrings(
  * Colours for the controls and the maximized backdrop, as CSS values.
  *
  * Nothing new for a theme to learn: the buttons borrow the fixture tokens
- * (`elementBg`, `elementFg`, `elementMutedFg`) and the focus ring, and go
- * through {@link cssVar} like every other colour, so a `--kerusi-*` property in
- * the consumer's stylesheet still beats the `[colors]` input, which still beats
- * the default.
+ * (`elementBg`, `elementFg`, `elementMutedFg`) and go through {@link cssVar}
+ * like every other colour, so a `--kerusi-*` property in the consumer's
+ * stylesheet still beats the `[colors]` input, which still beats the default.
+ * The focus ring is the one exception, and is not here: a pseudo-class cannot
+ * be set inline, so it reads `--kerusi-focus-ring-input` from the stylesheet,
+ * the same way a seat's does.
  */
 export interface KerusiControlStyle {
   buttonBackground: string;
   buttonColor: string;
   buttonBorder: string;
-  focusRing: string;
   /** Behind a maximized map. `backdrop`, or the page's own canvas if that is transparent. */
   maximizedBackground: string;
   maximizedColor: string;
@@ -63,7 +64,6 @@ export function controlStyle(colors?: KerusiSeatmapColors): KerusiControlStyle {
     buttonBackground: cssVar('elementBg', resolved.elementBg),
     buttonColor: cssVar('elementFg', resolved.elementFg),
     buttonBorder: cssVar('elementMutedFg', resolved.elementMutedFg),
-    focusRing: cssVar('focusRing', resolved.focusRing),
     // A maximized map covers the page, so a transparent backdrop would show it
     // through. `Canvas` / `CanvasText` are the page's own background and text
     // colours, which keeps the pair legible in whichever scheme the host uses.

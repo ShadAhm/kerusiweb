@@ -4,6 +4,7 @@ import {
   DEFAULT_MAX_ZOOM,
   FIT_VIEWPORT,
   fitViewport,
+  isTextEntryTarget,
   KEYBOARD_PAN_STEP,
   keyboardViewport,
   panViewportBy,
@@ -309,5 +310,21 @@ describe('viewportsEqual', () => {
   it('ignores sub-pixel noise but not a real change', () => {
     expect(viewportsEqual({ zoom: 2, x: -10, y: -10 }, { zoom: 2, x: -10.001, y: -10 })).toBe(true);
     expect(viewportsEqual({ zoom: 2, x: -10, y: -10 }, { zoom: 2, x: -11, y: -10 })).toBe(false);
+  });
+});
+
+describe('isTextEntryTarget', () => {
+  it('recognises the places text is typed', () => {
+    expect(isTextEntryTarget({ tagName: 'input' })).toBe(true);
+    expect(isTextEntryTarget({ tagName: 'TEXTAREA' })).toBe(true);
+    expect(isTextEntryTarget({ tagName: 'SELECT' })).toBe(true);
+    expect(isTextEntryTarget({ tagName: 'DIV', isContentEditable: true })).toBe(true);
+  });
+
+  it('lets everything else through', () => {
+    expect(isTextEntryTarget({ tagName: 'g' })).toBe(false);
+    expect(isTextEntryTarget({ tagName: 'BUTTON' })).toBe(false);
+    expect(isTextEntryTarget(null)).toBe(false);
+    expect(isTextEntryTarget(undefined)).toBe(false);
   });
 });

@@ -1,6 +1,8 @@
 import {
   buildNavigationGraph,
   buildRenderModel,
+  controlStyle,
+  DEFAULT_MAX_ZOOM,
   DEFAULT_SEAT_ARIA_STRINGS,
   disallowedAnnouncement,
   computeSectionLayout,
@@ -8,13 +10,17 @@ import {
   expireHolds as expireHoldsIn,
   formatMoney,
   isRtlLocale,
+  isTextEntryTarget,
   KerusiValidationError,
   resolveColors,
+  resolveControlStrings,
   resolveMapLocale,
   seatAriaLabel,
   summarizeSelection,
   toggleSeatSelection,
   validateDocumentSet,
+  viewportTouchAction,
+  viewportTransform,
 } from '@kerusiweb/core';
 import type {
   KerusiState,
@@ -25,8 +31,16 @@ import type {
   RenderSection,
   SectionLayout,
 } from '@kerusiweb/core';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { KerusiLegend } from './kerusi-legend.js';
 import { KerusiSection } from './kerusi-section.js';
 import type {
@@ -35,7 +49,9 @@ import type {
   SeatInteraction,
   SectionRenderOptions,
 } from './types.js';
+import { useMaximized } from './use-maximized.js';
 import { useRovingFocus } from './use-roving-focus.js';
+import { useViewport } from './use-viewport.js';
 
 const NO_SELECTION: readonly string[] = [];
 const DEFAULT_SELECTABLE_STATUSES = ['available'] as const;
@@ -57,6 +73,11 @@ const NO_OVERRIDES: Readonly<Record<string, SectionRenderOptions>> = {};
  *
  * Import the stylesheet once, anywhere in the app:
  * `import '@kerusiweb/react/styles.css'`.
+ *
+ * Two opt-in features sit on top, both off by default so an existing map is
+ * unchanged: `zoomable` (pinch, wheel and drag, keys `+` `-` `0`, buttons) and
+ * `maximizable` (a full-screen button). Their arithmetic is in
+ * `@kerusiweb/core`; this file supplies the listeners and the state.
  */
 export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>(
   function KerusiSeatmap(props, ref) {
@@ -88,12 +109,19 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       interactive = true,
       expireHolds = false,
       expiryIntervalMs = 1000,
+      zoomable = false,
+      maxZoom = DEFAULT_MAX_ZOOM,
+      showZoomControls = true,
+      maximizable = false,
+      controlStrings,
       validate = 'collect',
       onSeatSelect,
       onSeatDeselect,
       onSeatDisallowed,
       onSeatFocus,
       onValidationIssues,
+      onViewportChange,
+      onMaximizedChange,
       className,
       style,
       children,
@@ -241,8 +269,23 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
 
     // --- focus and announcements --------------------------------------------
 
-    const { focusedSeatIds, setFocusedSeat, moveFocusTo, focusSeat, registerSeat } =
-      useRovingFocus(renderMap);
+    const { focusedSeatIds, setFocusedSeat, moveFocusTo, focusSeat, getSeatNode, registerSeat } =
+      useRovingFocus(renderMap, zoomable);
+
+    // --- zoom, pan and maximize -----------------------------------------------
+
+    const rootRef = useRef<HTMLDivElement | null>(null);
+    const zoom = useViewport({ enabled: zoomable, maxZoom, onViewportChange });
+    const { maximized, toggleMaximized, setMaximized } = useMaximized({
+      enabled: maximizable,
+      rootRef,
+      onChange: onMaximizedChange,
+    });
+    const strings = useMemo(() => resolveControlStrings(controlStrings), [controlStrings]);
+    const controlColors = useMemo(() => controlStyle(colors), [colors]);
+    const showToolbar = (zoomable && showZoomControls) || maximizable;
+    const atFit = zoom.viewport.zoom <= 1 + 1e-4;
+    const atMaxZoom = zoom.viewport.zoom >= zoom.limits.maxZoom - 1e-4;
 
     /**
      * The live-region text, plus a counter that makes a repeat of the same
@@ -330,8 +373,11 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
         }
         setFocusedSeat(seat.sectionId, seatId);
         onSeatFocus?.(seat);
+        if (zoomable) {
+          zoom.revealSeat(getSeatNode(seatId));
+        }
       },
-      [renderMap, setFocusedSeat, onSeatFocus],
+      [renderMap, setFocusedSeat, onSeatFocus, zoomable, zoom.revealSeat, getSeatNode],
     );
 
     /**
@@ -406,7 +452,48 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
 
     const summary = useMemo(() => summarizeSelection(renderMap, selection), [renderMap, selection]);
 
-    useImperativeHandle(ref, () => ({ summary, focusSeat }), [summary, focusSeat]);
+    useImperativeHandle(
+      ref,
+      () => ({
+        summary,
+        focusSeat,
+        viewport: zoom.viewport,
+        zoomIn: zoom.zoomIn,
+        zoomOut: zoom.zoomOut,
+        resetZoom: zoom.resetZoom,
+        maximized,
+        toggleMaximized,
+      }),
+      [
+        summary,
+        focusSeat,
+        zoom.viewport,
+        zoom.zoomIn,
+        zoom.zoomOut,
+        zoom.resetZoom,
+        maximized,
+        toggleMaximized,
+      ],
+    );
+
+    /**
+     * `+` `-` `0` zoom, and arrows pan when the viewport itself has focus; Esc
+     * leaves a maximized map. A seat's own handler runs first, so an Esc that
+     * cleared the selection is already `defaultPrevented` and stays at that.
+     */
+    const onRootKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.defaultPrevented || isTextEntryTarget(event.target as HTMLElement | null)) {
+        return;
+      }
+      if (zoomable && zoom.handleKeyDown(event)) {
+        event.preventDefault();
+        return;
+      }
+      if (event.key === 'Escape' && maximized) {
+        event.preventDefault();
+        setMaximized(false);
+      }
+    };
 
     // --- render -------------------------------------------------------------
 
@@ -415,49 +502,174 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
     const labelId = (section: RenderSection): string =>
       `kerusi-section-${renderMap.id}-${section.id}`;
 
+    const sections = renderMap.sections.map((section) => {
+      const label = labelFor(section);
+      return (
+        <section
+          key={section.id}
+          className={`kerusi-seatmap__section kerusi-seatmap__section--${section.layoutMode}`}
+          role="group"
+          aria-labelledby={label ? labelId(section) : undefined}
+          aria-label={label ? undefined : section.id}
+        >
+          {showSectionLabels && label && (
+            <h3 className="kerusi-section-label" id={labelId(section)}>
+              {label}
+            </h3>
+          )}
+
+          <KerusiSection
+            section={section}
+            layout={layouts.get(section.id)!}
+            selection={selectionSet}
+            focusedSeatId={focusedSeatIds[section.id] ?? null}
+            ariaLabels={ariaLabels}
+            colors={resolvedColors}
+            typeColors={typeColors}
+            unitScale={unitScale}
+            interactive={interactive}
+            onSeatActivate={onSeatActivate}
+            onSeatFocused={onSeatFocused}
+            onSeatKeyDown={(event) => onKeyDown(section.id, event)}
+            registerSeat={registerSeat}
+          />
+        </section>
+      );
+    });
+
+    const focusRing = { '--kerusi-focus-ring-input': resolvedColors.focusRing } as CSSProperties;
+    const buttonStyle: CSSProperties = {
+      background: controlColors.buttonBackground,
+      color: controlColors.buttonColor,
+      borderColor: controlColors.buttonBorder,
+    };
+    const classes = ['kerusi-seatmap', className, maximized && 'kerusi-seatmap--maximized']
+      .filter(Boolean)
+      .join(' ');
+
     return (
       <div
-        className={className ? `kerusi-seatmap ${className}` : 'kerusi-seatmap'}
+        ref={rootRef}
+        className={classes}
         role="group"
         aria-label={renderMap.name ?? `Seat map ${renderMap.id}`}
         dir={isRtl ? 'rtl' : undefined}
         lang={resolvedLocale}
-        style={style}
+        style={
+          maximized
+            ? {
+                ...style,
+                background: controlColors.maximizedBackground,
+                color: controlColors.maximizedColor,
+              }
+            : style
+        }
+        onKeyDown={onRootKeyDown}
       >
-        {renderMap.sections.map((section) => {
-          const label = labelFor(section);
-          return (
-            <section
-              key={section.id}
-              className={`kerusi-seatmap__section kerusi-seatmap__section--${section.layoutMode}`}
-              role="group"
-              aria-labelledby={label ? labelId(section) : undefined}
-              aria-label={label ? undefined : section.id}
-            >
-              {showSectionLabels && label && (
-                <h3 className="kerusi-section-label" id={labelId(section)}>
-                  {label}
-                </h3>
-              )}
+        {/* Only when a zoom or maximize feature is on, so a plain map's markup is
+            exactly what it was before they existed. */}
+        {zoomable || maximizable ? (
+          <div className="kerusi-seatmap__stage">
+            {showToolbar && (
+              <div
+                className="kerusi-toolbar"
+                role="toolbar"
+                aria-label={strings.toolbar}
+                style={focusRing}
+              >
+                {zoomable && showZoomControls && (
+                  <>
+                    <button
+                      type="button"
+                      className="kerusi-control kerusi-control--zoom-in"
+                      aria-label={strings.zoomIn}
+                      aria-disabled={atMaxZoom}
+                      style={buttonStyle}
+                      onClick={zoom.zoomIn}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="kerusi-control kerusi-control--zoom-out"
+                      aria-label={strings.zoomOut}
+                      aria-disabled={atFit}
+                      style={buttonStyle}
+                      onClick={zoom.zoomOut}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M5 12h14" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="kerusi-control kerusi-control--zoom-reset"
+                      aria-label={strings.zoomReset}
+                      aria-disabled={atFit}
+                      style={buttonStyle}
+                      onClick={zoom.resetZoom}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+                {maximizable && (
+                  <button
+                    type="button"
+                    className="kerusi-control kerusi-control--maximize"
+                    aria-label={maximized ? strings.restore : strings.maximize}
+                    style={buttonStyle}
+                    onClick={toggleMaximized}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      {maximized ? (
+                        <path d="M9 4v5H4M15 4v5h5M15 20v-5h5M9 20v-5H4" />
+                      ) : (
+                        <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+                      )}
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
 
-              <KerusiSection
-                section={section}
-                layout={layouts.get(section.id)!}
-                selection={selectionSet}
-                focusedSeatId={focusedSeatIds[section.id] ?? null}
-                ariaLabels={ariaLabels}
-                colors={resolvedColors}
-                typeColors={typeColors}
-                unitScale={unitScale}
-                interactive={interactive}
-                onSeatActivate={onSeatActivate}
-                onSeatFocused={onSeatFocused}
-                onSeatKeyDown={(event) => onKeyDown(section.id, event)}
-                registerSeat={registerSeat}
-              />
-            </section>
-          );
-        })}
+            {zoomable ? (
+              <div
+                ref={zoom.viewRef}
+                className="kerusi-viewport"
+                role="group"
+                tabIndex={0}
+                aria-label={strings.viewport}
+                style={
+                  {
+                    ...focusRing,
+                    touchAction: viewportTouchAction(zoom.viewport, maximized),
+                  } as CSSProperties
+                }
+              >
+                <div
+                  ref={zoom.contentRef}
+                  className={
+                    zoom.animated
+                      ? 'kerusi-viewport__content kerusi-viewport__content--animated'
+                      : 'kerusi-viewport__content'
+                  }
+                  style={{ transform: viewportTransform(zoom.viewport) }}
+                >
+                  {sections}
+                </div>
+              </div>
+            ) : (
+              sections
+            )}
+          </div>
+        ) : (
+          sections
+        )}
 
         {showLegend && (
           <KerusiLegend

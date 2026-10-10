@@ -10,6 +10,8 @@ export interface RovingFocus {
   moveFocusTo(sectionId: string, seatId: string): void;
   /** Focuses a seat wherever it is, if it is currently rendered. */
   focusSeat(seatId: string): void;
+  /** A seat's `<g>`, if it is currently rendered. */
+  getSeatNode(seatId: string): SVGGElement | null;
   /** Ref callback each seat `<g>` registers itself through. */
   registerSeat(seatId: string, node: SVGGElement | null): void;
 }
@@ -26,9 +28,18 @@ export interface RovingFocus {
  * so they cannot be interpolated into a selector unescaped, and `CSS.escape` is
  * absent in jsdom and under SSR. A ref map has neither problem.
  */
-export function useRovingFocus(renderMap: RenderMap): RovingFocus {
+export function useRovingFocus(
+  renderMap: RenderMap,
+  /**
+   * Stop the browser scrolling a focused seat into view. A zoomable map moves
+   * by transform, and a browser scroll on top would fight it.
+   */
+  preventScroll = false,
+): RovingFocus {
   const [focusedSeatIds, setFocusedSeatIds] = useState<Readonly<Record<string, string>>>({});
   const nodes = useRef(new Map<string, SVGGElement>());
+  const preventScrollRef = useRef(preventScroll);
+  preventScrollRef.current = preventScroll;
   /** Set when a keyboard move asks for focus, consumed after the commit. */
   const pendingFocus = useRef<string | null>(null);
 
@@ -60,9 +71,20 @@ export function useRovingFocus(renderMap: RenderMap): RovingFocus {
     }
   }, []);
 
-  const focusSeat = useCallback((seatId: string) => {
-    nodes.current.get(seatId)?.focus?.();
+  const focusNode = useCallback((node: SVGGElement | undefined) => {
+    if (preventScrollRef.current) {
+      node?.focus?.({ preventScroll: true });
+    } else {
+      node?.focus?.();
+    }
   }, []);
+
+  const focusSeat = useCallback(
+    (seatId: string) => focusNode(nodes.current.get(seatId)),
+    [focusNode],
+  );
+
+  const getSeatNode = useCallback((seatId: string) => nodes.current.get(seatId) ?? null, []);
 
   const setFocusedSeat = useCallback((sectionId: string, seatId: string) => {
     setFocusedSeatIds((all) => (all[sectionId] === seatId ? all : { ...all, [sectionId]: seatId }));
@@ -83,9 +105,9 @@ export function useRovingFocus(renderMap: RenderMap): RovingFocus {
     const target = pendingFocus.current;
     if (target !== null) {
       pendingFocus.current = null;
-      nodes.current.get(target)?.focus?.();
+      focusNode(nodes.current.get(target));
     }
-  }, [focusedSeatIds]);
+  }, [focusedSeatIds, focusNode]);
 
-  return { focusedSeatIds, setFocusedSeat, moveFocusTo, focusSeat, registerSeat };
+  return { focusedSeatIds, setFocusedSeat, moveFocusTo, focusSeat, getSeatNode, registerSeat };
 }

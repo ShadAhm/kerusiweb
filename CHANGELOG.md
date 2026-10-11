@@ -6,6 +6,46 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+1. **Opt-in zoom and pan** (`zoomable`, default `false`), for the case the issue
+   (#24) describes: on a 375px phone a map of several hundred seats is drawn once
+   at fit-to-width, so seats are too small to tap. With it on, the map zooms by
+   pinch, by Ctrl/Cmd + wheel or a trackpad pinch (Safari's included), and pans by
+   dragging with one finger or the mouse. A touch that moves less than 8 CSS
+   pixels is a tap and selects exactly as before, at any zoom level; a drag never
+   selects the seat under it. The floor is fit-to-container, the ceiling is the new
+   `maxZoom` (default 4), and panning stays inside the map. `+`, `-` and `0` zoom
+   and reset from the keyboard, the arrow keys pan when the viewport itself has
+   focus (on a seat they still move seat focus), and a seat that takes keyboard
+   focus is scrolled into view. Zoom in, zoom out and reset are real buttons with
+   accessible names (`controlStrings` translates them), drawn from the existing
+   `--kerusi-*` tokens, and hideable with `showZoomControls` so a host can put its
+   own anywhere and call `zoomIn()`, `zoomOut()` and `resetZoom()`. `touch-action`
+   is `pan-y` at fit, so a one-finger swipe still scrolls the page, and `none`
+   once zoomed in; transitions are skipped under `prefers-reduced-motion`.
+   `onViewportChange` / `viewportChange` reports `{ zoom, x, y }`. With `zoomable`
+   off the rendered DOM and behaviour are unchanged.
+
+2. **Opt-in full-screen button** (`maximizable`, default `false`). It fills the
+   screen with the map and its legend, freezes the page behind it, and leaves on
+   `Escape` or the same button. The layout is a fixed overlay, because iPhone
+   Safari has no element full screen; where the Fullscreen API exists it is
+   requested on top and followed, so the browser's own Esc leaves the map's
+   maximized state too. It is independent of `zoomable`, reports through
+   `onMaximizedChange` / `maximizedChange`, and is not a focus-trapping modal.
+
+3. **`@kerusiweb/core` gains the arithmetic behind both**, since a second binding
+   would otherwise write it again: `clampViewport`, `zoomViewportTo` /
+   `zoomViewportBy`, `stepViewport`, `panViewportBy`, `revealRect`,
+   `wheelZoomFactor`, `keyboardViewport`, `viewportTransform` and
+   `viewportTouchAction`; the pointer-gesture reducer `reduceGesture`, which
+   decides tap versus pan versus pinch; and `KerusiControlStrings` with
+   `controlStyle`. Both bindings are thin wiring around them. The React ref
+   handle gains `viewport`, `zoomIn`, `zoomOut`, `resetZoom`, `maximized` and
+   `toggleMaximized`; the Angular component exposes the same as methods and
+   signals.
+
 ## [2.1.0] - 2026-10-05
 
 ### Added

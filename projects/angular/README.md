@@ -87,6 +87,16 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 | `expireHolds`      | `boolean`                       | `false`                      | Revert a lapsed `holdExpires` to available on a ticker.                |
 | `expiryIntervalMs` | `number`                        | `1000`                       |                                                                        |
 
+**Zoom, pan and maximize** (both off by default; see [Zoom, pan and maximize](#zoom-pan-and-maximize))
+
+| Input              | Type                            | Default |                                                                                        |
+| ------------------ | ------------------------------- | ------- | -------------------------------------------------------------------------------------- |
+| `zoomable`         | `boolean`                       | `false` | Pinch, Ctrl/Cmd + wheel and drag to zoom and pan; `+` `-` `0` keys; on-screen buttons. |
+| `maxZoom`          | `number`                        | `4`     | The zoom ceiling, relative to fit. The floor is always fit.                            |
+| `showZoomControls` | `boolean`                       | `true`  | The built-in zoom buttons. Turn off to supply your own.                                |
+| `maximizable`      | `boolean`                       | `false` | A button that fills the screen with the map.                                           |
+| `controlStrings`   | `Partial<KerusiControlStrings>` | English | The names of the zoom and maximize buttons, for translation.                           |
+
 ### Outputs
 
 | Output                        | Payload                      |                                                                                                        |
@@ -96,6 +106,8 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 | `seatDisallowed`              | `SeatDisallowed`             | `reason` is `booked`, `held`, `blocked`, `not-selectable`, `max-selection` or `companion-unavailable`. |
 | `seatFocus`                   | `RenderSeat`                 |                                                                                                        |
 | `validationIssues`            | `readonly KerusiViolation[]` | Emitted whenever the documents change.                                                                 |
+| `viewportChange`              | `KerusiViewport`             | `{ zoom, x, y }`, whenever the zoom or pan changes. Only with `zoomable`.                              |
+| `maximizedChange`             | `boolean`                    | When the map is maximized or restored. Only with `maximizable`.                                        |
 
 ### The seat glyph
 
@@ -238,6 +250,78 @@ For anything the palette does not cover, each seat group carries class hooks:
 Inside a seat: `.kerusi-seat__box`, `__wash`, `__core`, `__occupant`
 (`__occupant--selected` / `--held` / `--booked`), `__label`, `__wheelchair`.
 
+### Zoom, pan and maximize
+
+Two features, both **off by default**: with them off the markup and behaviour are
+exactly what they were. They are independent; turn on either or both.
+
+On a phone a map of several hundred seats is drawn at fit-to-width, so a seat is
+too small to tap. `[zoomable]="true"` lets the reader zoom in and pan; `[maximizable]="true"` adds a button
+that fills the screen.
+
+**Zoom and pan.**
+
+- **Pinch** with two fingers on a touch screen. **Ctrl/Cmd + wheel**, or a
+  trackpad pinch (Safari's included), on desktop. A plain wheel is left alone, so
+  the page still scrolls.
+- **Drag** with one finger or the primary mouse button to pan.
+- **A tap still selects**, at any zoom level. A touch or click that moves less
+  than 8 CSS pixels is a tap, and reaches the seat exactly as it does without
+  `zoomable`. Anything that moves further is a drag, and a drag never selects the
+  seat under it.
+- **Limits.** The floor is fit-to-container, the ceiling is `maxZoom` (default
+  `4`), and panning stays inside the map. A map smaller than its container, which
+  happens when it is maximized on a large screen, is centred.
+- **Gestures and the page.** `touch-action` is `pan-y` at fit, so a one-finger
+  vertical swipe still scrolls the page while a pinch is the map's; once zoomed in
+  or maximized it is `none`. With `zoomable` off, no `touch-action` is set.
+- **Reduced motion.** The short transition on the zoom buttons, the keys and
+  reset is dropped under `prefers-reduced-motion: reduce`. A finger or wheel moves
+  the map directly and never eases.
+
+| Key             |                                                              |
+| --------------- | ------------------------------------------------------------ |
+| `+` / `=`, `-`  | Zoom in / out, from anywhere inside the map                  |
+| `0`             | Reset to fit                                                 |
+| `←` `→` `↑` `↓` | Pan, when the zoomable viewport itself has focus (Tab to it) |
+
+On a seat, the arrow keys keep their usual job of moving seat focus, and a seat
+that takes keyboard focus is scrolled into view. Ctrl, Cmd and Alt combinations
+are left to the browser, and keys typed into a field you put inside the map are
+ignored.
+
+**Controls.** The zoom buttons (zoom in, zoom out, reset to fit) are real
+`<button>`s with accessible names. At a limit they set `aria-disabled` rather than
+`disabled`, so keyboard focus is not thrown away mid-press. Their names come from
+`controlStrings`, for translation. They use the theme's existing tokens
+(`--kerusi-element-bg`, `--kerusi-element-fg`, `--kerusi-element-muted-fg`,
+`--kerusi-focus-ring`), so there is nothing new to theme.
+
+To put the controls somewhere else, turn the built-in ones off
+(`[showZoomControls]="false"`) and drive the map yourself:
+
+```ts
+readonly map = viewChild.required(KerusiSeatmapComponent);
+// this.map().zoomIn(); this.map().zoomOut(); this.map().resetZoom(); this.map().toggleMaximized();
+// this.map().viewport()   -> { zoom, x, y }
+// this.map().maximized()  -> boolean
+```
+
+`viewportChange` reports `{ zoom, x, y }` whenever the view changes, for a host that wants
+to display or persist it. (Restoring a saved view is not supported.)
+
+**Maximize.** The button fills the screen with the map and its legend, freezes the
+page behind it, and swaps to an "Exit full screen" button. The layout is a fixed
+overlay, which is all iPhone Safari offers; where the browser has the Fullscreen
+API it is requested on top, and leaving it with the browser's own Esc leaves the
+map's maximized state too. `Escape` from the map also leaves, except that on a
+seat with a non-empty selection the first `Escape` still clears the selection, as
+it always has. The backdrop is `--kerusi-backdrop`, or the page's own canvas colour
+while that is transparent; `--kerusi-maximized-z-index` (default `1000`) sets the
+stacking. It is not a modal dialog: focus is not trapped, and an ancestor with a
+`transform` or `filter` would anchor the fixed layout to itself instead of the
+screen.
+
 ### Keyboard
 
 Tab moves between sections; each section keeps its own tab stop. Within a
@@ -257,6 +341,8 @@ column no seat occupies, is stepped across rather than into.
 Each seat is a `role="button"` announcing its position, type, price, status,
 every `Seat.accessibility` property and its attributes. A polite live region
 reports the running selection and any disallowed reason.
+
+With `zoomable` on there are a few more keys: see [Zoom, pan and maximize](#zoom-pan-and-maximize).
 
 ---
 

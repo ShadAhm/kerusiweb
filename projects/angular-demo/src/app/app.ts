@@ -28,6 +28,8 @@ export class App {
   protected readonly locale = signal<string>('en');
   protected readonly showLegend = signal(true);
   protected readonly typeColors = signal(true);
+  protected readonly zoomable = signal(true);
+  protected readonly maximizable = signal(true);
   protected readonly showSource = signal(false);
   protected readonly theme = signal<Theme>(getInitialTheme());
 

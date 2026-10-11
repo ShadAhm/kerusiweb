@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -9,38 +10,65 @@ import {
   model,
   output,
   signal,
+  untracked,
+  viewChild,
 } from '@angular/core';
 import {
   buildNavigationGraph,
   buildRenderModel,
+  clampViewport,
   computeSectionLayout,
+  controlStyle,
+  DEFAULT_MAX_ZOOM,
   DEFAULT_SEAT_ARIA_STRINGS,
   DisallowedReason,
   disallowedAnnouncement,
   errorsOf,
   expireHolds,
+  FIT_VIEWPORT,
+  fitViewport,
   formatMoney,
+  GestureEvent,
+  GestureState,
+  IDLE_GESTURE,
   isRtlLocale,
+  isTextEntryTarget,
+  keyboardViewport,
+  KerusiControlStrings,
   KerusiMap,
   KerusiSeatmapColors,
   KerusiSession,
   KerusiState,
   KerusiValidationError,
+  KerusiViewport,
   KerusiViolation,
   Money,
   NavigationGraph,
+  reduceGesture,
   RenderMap,
   RenderSeat,
   RenderSection,
   resolveColors,
+  resolveControlStrings,
   resolveMapLocale,
+  revealRect,
   SeatAriaStrings,
   seatAriaLabel,
   SeatRenderStatus,
   SectionLayout,
+  stepViewport,
   summarizeSelection,
   toggleSeatSelection,
   validateDocumentSet,
+  ViewportPoint,
+  ViewportSize,
+  viewportsEqual,
+  viewportTouchAction,
+  viewportTransform,
+  wheelZoomFactor,
+  zoomLimits,
+  zoomViewportBy,
+  zoomViewportTo,
 } from '@kerusiweb/core';
 import { KerusiSectionComponent } from './kerusi-section.component';
 import { KerusiLegendComponent } from './kerusi-legend.component';
@@ -92,11 +120,16 @@ export interface SeatDisallowed {
  * ```html
  * <kerusi-seatmap [map]="map" [state]="state" [(selection)]="picked" />
  * ```
+ *
+ * Two opt-in features sit on top, both off by default so an existing map is
+ * unchanged: `[zoomable]` (pinch, wheel and drag, keys `+` `-` `0`, buttons)
+ * and `[maximizable]` (a full-screen button). Their arithmetic is in
+ * `@kerusiweb/core`; this class supplies the listeners and the signals.
  */
 @Component({
   selector: 'kerusi-seatmap',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KerusiSectionComponent, KerusiLegendComponent],
+  imports: [KerusiSectionComponent, KerusiLegendComponent, NgTemplateOutlet],
   templateUrl: './kerusi-seatmap.component.html',
   styleUrl: './kerusi-seatmap.component.css',
 })
@@ -168,6 +201,25 @@ export class KerusiSeatmapComponent {
   readonly expireHolds = input<boolean>(false);
   readonly expiryIntervalMs = input<number>(1000);
 
+  // --- zoom, pan and maximize (both opt in) ---------------------------------
+
+  /**
+   * Pinch, Ctrl/Cmd + wheel and drag to zoom and pan, `+` `-` `0` on the keyboard,
+   * and on-screen buttons. A tap still selects at every zoom level.
+   */
+  readonly zoomable = input<boolean>(false);
+  /** The zoom ceiling, relative to fit-to-container. The floor is always fit. */
+  readonly maxZoom = input<number>(DEFAULT_MAX_ZOOM);
+  /**
+   * The built-in zoom buttons. Turn this off to supply your own, anywhere on the
+   * page, and call `zoomIn()`, `zoomOut()` and `resetZoom()` on the component.
+   */
+  readonly showZoomControls = input<boolean>(true);
+  /** A button that maximizes the map to fill the screen. */
+  readonly maximizable = input<boolean>(false);
+  /** Overrides the built-in English names of the zoom and maximize controls. */
+  readonly controlStrings = input<Partial<KerusiControlStrings>>({});
+
   // --- validation -----------------------------------------------------------
 
   readonly validate = input<ValidationMode>('collect');
@@ -180,6 +232,9 @@ export class KerusiSeatmapComponent {
   readonly seatFocus = output<RenderSeat>();
   /** Emitted whenever the documents change, in `collect` mode. */
   readonly validationIssues = output<readonly KerusiViolation[]>();
+  /** The zoom and pan, whenever they change. For a host that persists or shows them. */
+  readonly viewportChange = output<KerusiViewport>();
+  readonly maximizedChange = output<boolean>();
 
   // --- internal state -------------------------------------------------------
 
@@ -194,6 +249,22 @@ export class KerusiSeatmapComponent {
   private readonly announcement = signal('');
   /** Bumped by the hold ticker to force the state to be re-derived. */
   private readonly expiryTick = signal(0);
+
+  private readonly viewportState = signal<KerusiViewport>(FIT_VIEWPORT);
+  private readonly maximizedState = signal(false);
+  /** True for a discrete change (button, key, reveal), false while a finger or wheel drives. */
+  protected readonly animated = signal(false);
+  private readonly viewportEl = viewChild<ElementRef<HTMLElement>>('viewport');
+  private readonly contentEl = viewChild<ElementRef<HTMLElement>>('content');
+  private gesture: GestureState = IDLE_GESTURE;
+  private suppressClick = false;
+  private gestureBase: KerusiViewport | null = null;
+  private nativeFullscreen = false;
+
+  /** The current zoom and pan. Read-only: drive it with the methods below. */
+  readonly viewport = this.viewportState.asReadonly();
+  /** Whether the map is currently maximized. */
+  readonly maximized = this.maximizedState.asReadonly();
 
   constructor() {
     effect(() => {
@@ -241,6 +312,98 @@ export class KerusiSeatmapComponent {
       );
       onCleanup(() => clearInterval(handle));
     });
+
+    // Gesture listeners go on natively, not through the template: the wheel
+    // listener must be non-passive to `preventDefault` a page zoom, and the
+    // click listener must be in the capture phase to swallow the click that
+    // follows a drag before the seat sees it.
+    effect((onCleanup) => {
+      const el = this.viewportEl()?.nativeElement;
+      if (!el) {
+        return;
+      }
+      const listeners: [string, (event: Event) => void, boolean | AddEventListenerOptions][] = [
+        ['pointerdown', (e) => this.onPointerDown(e as PointerEvent), false],
+        ['pointermove', (e) => this.onPointerMove(e as PointerEvent), false],
+        ['pointerup', (e) => this.onPointerEnd(e as PointerEvent, 'up'), false],
+        ['pointercancel', (e) => this.onPointerEnd(e as PointerEvent, 'cancel'), false],
+        ['wheel', (e) => this.onWheel(e as WheelEvent), { passive: false }],
+        ['click', (e) => this.onClickCapture(e), true],
+        // Safari reports a trackpad pinch as gesture events, not Ctrl + wheel.
+        ['gesturestart', (e) => this.onGestureStart(e), { passive: false }],
+        ['gesturechange', (e) => this.onGestureChange(e as SafariGestureEvent), { passive: false }],
+        ['gestureend', (e) => this.onGestureEnd(e), { passive: false }],
+      ];
+      for (const [type, listener, options] of listeners) {
+        el.addEventListener(type, listener, options);
+      }
+      onCleanup(() => {
+        for (const [type, listener, options] of listeners) {
+          el.removeEventListener(type, listener, options);
+        }
+      });
+    });
+
+    // Re-clamp when the box or the ceiling changes: a rotated phone, a
+    // maximized map, a lowered `maxZoom`.
+    effect((onCleanup) => {
+      this.limits();
+      const view = this.viewportEl()?.nativeElement;
+      untracked(() => this.reclamp());
+      if (!view || typeof ResizeObserver === 'undefined') {
+        return;
+      }
+      const observer = new ResizeObserver(() => this.reclamp());
+      observer.observe(view);
+      const content = this.contentEl()?.nativeElement;
+      if (content) {
+        observer.observe(content);
+      }
+      onCleanup(() => observer.disconnect());
+    });
+
+    // Switching `zoomable` or `maximizable` off puts the map back as it was.
+    effect(() => {
+      if (!this.zoomable() && !viewportsEqual(untracked(this.viewportState), FIT_VIEWPORT)) {
+        this.viewportState.set(FIT_VIEWPORT);
+      }
+    });
+    effect(() => {
+      if (!this.maximizable() && untracked(this.maximizedState)) {
+        untracked(() => this.setMaximized(false));
+      }
+    });
+
+    // While maximized: freeze the page behind, and follow the browser leaving
+    // native full screen (Esc) so the two never disagree.
+    effect((onCleanup) => {
+      if (!this.maximizedState()) {
+        return;
+      }
+      const host = this.host.nativeElement as HTMLElement;
+      const doc = host.ownerDocument;
+      const previousOverflow = doc.body.style.overflow;
+      doc.body.style.overflow = 'hidden';
+
+      const onFullscreenChange = () => {
+        if (doc.fullscreenElement === host) {
+          this.nativeFullscreen = true;
+        } else if (this.nativeFullscreen) {
+          this.nativeFullscreen = false;
+          this.setMaximized(false);
+        }
+      };
+      doc.addEventListener('fullscreenchange', onFullscreenChange);
+
+      onCleanup(() => {
+        doc.body.style.overflow = previousOverflow;
+        doc.removeEventListener('fullscreenchange', onFullscreenChange);
+        this.nativeFullscreen = false;
+        if (doc.fullscreenElement === host) {
+          doc.exitFullscreen?.().catch(() => undefined);
+        }
+      });
+    });
   }
 
   // --- derived model --------------------------------------------------------
@@ -285,6 +448,21 @@ export class KerusiSeatmapComponent {
   );
 
   protected readonly selectionSet = computed(() => new Set(this.selection()));
+
+  protected readonly limits = computed(() => zoomLimits(this.maxZoom()));
+  protected readonly strings = computed(() => resolveControlStrings(this.controlStrings()));
+  protected readonly controlColors = computed(() => controlStyle(this.colors()));
+  protected readonly transform = computed(() => viewportTransform(this.viewportState()));
+  protected readonly touchAction = computed(() =>
+    viewportTouchAction(this.viewportState(), this.maximizedState()),
+  );
+  protected readonly showToolbar = computed(
+    () => (this.zoomable() && this.showZoomControls()) || this.maximizable(),
+  );
+  protected readonly atMaxZoom = computed(
+    () => this.viewportState().zoom >= this.limits().maxZoom - 1e-4,
+  );
+  protected readonly atFit = computed(() => this.viewportState().zoom <= 1 + 1e-4);
 
   /** Placed geometry per section, keyed by section id. */
   protected readonly layouts = computed<ReadonlyMap<string, SectionLayout>>(() => {
@@ -395,6 +573,9 @@ export class KerusiSeatmapComponent {
     }
     this.setFocusedSeat(seat.sectionId, seatId);
     this.seatFocus.emit(seat);
+    if (this.zoomable()) {
+      this.revealSeat(seatId);
+    }
   }
 
   /**
@@ -472,20 +653,312 @@ export class KerusiSeatmapComponent {
   /**
    * Moves the roving tab stop, then the DOM focus that follows it.
    *
+   * When zoomable, the browser's own scroll-into-view is suppressed: the map
+   * moves by transform, so `onSeatFocused` pans it into view instead.
+   */
+  private moveFocusTo(sectionId: string, seatId: string): void {
+    this.setFocusedSeat(sectionId, seatId);
+    const node = this.seatNode(seatId);
+    if (this.zoomable()) {
+      node?.focus?.({ preventScroll: true });
+    } else {
+      node?.focus?.();
+    }
+  }
+
+  /**
    * Seat ids come from the document, so they cannot be interpolated into a
    * selector unescaped — and `CSS.escape` is absent in jsdom and under SSR.
    * Scanning the rendered nodes avoids both problems.
    */
-  private moveFocusTo(sectionId: string, seatId: string): void {
-    this.setFocusedSeat(sectionId, seatId);
+  private seatNode(seatId: string): SVGGElement | null {
     const nodes = (this.host.nativeElement as HTMLElement).querySelectorAll<SVGGElement>(
       '[data-seat-id]',
     );
     for (const node of Array.from(nodes)) {
       if (node.dataset['seatId'] === seatId) {
-        node.focus?.();
+        return node;
+      }
+    }
+    return null;
+  }
+
+  // --- zoom and pan ---------------------------------------------------------
+
+  /** Zooms in one step about the centre. No-op unless `zoomable`. */
+  zoomIn(): void {
+    this.stepZoom(1);
+  }
+
+  /** Zooms out one step about the centre. No-op unless `zoomable`. */
+  zoomOut(): void {
+    this.stepZoom(-1);
+  }
+
+  /** Back to fit-to-container: the map's original view. No-op unless `zoomable`. */
+  resetZoom(): void {
+    const measured = this.measure();
+    if (measured && this.zoomable()) {
+      this.commit(fitViewport(measured.content, measured.container, this.limits()), true);
+    }
+  }
+
+  private stepZoom(direction: 1 | -1): void {
+    const measured = this.measure();
+    if (measured && this.zoomable()) {
+      const next = stepViewport(
+        this.viewportState(),
+        direction,
+        measured.content,
+        measured.container,
+        this.limits(),
+      );
+      this.commit(next, true);
+    }
+  }
+
+  /** Sizes in CSS pixels, read when needed: `offset*` ignores the zoom transform. */
+  private measure(): { content: ViewportSize; container: ViewportSize } | null {
+    const view = this.viewportEl()?.nativeElement;
+    const content = this.contentEl()?.nativeElement;
+    if (!view || !content) {
+      return null;
+    }
+    return {
+      container: { width: view.clientWidth, height: view.clientHeight },
+      content: { width: content.offsetWidth, height: content.offsetHeight },
+    };
+  }
+
+  private commit(next: KerusiViewport, animate: boolean): void {
+    if (viewportsEqual(next, this.viewportState())) {
+      return;
+    }
+    this.animated.set(animate);
+    this.viewportState.set(next);
+    this.viewportChange.emit(next);
+  }
+
+  private reclamp(): void {
+    const measured = this.measure();
+    if (measured && this.zoomable()) {
+      const next = clampViewport(
+        this.viewportState(),
+        measured.content,
+        measured.container,
+        this.limits(),
+      );
+      this.commit(next, false);
+    }
+  }
+
+  /** A point in the viewport's own coordinates, which is what the core functions take. */
+  private containerPoint(event: { clientX: number; clientY: number }): ViewportPoint {
+    const box = this.viewportEl()!.nativeElement.getBoundingClientRect();
+    return { x: event.clientX - box.left, y: event.clientY - box.top };
+  }
+
+  /**
+   * Pans a seat that took keyboard focus into view. A click or tap also
+   * focuses the seat, but should not move the map under the finger, so only a
+   * `:focus-visible` focus counts.
+   */
+  private revealSeat(seatId: string): void {
+    const view = this.viewportEl()?.nativeElement;
+    const node = this.seatNode(seatId);
+    const measured = this.measure();
+    if (!view || !node || !measured || !focusIsVisible(node)) {
+      return;
+    }
+    const seat = node.getBoundingClientRect();
+    const frame = view.getBoundingClientRect();
+    const next = revealRect(
+      this.viewportState(),
+      {
+        x: seat.left - frame.left,
+        y: seat.top - frame.top,
+        width: seat.width,
+        height: seat.height,
+      },
+      measured.content,
+      measured.container,
+      undefined,
+      this.limits(),
+    );
+    this.commit(next, true);
+  }
+
+  // --- pointer gestures -----------------------------------------------------
+
+  private onPointerDown(event: PointerEvent): void {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+    this.suppressClick = false;
+    this.feedGesture({ type: 'down', id: event.pointerId, point: this.containerPoint(event) });
+  }
+
+  private onPointerMove(event: PointerEvent): void {
+    if (this.gesture.ids.length > 0) {
+      this.feedGesture({ type: 'move', id: event.pointerId, point: this.containerPoint(event) });
+    }
+  }
+
+  private onPointerEnd(event: PointerEvent, type: 'up' | 'cancel'): void {
+    this.feedGesture({ type, id: event.pointerId });
+  }
+
+  private feedGesture(event: GestureEvent): void {
+    const measured = this.measure();
+    if (!measured) {
+      return;
+    }
+    const result = reduceGesture(this.gesture, event, {
+      viewport: this.viewportState(),
+      content: measured.content,
+      container: measured.container,
+      limits: this.limits(),
+    });
+    this.gesture = result.state;
+
+    // Capture only once a tap has become a gesture: capturing on `down` would
+    // retarget the tap's click away from the seat.
+    if (result.capture) {
+      const view = this.viewportEl()?.nativeElement;
+      for (const id of result.state.ids) {
+        try {
+          view?.setPointerCapture(id);
+        } catch {
+          // The pointer already ended; nothing to capture.
+        }
+      }
+    }
+    if (result.viewport !== this.viewportState()) {
+      this.commit(result.viewport, false);
+    }
+    if (result.suppressClick) {
+      // The click a drag ends with arrives right after `pointerup`, before this timer.
+      this.suppressClick = true;
+      setTimeout(() => (this.suppressClick = false));
+    }
+  }
+
+  private onClickCapture(event: Event): void {
+    if (this.suppressClick) {
+      this.suppressClick = false;
+      event.stopPropagation();
+      event.preventDefault();
+    }
+  }
+
+  private onWheel(event: WheelEvent): void {
+    const factor = wheelZoomFactor(event);
+    const measured = this.measure();
+    if (factor === null || !measured) {
+      return; // A plain wheel is the page's to scroll.
+    }
+    event.preventDefault();
+    const next = zoomViewportBy(
+      this.viewportState(),
+      factor,
+      this.containerPoint(event),
+      measured.content,
+      measured.container,
+      this.limits(),
+    );
+    this.commit(next, false);
+  }
+
+  private onGestureStart(event: Event): void {
+    event.preventDefault();
+    this.gestureBase = this.viewportState();
+  }
+
+  private onGestureChange(event: SafariGestureEvent): void {
+    event.preventDefault();
+    const measured = this.measure();
+    if (!this.gestureBase || !measured) {
+      return;
+    }
+    const next = zoomViewportTo(
+      this.gestureBase,
+      this.gestureBase.zoom * event.scale,
+      this.containerPoint(event),
+      measured.content,
+      measured.container,
+      this.limits(),
+    );
+    this.commit(next, false);
+  }
+
+  private onGestureEnd(event: Event): void {
+    event.preventDefault();
+    this.gestureBase = null;
+  }
+
+  // --- keyboard on the map as a whole ----------------------------------------
+
+  /**
+   * `+` `-` `0` zoom, and arrows pan when the viewport itself has focus; Esc
+   * leaves a maximized map. A seat's own handler runs first, so an Esc that
+   * cleared the selection is already `defaultPrevented` and stays at that.
+   */
+  protected onRootKeydown(event: KeyboardEvent): void {
+    if (event.defaultPrevented || isTextEntryTarget(event.target as HTMLElement | null)) {
+      return;
+    }
+    if (this.zoomable()) {
+      const measured = this.measure();
+      const next =
+        measured &&
+        keyboardViewport(
+          this.viewportState(),
+          {
+            key: event.key,
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+            altKey: event.altKey,
+            viewportFocused: event.target === this.viewportEl()?.nativeElement,
+          },
+          measured.content,
+          measured.container,
+          this.limits(),
+        );
+      if (next) {
+        event.preventDefault();
+        this.commit(next, true);
         return;
       }
+    }
+    if (event.key === 'Escape' && this.maximizedState()) {
+      event.preventDefault();
+      this.setMaximized(false);
+    }
+  }
+
+  // --- maximize -------------------------------------------------------------
+
+  /** Maximizes or restores the map. Maximizing needs `maximizable`. */
+  toggleMaximized(): void {
+    this.setMaximized(!this.maximizedState());
+  }
+
+  setMaximized(next: boolean): void {
+    if (next === this.maximizedState() || (next && !this.maximizable())) {
+      return;
+    }
+    this.maximizedState.set(next);
+    this.maximizedChange.emit(next);
+
+    // Native full screen is an enhancement over the fixed-position layout, which
+    // is all iPhone Safari offers. It is requested here, inside the click that
+    // got us here, because browsers only grant it to a user gesture.
+    const host = this.host.nativeElement as HTMLElement;
+    const doc = host.ownerDocument;
+    if (next && !doc.fullscreenElement) {
+      host.requestFullscreen?.()?.catch(() => undefined);
+    } else if (!next && doc.fullscreenElement === host) {
+      doc.exitFullscreen?.()?.catch(() => undefined);
     }
   }
 
@@ -527,4 +1000,20 @@ export class KerusiSeatmapComponent {
 
 function formatTotal(total: Money | undefined, locale: string): string {
   return total ? formatMoney(total, locale) : '';
+}
+
+/** Safari's trackpad pinch. Not in lib.dom; `scale` is relative to the gesture's start. */
+interface SafariGestureEvent extends UIEvent {
+  scale: number;
+  clientX: number;
+  clientY: number;
+}
+
+/** `:focus-visible` where the engine knows it; otherwise assume the focus is the keyboard's. */
+function focusIsVisible(node: Element): boolean {
+  try {
+    return node.matches(':focus-visible');
+  } catch {
+    return true;
+  }
 }

@@ -15,6 +15,8 @@ export function App() {
   const [locale, setLocale] = useState('en');
   const [showLegend, setShowLegend] = useState(true);
   const [typeColors, setTypeColors] = useState(true);
+  const [zoomable, setZoomable] = useState(true);
+  const [maximizable, setMaximizable] = useState(true);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   /** Selections are per scenario, so switching tabs does not lose a pick. */
@@ -161,6 +163,22 @@ export function App() {
                 />
                 Legend
               </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={zoomable}
+                  onChange={(e) => setZoomable(e.target.checked)}
+                />
+                Zoom &amp; pan
+              </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={maximizable}
+                  onChange={(e) => setMaximizable(e.target.checked)}
+                />
+                Full screen
+              </label>
             </div>
           </div>
 
@@ -176,6 +194,8 @@ export function App() {
                 seatSize={scenario.seatSize ?? 28}
                 typeColors={typeColors}
                 showLegend={showLegend}
+                zoomable={zoomable}
+                maximizable={maximizable}
                 onSeatDisallowed={onDisallowed}
                 onValidationIssues={setIssues}
               />
@@ -183,7 +203,8 @@ export function App() {
               <p className="keyboard-hint">
                 Tab into the map, then use the arrow keys — they follow <code>col</code> order, so
                 an aisle is stepped across rather than into. Enter or Space picks a seat; Escape
-                clears.
+                clears. With zoom &amp; pan on: pinch, or Ctrl/Cmd + wheel, to zoom; drag to pan;{' '}
+                <code>+</code>, <code>-</code> and <code>0</code> from the keyboard.
               </p>
             </div>
 

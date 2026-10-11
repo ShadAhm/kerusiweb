@@ -1,9 +1,11 @@
 import type {
   DisallowedReason,
+  KerusiControlStrings,
   KerusiMap,
   KerusiSeatmapColors,
   KerusiSession,
   KerusiState,
+  KerusiViewport,
   KerusiViolation,
   RenderSeat,
   SeatAriaStrings,
@@ -52,6 +54,18 @@ export interface KerusiSeatmapHandle {
   readonly summary: SelectionSummary;
   /** Moves DOM focus to a seat, if it is rendered. */
   focusSeat(seatId: string): void;
+  /** The current zoom and pan. Fit (`{ zoom: 1, x: 0, y: 0 }`) unless `zoomable`. */
+  readonly viewport: KerusiViewport;
+  /** Zooms in one step about the centre. No-op unless `zoomable`. */
+  zoomIn(): void;
+  /** Zooms out one step about the centre. No-op unless `zoomable`. */
+  zoomOut(): void;
+  /** Back to fit-to-container: the map's original view. No-op unless `zoomable`. */
+  resetZoom(): void;
+  /** Whether the map is currently maximized. */
+  readonly maximized: boolean;
+  /** Maximizes or restores the map. Maximizing needs `maximizable`. */
+  toggleMaximized(): void;
 }
 
 export interface KerusiSeatmapProps {
@@ -131,6 +145,29 @@ export interface KerusiSeatmapProps {
   expireHolds?: boolean;
   expiryIntervalMs?: number;
 
+  // --- zoom, pan and maximize (both opt in) ---------------------------------
+
+  /**
+   * Pinch, Ctrl/Cmd + wheel and drag to zoom and pan, `+` `-` `0` on the keyboard,
+   * and on-screen buttons. A tap still selects at every zoom level. Default `false`.
+   */
+  zoomable?: boolean;
+  /** The zoom ceiling, relative to fit-to-container. The floor is always fit. Default `4`. */
+  maxZoom?: number;
+  /**
+   * The built-in zoom buttons. Turn this off to supply your own, anywhere on the
+   * page, and call `zoomIn()`, `zoomOut()` and `resetZoom()` on a `ref`.
+   */
+  showZoomControls?: boolean;
+  /** A button that maximizes the map to fill the screen. Default `false`. */
+  maximizable?: boolean;
+  /**
+   * Overrides the built-in English names of the zoom and maximize controls.
+   *
+   * Memoize it — a new object each render rebuilds the controls' strings.
+   */
+  controlStrings?: Partial<KerusiControlStrings>;
+
   // --- validation -----------------------------------------------------------
 
   validate?: ValidationMode;
@@ -143,6 +180,9 @@ export interface KerusiSeatmapProps {
   onSeatFocus?: (seat: RenderSeat) => void;
   /** Called whenever the documents change, unless `validate` is `off`. */
   onValidationIssues?: (issues: readonly KerusiViolation[]) => void;
+  /** The zoom and pan, whenever they change. For a host that persists or shows them. */
+  onViewportChange?: (viewport: KerusiViewport) => void;
+  onMaximizedChange?: (maximized: boolean) => void;
 
   // --- host element ---------------------------------------------------------
 

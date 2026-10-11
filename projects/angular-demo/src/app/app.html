@@ -65,6 +65,22 @@
           />
           Legend
         </label>
+        <label class="toggle">
+          <input
+            type="checkbox"
+            [checked]="zoomable()"
+            (change)="zoomable.set($any($event.target).checked)"
+          />
+          Zoom &amp; pan
+        </label>
+        <label class="toggle">
+          <input
+            type="checkbox"
+            [checked]="maximizable()"
+            (change)="maximizable.set($any($event.target).checked)"
+          />
+          Full screen
+        </label>
       </div>
     </div>
 
@@ -80,6 +96,8 @@
           [seatSize]="scenario().seatSize ?? 28"
           [typeColors]="typeColors()"
           [showLegend]="showLegend()"
+          [zoomable]="zoomable()"
+          [maximizable]="maximizable()"
           (seatDisallowed)="onDisallowed($event)"
           (validationIssues)="issues.set($event)"
         />
@@ -87,7 +105,8 @@
         <p class="keyboard-hint">
           Tab into the map, then use the arrow keys — they follow
           <code>col</code> order, so an aisle is stepped across rather than into. Enter or Space
-          picks a seat; Escape clears.
+          picks a seat; Escape clears. With zoom &amp; pan on: pinch, or Ctrl/Cmd + wheel, to zoom;
+          drag to pan; <code>+</code>, <code>-</code> and <code>0</code> from the keyboard.
         </p>
       </div>
 

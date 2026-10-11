@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-11
+
 ### Added
 
 1. **Opt-in zoom and pan** (`zoomable`, default `false`), for the case the issue

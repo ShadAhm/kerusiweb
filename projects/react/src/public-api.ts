@@ -24,6 +24,7 @@ export type {
   KerusiSeatmapProps,
   SeatDisallowed,
   SeatInteraction,
+  SeatRenderContext,
   SectionRenderOptions,
   ValidationMode,
 } from './types.js';

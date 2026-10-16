@@ -148,6 +148,22 @@
   paint-order: stroke;
 }
 
+/* With a custom seat template the library cannot assume a `.kerusi-seat__box`
+   exists, so it draws this outline of the seat's body over the custom content
+   instead (the stock seat never renders it). Same colour chain as the ring
+   above; the stroke is centred on the outline because there is no fill of its
+   own to sit behind. */
+.kerusi-seat__focus {
+  fill: none;
+  stroke: none;
+  pointer-events: none;
+}
+
+.kerusi-seat:focus-visible .kerusi-seat__focus {
+  stroke: var(--kerusi-focus-ring, var(--kerusi-focus-ring-input, currentColor));
+  stroke-width: 2.5;
+}
+
 .kerusi-element__void {
   stroke-width: 1;
   stroke-dasharray: 4 3;

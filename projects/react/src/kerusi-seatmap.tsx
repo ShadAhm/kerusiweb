@@ -93,6 +93,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       ariaStrings = DEFAULT_SEAT_ARIA_STRINGS,
       colors,
       typeColors = true,
+      renderSeat,
       seatSize = 28,
       seatGap = 6,
       freeformBasis = 1000,
@@ -526,6 +527,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
             ariaLabels={ariaLabels}
             colors={resolvedColors}
             typeColors={typeColors}
+            renderSeat={renderSeat}
             unitScale={unitScale}
             interactive={interactive}
             onSeatActivate={onSeatActivate}

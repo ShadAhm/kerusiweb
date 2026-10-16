@@ -15,7 +15,8 @@ import type {
   SeatGlyph,
   SectionLayout,
 } from '@kerusiweb/core';
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
+import type { SeatRenderContext } from './types.js';
 
 export interface KerusiSectionProps {
   section: RenderSection;
@@ -29,6 +30,8 @@ export interface KerusiSectionProps {
   colors?: Required<KerusiSeatmapColors>;
   /** Whether an available seat may take its `SeatType.color` (§4.7). */
   typeColors?: boolean;
+  /** Draws the inside of each seat in place of the stock glyph. */
+  renderSeat?: (ctx: SeatRenderContext) => ReactNode;
   /** When false, seats render but do not respond to pointer or keyboard. */
   interactive?: boolean;
   /**
@@ -69,6 +72,7 @@ export function KerusiSection({
   ariaLabels = EMPTY_LABELS,
   colors = DEFAULT_KERUSI_COLORS,
   typeColors = true,
+  renderSeat,
   interactive = true,
   unitScale = 1,
   onSeatActivate,
@@ -116,6 +120,7 @@ export function KerusiSection({
           ariaLabel={ariaLabels.get(placed.seat.id) ?? placed.seat.label}
           colors={colors}
           typeColors={typeColors}
+          renderSeat={renderSeat}
           interactive={interactive}
           onSeatActivate={onSeatActivate}
           onSeatFocused={onSeatFocused}
@@ -136,6 +141,7 @@ interface SeatProps {
   ariaLabel: string;
   colors: Required<KerusiSeatmapColors>;
   typeColors: boolean;
+  renderSeat?: (ctx: SeatRenderContext) => ReactNode;
   interactive: boolean;
   onSeatActivate?: (seatId: string) => void;
   onSeatFocused?: (seatId: string) => void;
@@ -150,6 +156,7 @@ function SectionSeat({
   ariaLabel,
   colors,
   typeColors,
+  renderSeat,
   interactive,
   onSeatActivate,
   onSeatFocused,
@@ -158,6 +165,7 @@ function SectionSeat({
 }: SeatProps) {
   const seat = placed.seat;
   const glyph = resolveSeatGlyph(placed, selected, colors, typeColors);
+  const stock = <SeatGlyphMarks glyph={glyph} />;
 
   return (
     <g
@@ -176,7 +184,17 @@ function SectionSeat({
       onFocus={interactive ? () => onSeatFocused?.(seat.id) : undefined}
       onKeyDown={interactive ? onSeatKeyDown : undefined}
     >
-      <SeatGlyphMarks glyph={glyph} />
+      {renderSeat ? (
+        <>
+          {renderSeat({ placed, seat, selected, glyph, defaultContent: stock })}
+          {/* Drawn over the custom content, because that content may have no
+              `.kerusi-seat__box` for the stock focus ring to stroke. Only
+              visible on :focus-visible. */}
+          <path className="kerusi-seat__focus" d={glyph.body.d} />
+        </>
+      ) : (
+        stock
+      )}
     </g>
   );
 }

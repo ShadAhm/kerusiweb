@@ -1,7 +1,7 @@
 import { buildRenderModel, formatMoney, summarizeSelection } from '@kerusiweb/core';
 import type { KerusiViolation } from '@kerusiweb/core';
 import { KerusiSeatmap } from '@kerusiweb/react';
-import type { SeatDisallowed } from '@kerusiweb/react';
+import type { SeatDisallowed, SeatRenderContext } from '@kerusiweb/react';
 import { DEMO_LOCALES, SCENARIOS } from '@kerusi/demo-scenarios';
 import type { Scenario } from '@kerusi/demo-scenarios';
 import { useCallback, useMemo, useState } from 'react';
@@ -17,6 +17,7 @@ export function App() {
   const [typeColors, setTypeColors] = useState(true);
   const [zoomable, setZoomable] = useState(true);
   const [maximizable, setMaximizable] = useState(true);
+  const [roundSeats, setRoundSeats] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   /** Selections are per scenario, so switching tabs does not lose a pick. */
@@ -179,6 +180,14 @@ export function App() {
                 />
                 Full screen
               </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={roundSeats}
+                  onChange={(e) => setRoundSeats(e.target.checked)}
+                />
+                Custom seat template
+              </label>
             </div>
           </div>
 
@@ -196,6 +205,7 @@ export function App() {
                 showLegend={showLegend}
                 zoomable={zoomable}
                 maximizable={maximizable}
+                renderSeat={roundSeats ? renderRoundSeat : undefined}
                 onSeatDisallowed={onDisallowed}
                 onValidationIssues={setIssues}
               />
@@ -317,6 +327,55 @@ export function App() {
 }
 
 const EMPTY: readonly string[] = [];
+
+/**
+ * The "Custom seat template" toggle: round seats, drawn from the paints and
+ * marks core already resolved for each one. Reusing the library's own classes
+ * for the wash and the occupant keeps their opacity, so held, booked and
+ * selected still read the same as on the stock seat. Defined once, outside the
+ * component, so the prop stays the same function between renders.
+ */
+function renderRoundSeat({ glyph }: SeatRenderContext) {
+  const { box, markBox, body, wash, core, occupant, label } = glyph;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  return (
+    <>
+      <circle cx={cx} cy={cy} r={box.width / 2} style={{ fill: body.fill }} />
+      {wash && (
+        <circle
+          className="kerusi-seat__wash"
+          cx={cx}
+          cy={cy}
+          r={box.width / 2}
+          style={{ fill: wash.fill }}
+        />
+      )}
+      {core && <circle cx={cx} cy={cy} r={markBox.width / 2} style={{ fill: core.fill }} />}
+      {occupant && (
+        <path
+          className={`kerusi-seat__occupant kerusi-seat__occupant--${occupant.variant}`}
+          d={occupant.d}
+          strokeWidth={occupant.strokeWidth}
+          style={{ fill: occupant.fill, stroke: occupant.stroke }}
+        />
+      )}
+      <text
+        className="kerusi-seat__label"
+        textAnchor="middle"
+        dominantBaseline="central"
+        x={label.x}
+        y={label.y}
+        fontSize={label.fontSize}
+        style={{ fill: label.fill, stroke: label.halo }}
+        strokeWidth={label.haloWidth}
+        transform={label.transform ?? undefined}
+      >
+        {label.text}
+      </text>
+    </>
+  );
+}
 
 function getInitialTheme(): Theme {
   try {

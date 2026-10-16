@@ -37,6 +37,25 @@ describe('App', () => {
     }
   });
 
+  it('swaps in the custom seat template when its toggle is on, and back off again', () => {
+    const toggle = [...el.querySelectorAll<HTMLLabelElement>('label.toggle')]
+      .find((label) => label.textContent?.includes('Custom seat template'))!
+      .querySelector('input')!;
+    const firstSeat = () => el.querySelector('g.kerusi-seat')!;
+    expect(firstSeat().querySelector('.kerusi-seat__box')).not.toBeNull();
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(firstSeat().querySelector('.kerusi-seat__box')).toBeNull();
+    expect(firstSeat().querySelector('circle')?.namespaceURI).toBe('http://www.w3.org/2000/svg');
+    expect(firstSeat().querySelector('.kerusi-seat__focus')).not.toBeNull();
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(firstSeat().querySelector('.kerusi-seat__box')).not.toBeNull();
+    expect(firstSeat().querySelector('.kerusi-seat__focus')).toBeNull();
+  });
+
   it('renders one svg per section of the selected scenario', () => {
     const sectionCount = SCENARIOS[0].map.sections.length;
     expect(el.querySelectorAll('kerusi-section svg')).toHaveLength(sectionCount);

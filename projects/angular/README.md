@@ -62,6 +62,7 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 | --------------------------------- | --------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `colors`                          | `KerusiSeatmapColors` | theme defaults   | Per-status fills, element tones, focus ring, backdrop. See [Theming](#theming) for the CSS custom properties.                   |
 | `typeColors`                      | `boolean`             | `true`           | Let an available seat take its `SeatType.color` (§4.7).                                                                         |
+| `<ng-template kerusiSeat>`        | content child         | —                | Draws the inside of every seat yourself. See [Custom seat content](#custom-seat-content).                                       |
 | `seatSize`                        | `number`              | `28`             | Grid cell edge, in viewBox units.                                                                                               |
 | `seatGap`                         | `number`              | `6`              | Gap between grid cells.                                                                                                         |
 | `freeformBasis`                   | `number`              | `1000`           | Freeform viewBox width; height follows the aspect ratio.                                                                        |
@@ -248,7 +249,89 @@ For anything the palette does not cover, each seat group carries class hooks:
 | `.kerusi-seat--companion`                                       | Has companions (§4.6).                     |
 
 Inside a seat: `.kerusi-seat__box`, `__wash`, `__core`, `__occupant`
-(`__occupant--selected` / `--held` / `--booked`), `__label`, `__wheelchair`.
+(`__occupant--selected` / `--held` / `--booked`), `__label`, `__wheelchair`, and,
+only while a [seat template](#custom-seat-content) is in use, `__focus`.
+
+### Custom seat content
+
+When the palette and the class hooks are not enough (an icon, a badge, a price
+tag, a different shape), draw the inside of each seat yourself. Put an
+`<ng-template kerusiSeat>` inside the map:
+
+```ts
+import { NgTemplateOutlet } from '@angular/common';
+import { KerusiSeatmapComponent, KerusiSeatTemplateDirective } from '@kerusiweb/angular';
+
+@Component({ imports: [KerusiSeatmapComponent, KerusiSeatTemplateDirective, NgTemplateOutlet] /* ... */ })
+```
+
+```html
+<kerusi-seatmap [map]="map" [state]="state" [(selection)]="picked">
+  <ng-template kerusiSeat let-seat>
+    <!-- The stock seat, then a badge on top of it. -->
+    <ng-container *ngTemplateOutlet="seat.defaultContent; context: { $implicit: seat }" />
+    @if (seat.seat.source.metadata?.['bestView']) {
+    <svg:circle
+      [attr.cx]="seat.glyph.box.x + seat.glyph.box.width"
+      [attr.cy]="seat.glyph.box.y"
+      r="4"
+      fill="gold"
+    />
+    }
+  </ng-template>
+</kerusi-seatmap>
+```
+
+**Prefix every element with `svg:`.** The template is declared outside any
+`<svg>`, so without the prefix Angular creates `<circle>` as an unknown HTML
+element and nothing is drawn. Control flow and `<ng-container>` need no prefix.
+
+`let-seat` is a `SeatTemplateContext`:
+
+| Field            | Type                                     |                                                                                                    |
+| ---------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `seat`           | `RenderSeat`                             | Status, type, price, accessibility, and the document's own `source.metadata`.                      |
+| `selected`       | `boolean`                                | Whether the seat is in the current selection.                                                      |
+| `placed`         | `PlacedSeat`                             | The seat's box, centre, font size and rotation, in viewBox units.                                  |
+| `glyph`          | `SeatGlyph`                              | The stock seat, resolved by `resolveSeatGlyph()` in core: every path, paint and position it draws. |
+| `defaultContent` | `TemplateRef<SeatTemplateOutletContext>` | The stock drawing. Render it with `context: { $implicit: seat }` to keep or add to it.             |
+
+The template is stamped again whenever the selection, the state or the theme
+changes, and it can sit inside an `@if` to switch it on and off at run time.
+
+**What the library keeps.** Each seat's `<g>` stays the library's: its role,
+`aria-label`, `aria-pressed`, `aria-disabled`, tab stop, `data-seat-id`, class
+list, rotation and its click, focus and key handlers. Only what is drawn inside
+it is yours. Keyboard navigation, selection, companions and announcements
+therefore behave exactly as they do for the stock seat, and the accessible name
+still comes from the library (and `ariaStrings`), whatever text you draw.
+
+**Coordinates.** Draw in the section's viewBox units, using `glyph.box` (or
+`placed`) for the seat's position and size. The `<g>` already carries the seat's
+rotation, so draw it unrotated with the front at the top edge;
+`glyph.label.transform` counter-rotates text so it stays upright.
+
+**Status is yours to show.** A template replaces the stock marks, including the
+occupant figure, the wash and the selected frame and core, which are what tell
+held, booked and selected apart by shape rather than colour (WCAG 1.4.1). The
+library's own styling options never alter those marks, so a template is the one
+place that can, and it carries that responsibility. The simplest way to keep
+them is to render `defaultContent` and add to it. Otherwise reuse `glyph.wash`,
+`glyph.core` and `glyph.occupant`, and the `kerusi-seat__wash` and
+`kerusi-seat__occupant--*` classes, which keep the stock opacity.
+
+**Focus outline.** The stock focus ring strokes `.kerusi-seat__box`, which your
+content may not have. So while a seat template is in use, the library draws one
+more path in every seat, after your content: `.kerusi-seat__focus`, an outline of
+the seat's body shown only on `:focus-visible`, so keyboard focus stays visible
+whatever you draw (WCAG 2.4.7). It takes the same colour as the stock ring
+(`--kerusi-focus-ring`, then `colors.focusRing`, then `currentColor`). It follows
+the seat's body outline, not your drawing; if you draw your own focus indicator,
+restyle or hide it with `.kerusi-seat:focus-visible .kerusi-seat__focus`. Without
+a seat template it is not rendered at all, and the markup is unchanged.
+
+**Legend.** The legend keeps drawing the stock glyph. If your seats look very
+different, turn it off and show your own key.
 
 ### Zoom, pan and maximize
 

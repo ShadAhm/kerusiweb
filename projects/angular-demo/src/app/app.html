@@ -81,6 +81,14 @@
           />
           Full screen
         </label>
+        <label class="toggle">
+          <input
+            type="checkbox"
+            [checked]="roundSeats()"
+            (change)="roundSeats.set($any($event.target).checked)"
+          />
+          Custom seat template
+        </label>
       </div>
     </div>
 
@@ -100,7 +108,65 @@
           [maximizable]="maximizable()"
           (seatDisallowed)="onDisallowed($event)"
           (validationIssues)="issues.set($event)"
-        />
+        >
+          <!-- The "Custom seat template" toggle: round seats, drawn from the
+               paints and marks core already resolved for each one. Reusing the
+               library's own classes for the wash and the occupant keeps their
+               opacity, so held, booked and selected still read the same as on
+               the stock seat. Declared outside an <svg>, so every element
+               needs the svg: prefix. -->
+          @if (roundSeats()) {
+            <ng-template kerusiSeat let-seat>
+              @let g = seat.glyph;
+              <svg:circle
+                [attr.cx]="g.box.x + g.box.width / 2"
+                [attr.cy]="g.box.y + g.box.height / 2"
+                [attr.r]="g.box.width / 2"
+                [style.fill]="g.body.fill"
+              />
+              @if (g.wash; as wash) {
+                <svg:circle
+                  class="kerusi-seat__wash"
+                  [attr.cx]="g.box.x + g.box.width / 2"
+                  [attr.cy]="g.box.y + g.box.height / 2"
+                  [attr.r]="g.box.width / 2"
+                  [style.fill]="wash.fill"
+                />
+              }
+              @if (g.core; as core) {
+                <svg:circle
+                  [attr.cx]="g.box.x + g.box.width / 2"
+                  [attr.cy]="g.box.y + g.box.height / 2"
+                  [attr.r]="g.markBox.width / 2"
+                  [style.fill]="core.fill"
+                />
+              }
+              @if (g.occupant; as occupant) {
+                <svg:path
+                  class="kerusi-seat__occupant kerusi-seat__occupant--{{ occupant.variant }}"
+                  [attr.d]="occupant.d"
+                  [attr.stroke-width]="occupant.strokeWidth"
+                  [style.fill]="occupant.fill"
+                  [style.stroke]="occupant.stroke"
+                />
+              }
+              <svg:text
+                class="kerusi-seat__label"
+                text-anchor="middle"
+                dominant-baseline="central"
+                [attr.x]="g.label.x"
+                [attr.y]="g.label.y"
+                [attr.font-size]="g.label.fontSize"
+                [style.fill]="g.label.fill"
+                [style.stroke]="g.label.halo"
+                [attr.stroke-width]="g.label.haloWidth"
+                [attr.transform]="g.label.transform"
+              >
+                {{ g.label.text }}
+              </svg:text>
+            </ng-template>
+          }
+        </kerusi-seatmap>
 
         <p class="keyboard-hint">
           Tab into the map, then use the arrow keys — they follow

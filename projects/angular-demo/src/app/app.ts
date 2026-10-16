@@ -5,7 +5,11 @@ import {
   KerusiViolation,
   summarizeSelection,
 } from '@kerusiweb/core';
-import { KerusiSeatmapComponent, SeatDisallowed } from '@kerusiweb/angular';
+import {
+  KerusiSeatmapComponent,
+  KerusiSeatTemplateDirective,
+  SeatDisallowed,
+} from '@kerusiweb/angular';
 import { DEMO_LOCALES, Scenario, SCENARIOS } from '@kerusi/demo-scenarios';
 
 const THEME_STORAGE_KEY = 'kerusi-demo-theme';
@@ -15,7 +19,7 @@ type Theme = 'light' | 'dark';
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KerusiSeatmapComponent],
+  imports: [KerusiSeatmapComponent, KerusiSeatTemplateDirective],
   templateUrl: './app.html',
   styleUrl: './app.css',
   host: { '[attr.data-theme]': 'theme()' },
@@ -30,6 +34,8 @@ export class App {
   protected readonly typeColors = signal(true);
   protected readonly zoomable = signal(true);
   protected readonly maximizable = signal(true);
+  /** Draws round seats through a `kerusiSeat` template. */
+  protected readonly roundSeats = signal(false);
   protected readonly showSource = signal(false);
   protected readonly theme = signal<Theme>(getInitialTheme());
 

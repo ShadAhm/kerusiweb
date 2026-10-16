@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  output,
+  TemplateRef,
+} from '@angular/core';
 import {
   cssVar,
   DEFAULT_KERUSI_COLORS,
@@ -13,6 +21,7 @@ import {
   screenPath,
   SectionLayout,
 } from '@kerusiweb/core';
+import { SeatTemplateOutletContext } from './kerusi-seat-template.directive';
 
 /**
  * Draws one Kerusi `Section` as a single `<svg>`.
@@ -28,6 +37,7 @@ import {
 @Component({
   selector: 'kerusi-section',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NgTemplateOutlet],
   templateUrl: './kerusi-section.component.html',
   styleUrl: './kerusi-section.component.css',
 })
@@ -45,6 +55,8 @@ export class KerusiSectionComponent {
   readonly colors = input<Required<KerusiSeatmapColors>>(DEFAULT_KERUSI_COLORS);
   /** Whether an available seat may take its `SeatType.color` (§4.7). */
   readonly typeColors = input<boolean>(true);
+  /** Draws the inside of each seat in place of the stock glyph. */
+  readonly seatTemplate = input<TemplateRef<SeatTemplateOutletContext> | undefined>(undefined);
   /** When false, seats render but do not respond to pointer or keyboard. */
   readonly interactive = input<boolean>(true);
   /**

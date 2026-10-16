@@ -57,6 +57,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    and the legend swatch helpers. Both demos gain "Aisle seats via CSS" and
    "Gold premium seats" toggles.
 
+7. **Seat shapes** (#26). `KerusiSeatStyle.shape` takes `'seat'` (the default
+   tapered outline), `'square'`, `'rounded'`, `'circle'`, or a function returning
+   a path `d` for a box. The wash, the selected frame and core, and a seat
+   template's focus outline follow it; the occupant figure and wheelchair marker
+   stay inside every preset (the marker moves in on a circle). A type styled with
+   a shape is keyed with it in the legend. Core adds `seatShapePath()`,
+   `seatMarkerAnchor()`, `legendSwatchPath()` and the `KerusiSeatShape` and
+   `SeatBox` types. Both demos gain a "Circle seat shape" toggle.
+
 ### Changed
 
 - **`SeatType.color` can now be overridden per seat.** It still has no theme

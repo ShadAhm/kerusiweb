@@ -577,6 +577,25 @@ describe('KerusiSeatmapComponent', () => {
       expect(label('A2').style.fill).toBe('var(--kerusi-seat-label, #ffffff)');
     });
 
+    it('draws a seat in the shape its style names, frame and core alike', () => {
+      set({ seatStyle: () => ({ shape: 'circle' }), selection: ['A1'] });
+      const arcs = (d: string) => d.split(' A ').length - 1;
+      // The stock outline has four rounded corners; a circle is two half arcs.
+      expect(arcs(box('A2').getAttribute('d')!)).toBe(2);
+      expect(arcs(box('A1').getAttribute('d')!)).toBe(2);
+      expect(arcs(core('A1').getAttribute('d')!)).toBe(2);
+    });
+
+    it('keys a shaped type with its shape in the legend', () => {
+      set({ seatTypeStyles: { sofa: { shape: 'circle', fill: '#d4a017' } }, showLegend: true });
+      const sofa = el.querySelector('.kerusi-legend__item[data-seat-type="sofa"]')!;
+      const path = sofa.querySelector<SVGPathElement>('svg.kerusi-legend__swatch path')!;
+      expect(path.style.fill).toBe('var(--kerusi-seat-fill, #d4a017)');
+      // A type without a shape keeps the flat square.
+      const standard = el.querySelector('.kerusi-legend__item[data-seat-type="standard"]')!;
+      expect(standard.querySelector('span.kerusi-legend__swatch')).not.toBeNull();
+    });
+
     it('never restyles a selected or blocked seat, whose colour is the status cue', () => {
       set({
         seatStyle: () => ({ fill: '#101010', labelColor: '#ff0000' }),

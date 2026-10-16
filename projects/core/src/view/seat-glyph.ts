@@ -1,9 +1,11 @@
 import { RenderSeat } from '../render/render-model.js';
 import {
-  seatBodyPath,
+  SeatBox,
+  seatMarkerAnchor,
   seatOccupantPath,
   seatOccupantStroke,
   seatSelectedFrame,
+  seatShapePath,
 } from '../render/seat-shapes.js';
 import { PlacedSeat } from '../render/section-layout.js';
 import { classList, KerusiSeatStyle } from './kerusi-seat-style.js';
@@ -31,14 +33,6 @@ import {
  * rather than re-derive them.
  */
 
-/** An axis-aligned box in viewBox units. */
-export interface SeatBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 /** A filled path. */
 export interface SeatGlyphShape {
   /** The path's `d` attribute. */
@@ -64,7 +58,10 @@ export interface SeatGlyph {
    * when it is selected. See {@link resolveSeatGlyph}.
    */
   markBox: SeatBox;
-  /** The outline: square-ish front, tapered back, so facing reads from the shape. */
+  /**
+   * The outline: by default square-ish at the front and tapered at the back, so
+   * facing reads from the shape; otherwise the seat style's `shape`.
+   */
   body: SeatGlyphShape;
   /** The dimming wash over a held or booked seat; absent otherwise. */
   wash?: SeatGlyphShape;
@@ -157,7 +154,9 @@ export function resolveSeatGlyph(
     height: placed.height,
   };
   const markBox = selected ? coreBox(box) : box;
-  const bodyD = seatBodyPath(box.x, box.y, box.width, box.height);
+  const shape = style?.shape;
+  const bodyD = seatShapePath(shape, box.x, box.y, box.width, box.height);
+  const anchor = seatMarkerAnchor(shape);
   const textFill = seatTextFill(seat, selected, colors, typeColors, style);
 
   return {
@@ -173,7 +172,7 @@ export function resolveSeatGlyph(
         : undefined,
     core: selected
       ? {
-          d: seatBodyPath(markBox.x, markBox.y, markBox.width, markBox.height),
+          d: seatShapePath(shape, markBox.x, markBox.y, markBox.width, markBox.height),
           fill: seatCoreFill(colors),
         }
       : undefined,
@@ -205,13 +204,26 @@ export function resolveSeatGlyph(
     // a selected seat's dot stays whole instead of being bitten off by the frame.
     wheelchair: seat.accessibility?.wheelchairAccessible
       ? {
-          cx: markBox.x + markBox.width * 0.82,
-          cy: markBox.y + markBox.height * 0.18,
+          cx: markBox.x + markBox.width * anchor.x,
+          cy: markBox.y + markBox.height * anchor.y,
           r: markBox.width * 0.13,
           fill: textFill,
         }
       : undefined,
   };
+}
+
+/**
+ * The outline for a legend type swatch drawn in its type's `shape`, on a
+ * `size`-square box, or `undefined` to keep the flat square swatch: a type with
+ * no shape, or the default `'seat'`, has nothing a square does not already say.
+ */
+export function legendSwatchPath(
+  typeStyle: KerusiSeatStyle | undefined,
+  size: number,
+): string | undefined {
+  const shape = typeStyle?.shape;
+  return shape && shape !== 'seat' ? seatShapePath(shape, 0, 0, size, size) : undefined;
 }
 
 /** The selected core's box: the seat's, inset by the frame width on every side. */

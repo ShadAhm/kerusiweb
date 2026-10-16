@@ -1,4 +1,5 @@
 import { RenderSeat } from '../render/render-model.js';
+import { KerusiSeatShape } from '../render/seat-shapes.js';
 
 /**
  * Per-seat styling from code: the TypeScript counterpart of the
@@ -27,6 +28,12 @@ export interface KerusiSeatStyle {
   labelColor?: string;
   /** Extra classes on the seat's `<g>`, for CSS that needs more than colour. */
   className?: string | readonly string[];
+  /**
+   * The seat's outline, in place of the default tapered `'seat'`. The wash, the
+   * selected frame and core, and the focus outline follow it. Only `'seat'`
+   * shows which way a seat faces.
+   */
+  shape?: KerusiSeatShape;
 }
 
 /** Styles keyed by `SeatType.id`, for the `seatTypeStyles` input/prop. */
@@ -65,6 +72,7 @@ export function resolveSeatStyle(
   return {
     fill: bySeat?.fill ?? byType?.fill,
     labelColor: bySeat?.labelColor ?? byType?.labelColor,
+    shape: bySeat?.shape ?? byType?.shape,
     className: classes.length ? classes : undefined,
   };
 }

@@ -3,6 +3,7 @@ import {
   DEFAULT_KERUSI_COLORS,
   formatMoney,
   legendSwatchFill,
+  legendSwatchPath,
   legendSwatchText,
   occupantFillFor,
   occupantStrokeFor,
@@ -104,29 +105,34 @@ export function KerusiLegend({
           <ul className="kerusi-legend__list">
             {types.map((entry) => {
               const price = entry.price ? formatMoney(entry.price, locale) : '';
+              const typeStyle = seatTypeStyles?.[entry.id];
+              const shapePath = legendSwatchPath(typeStyle, GLYPH_SIZE);
+              const swatchFill = legendSwatchFill(entry, colors, typeColors, typeStyle);
               return (
                 <li key={entry.id} className="kerusi-legend__item" data-seat-type={entry.id}>
-                  <span
-                    className="kerusi-legend__swatch"
-                    aria-hidden="true"
-                    style={{
-                      // Same token and fallback as an available seat of the
-                      // type, so a rule that sets `--kerusi-seat-fill` on the
-                      // seats and the legend items keeps them in step.
-                      background: legendSwatchFill(
-                        entry,
-                        colors,
-                        typeColors,
-                        seatTypeStyles?.[entry.id],
-                      ),
-                      color: legendSwatchText(
-                        entry,
-                        colors,
-                        typeColors,
-                        seatTypeStyles?.[entry.id],
-                      ),
-                    }}
-                  />
+                  {shapePath ? (
+                    /* A type styled with its own shape keys that shape, not a square. */
+                    <svg
+                      className="kerusi-legend__swatch kerusi-legend__swatch--glyph"
+                      aria-hidden="true"
+                      focusable="false"
+                      viewBox={`0 0 ${GLYPH_SIZE} ${GLYPH_SIZE}`}
+                    >
+                      <path d={shapePath} style={{ fill: swatchFill }} />
+                    </svg>
+                  ) : (
+                    <span
+                      className="kerusi-legend__swatch"
+                      aria-hidden="true"
+                      style={{
+                        // Same token and fallback as an available seat of the
+                        // type, so a rule that sets `--kerusi-seat-fill` on the
+                        // seats and the legend items keeps them in step.
+                        background: swatchFill,
+                        color: legendSwatchText(entry, colors, typeColors, typeStyle),
+                      }}
+                    />
+                  )}
                   <span className="kerusi-legend__label">{entry.label}</span>
                   {showPrices && price && <span className="kerusi-legend__price">{price}</span>}
                 </li>

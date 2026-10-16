@@ -105,6 +105,14 @@
           />
           Gold premium seats
         </label>
+        <label class="toggle">
+          <input
+            type="checkbox"
+            [checked]="circleShape()"
+            (change)="circleShape.set($any($event.target).checked)"
+          />
+          Circle seat shape
+        </label>
       </div>
     </div>
 
@@ -123,6 +131,7 @@
           [zoomable]="zoomable()"
           [maximizable]="maximizable()"
           [seatTypeStyles]="seatTypeStyles()"
+          [seatStyle]="circleShape() ? circleSeats : undefined"
           (seatDisallowed)="onDisallowed($event)"
           (validationIssues)="issues.set($event)"
         >

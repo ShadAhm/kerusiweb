@@ -292,11 +292,12 @@ When the choice lives in TypeScript (a recommendation, a search result, the
 document's own `Seat.metadata`), use `seatTypeStyles` for whole types and
 `seatStyle` for single seats. Both take a `KerusiSeatStyle`:
 
-| Field        | Type                          |                                                                                                        |
-| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `fill`       | `string`                      | The seat's own colour, the same slot as `--kerusi-seat-fill`. Any CSS colour.                          |
-| `labelColor` | `string`                      | The number's colour. Defaults to black or white for a hex `fill`; set it for any other kind of colour. |
-| `className`  | `string \| readonly string[]` | Extra classes on the seat's `<g>`, for CSS that needs more than colour.                                |
+| Field        | Type                          |                                                                                                                    |
+| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `fill`       | `string`                      | The seat's own colour, the same slot as `--kerusi-seat-fill`. Any CSS colour.                                      |
+| `labelColor` | `string`                      | The number's colour. Defaults to black or white for a hex `fill`; set it for any other kind of colour.             |
+| `className`  | `string \| readonly string[]` | Extra classes on the seat's `<g>`, for CSS that needs more than colour.                                            |
+| `shape`      | `KerusiSeatShape`             | The seat's outline: `'seat'` (default), `'square'`, `'rounded'`, `'circle'`, or a function. See [Shapes](#shapes). |
 
 ```tsx
 import type { SeatStyleFn, SeatTypeStyles } from '@kerusiweb/core';
@@ -333,6 +334,33 @@ A seat's colour resolves in this order, first match wins:
 - The function runs for every seat on every render of the map, so keep it
   cheap. A new function or object each render is fine, since neither rebuilds the
   render model, but declaring them once outside the component is simplest.
+
+#### Shapes
+
+A style's `shape` changes the seat's outline. It works in `seatTypeStyles` (a
+sofa type drawn rounded, say) and in `seatStyle`; for every seat at once, use
+`seatStyle={() => ({ shape: 'circle' })}`.
+
+| `shape`                    |                                                                             |
+| -------------------------- | --------------------------------------------------------------------------- |
+| `'seat'`                   | The default: square-ish at the front, tapered at the back.                  |
+| `'square'`                 | A square with the same slight corners as the seat's front.                  |
+| `'rounded'`                | A square with soft corners.                                                 |
+| `'circle'`                 | A circle filling the seat's box.                                            |
+| `(box: SeatBox) => string` | Your own closed path `d`, drawn inside `box` (`x`, `y`, `width`, `height`). |
+
+- **Status marks follow the shape.** The wash, the selected frame and core, and
+  a seat template's focus outline are all drawn in it, and the occupant figure
+  and wheelchair marker sit inside every preset.
+- **Only `'seat'` shows which way a seat faces.** The other presets are
+  symmetric, so on rotated seats (a fanned theatre, a stadium bowl) that cue is
+  lost.
+- **A function shape must draw relative to the box it is given.** It is called
+  once for the seat and again for the selected core's smaller box. Leave room
+  for the occupant figure (the middle 44% of the width, from 15% to 86% of the
+  height) and keep the top-right corner filled for the wheelchair marker.
+- **The legend draws a shaped type in its shape.** Types without a `shape`, and
+  every status swatch, keep their usual swatches.
 
 ### Custom seat content
 
@@ -396,13 +424,14 @@ them is to render `defaultContent` and add to it. Otherwise reuse `glyph.wash`,
 
 **Focus outline.** The stock focus ring strokes `.kerusi-seat__box`, which your
 content may not have. So while a seat template is in use, the library draws one
-more path in every seat, after your content: `.kerusi-seat__focus`, an outline of
-the seat's body shown only on `:focus-visible`, so keyboard focus stays visible
-whatever you draw (WCAG 2.4.7). It takes the same colour as the stock ring
-(`--kerusi-focus-ring`, then `colors.focusRing`, then `currentColor`). It follows
-the seat's body outline, not your drawing; if you draw your own focus indicator,
-restyle or hide it with `.kerusi-seat:focus-visible .kerusi-seat__focus`. Without
-a seat template it is not rendered at all, and the markup is unchanged.
+more path in every seat, after your content: `.kerusi-seat__focus`, an outline
+of the seat's body shown only on `:focus-visible`, so keyboard focus stays
+visible whatever you draw (WCAG 2.4.7). It takes the same colour as the stock
+ring (`--kerusi-focus-ring`, then `colors.focusRing`, then `currentColor`). It
+follows the seat's outline (its [`shape`](#shapes), if a style gives one), not
+your drawing; if you draw your own focus indicator, restyle or hide it with
+`.kerusi-seat:focus-visible .kerusi-seat__focus`. Without a seat template it is
+not rendered at all, and the markup is unchanged.
 
 **Legend.** The legend keeps drawing the stock glyph. If your seats look very
 different, turn it off and show your own key.

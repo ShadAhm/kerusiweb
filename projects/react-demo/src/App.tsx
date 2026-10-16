@@ -1,5 +1,5 @@
 import { buildRenderModel, formatMoney, summarizeSelection } from '@kerusiweb/core';
-import type { KerusiViolation } from '@kerusiweb/core';
+import type { KerusiViolation, SeatStyleFn } from '@kerusiweb/core';
 import { KerusiSeatmap } from '@kerusiweb/react';
 import type { SeatDisallowed, SeatRenderContext } from '@kerusiweb/react';
 import { DEMO_LOCALES, premiumTypeStyles, SCENARIOS } from '@kerusi/demo-scenarios';
@@ -20,6 +20,7 @@ export function App() {
   const [roundSeats, setRoundSeats] = useState(false);
   const [aisleCss, setAisleCss] = useState(false);
   const [goldPremium, setGoldPremium] = useState(false);
+  const [circleShape, setCircleShape] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   /** Selections are per scenario, so switching tabs does not lose a pick. */
@@ -211,6 +212,14 @@ export function App() {
                 />
                 Gold premium seats
               </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={circleShape}
+                  onChange={(e) => setCircleShape(e.target.checked)}
+                />
+                Circle seat shape
+              </label>
             </div>
           </div>
 
@@ -229,6 +238,7 @@ export function App() {
                 zoomable={zoomable}
                 maximizable={maximizable}
                 seatTypeStyles={seatTypeStyles}
+                seatStyle={circleShape ? circleSeats : undefined}
                 renderSeat={roundSeats ? renderRoundSeat : undefined}
                 onSeatDisallowed={onDisallowed}
                 onValidationIssues={setIssues}
@@ -351,6 +361,9 @@ export function App() {
 }
 
 const EMPTY: readonly string[] = [];
+
+/** The "Circle seat shape" toggle: every seat as a circle, through `seatStyle`. */
+const circleSeats: SeatStyleFn = () => ({ shape: 'circle' });
 
 /**
  * The "Custom seat template" toggle: round seats, drawn from the paints and

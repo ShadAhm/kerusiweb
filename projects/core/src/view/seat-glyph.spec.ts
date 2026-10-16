@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { KerusiMap } from '../kerusi/kerusi-map.model.js';
 import { KerusiState } from '../kerusi/kerusi-state.model.js';
 import { buildRenderModel } from '../render/build-render-model.js';
-import { seatBodyPath, seatOccupantPath, seatSelectedFrame } from '../render/seat-shapes.js';
+import {
+  KerusiSeatShape,
+  SeatBox,
+  seatBodyPath,
+  seatOccupantPath,
+  seatSelectedFrame,
+  seatShapePath,
+} from '../render/seat-shapes.js';
 import { computeSectionLayout, PlacedSeat } from '../render/section-layout.js';
 import {
   cssVar,
@@ -17,7 +24,12 @@ import {
   seatTextFill,
   seatWashFill,
 } from './kerusi-seatmap-colors.js';
-import { resolveSeatGlyph, seatClassName, seatDataAttributes } from './seat-glyph.js';
+import {
+  legendSwatchPath,
+  resolveSeatGlyph,
+  seatClassName,
+  seatDataAttributes,
+} from './seat-glyph.js';
 
 const MAP: KerusiMap = {
   kerusi: '1.0',
@@ -248,5 +260,118 @@ describe('seatDataAttributes', () => {
     expect(resolveSeatGlyph(placed('A1'), false, colors, true).data).toEqual(
       seatDataAttributes(placed('A1').seat),
     );
+  });
+});
+
+describe('seat shapes in the glyph', () => {
+  /** A 100-unit seat, so every check below reads in percentages. */
+  const big = (id: string, state?: KerusiState): PlacedSeat => ({
+    ...placed(id, state),
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100,
+    centerX: 50,
+    centerY: 50,
+    fontSize: 20,
+    rotation: 0,
+  });
+
+  /** Whether a point lies inside a preset's outline on `box`; every preset is convex. */
+  function inside(shape: 'square' | 'rounded' | 'circle', box: SeatBox, px: number, py: number) {
+    const { x, y, width: w, height: h } = box;
+    const eps = 1e-9;
+    if (px < x - eps || px > x + w + eps || py < y - eps || py > y + h + eps) return false;
+    if (shape === 'circle') {
+      return ((px - x - w / 2) / (w / 2)) ** 2 + ((py - y - h / 2) / (h / 2)) ** 2 <= 1 + eps;
+    }
+    const radius = Math.min(w, h) * (shape === 'square' ? 0.08 : 0.25);
+    const cx = px < x + radius ? x + radius : px > x + w - radius ? x + w - radius : px;
+    const cy = py < y + radius ? y + radius : py > y + h - radius ? y + h - radius : py;
+    return Math.hypot(px - cx, py - cy) <= radius + eps;
+  }
+
+  /** Points around a circle. */
+  const ring = (cx: number, cy: number, radius: number) =>
+    Array.from({ length: 32 }, (_, i) => {
+      const a = (i / 32) * Math.PI * 2;
+      return [cx + Math.cos(a) * radius, cy + Math.sin(a) * radius] as const;
+    });
+
+  /**
+   * Points that bound the occupant figure: its head, sampled, and the torso's
+   * endpoints and Bézier control points. A curve lies in the hull of its
+   * control points, so if they are inside a convex outline, so is the curve.
+   */
+  function occupantPoints(d: string) {
+    const [head, torso] = d.split(/ (?=M )/);
+    const [hx, hy, radius] = head!.match(/-?\d+(\.\d+)?/g)!.map(Number);
+    const torsoNumbers = torso!.match(/-?\d+(\.\d+)?/g)!.map(Number);
+    const torsoPoints: (readonly [number, number])[] = [];
+    for (let i = 0; i < torsoNumbers.length; i += 2) {
+      torsoPoints.push([torsoNumbers[i]!, torsoNumbers[i + 1]!]);
+    }
+    return [...ring(hx! + radius!, hy!, radius!), ...torsoPoints];
+  }
+
+  for (const shape of ['square', 'rounded', 'circle'] as const) {
+    describe(shape, () => {
+      it('draws the body, the wash and the selected core in the shape', () => {
+        const booked = resolveSeatGlyph(big('L2'), false, colors, true, { shape });
+        expect(booked.body.d).toBe(seatShapePath(shape, 0, 0, 100, 100));
+        expect(booked.wash?.d).toBe(booked.body.d);
+
+        const selected = resolveSeatGlyph(big('A3'), true, colors, true, { shape });
+        const m = selected.markBox;
+        expect(selected.core?.d).toBe(seatShapePath(shape, m.x, m.y, m.width, m.height));
+      });
+
+      it('keeps a booked seat’s occupant inside the body', () => {
+        const glyph = resolveSeatGlyph(big('L2'), false, colors, true, { shape });
+        for (const [px, py] of occupantPoints(glyph.occupant!.d)) {
+          expect(inside(shape, glyph.box, px, py), `${px},${py}`).toBe(true);
+        }
+      });
+
+      it('keeps a selected seat’s occupant and wheelchair marker inside the core', () => {
+        const glyph = resolveSeatGlyph(big('A3'), true, colors, true, { shape });
+        const w = glyph.wheelchair!;
+        for (const [px, py] of [...occupantPoints(glyph.occupant!.d), ...ring(w.cx, w.cy, w.r)]) {
+          expect(inside(shape, glyph.markBox, px, py), `${px},${py}`).toBe(true);
+        }
+      });
+
+      it('keeps an unselected seat’s wheelchair marker inside the body', () => {
+        const glyph = resolveSeatGlyph(big('A3'), false, colors, true, { shape });
+        const w = glyph.wheelchair!;
+        for (const [px, py] of ring(w.cx, w.cy, w.r)) {
+          expect(inside(shape, glyph.box, px, py), `${px},${py}`).toBe(true);
+        }
+      });
+    });
+  }
+
+  it('calls a function shape for the seat’s box and again for the core’s', () => {
+    const boxes: SeatBox[] = [];
+    const shape: KerusiSeatShape = (box) => {
+      boxes.push(box);
+      return seatShapePath('rounded', box.x, box.y, box.width, box.height);
+    };
+    const glyph = resolveSeatGlyph(big('A3'), true, colors, true, { shape });
+    expect(boxes).toEqual([glyph.box, glyph.markBox]);
+  });
+
+  it('draws the stock seat when the style names no shape', () => {
+    const glyph = resolveSeatGlyph(big('A1'), false, colors, true, { fill: '#123456' });
+    expect(glyph.body.d).toBe(seatBodyPath(0, 0, 100, 100));
+  });
+});
+
+describe('legendSwatchPath', () => {
+  it('keys a shaped type with its shape, and leaves the rest as squares', () => {
+    expect(legendSwatchPath(undefined, 16)).toBeUndefined();
+    expect(legendSwatchPath({ fill: '#123456' }, 16)).toBeUndefined();
+    expect(legendSwatchPath({ shape: 'seat' }, 16)).toBeUndefined();
+    expect(legendSwatchPath({ shape: 'circle' }, 16)).toBe(seatShapePath('circle', 0, 0, 16, 16));
   });
 });

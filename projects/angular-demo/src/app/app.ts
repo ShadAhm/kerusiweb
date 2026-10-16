@@ -3,6 +3,7 @@ import {
   buildRenderModel,
   formatMoney,
   KerusiViolation,
+  SeatStyleFn,
   summarizeSelection,
 } from '@kerusiweb/core';
 import {
@@ -40,6 +41,9 @@ export class App {
   protected readonly aisleCss = signal(false);
   /** Paints the venue's top-priced seat type gold through `seatTypeStyles`. */
   protected readonly goldPremium = signal(false);
+  /** Draws every seat as a circle through `seatStyle`. */
+  protected readonly circleShape = signal(false);
+  protected readonly circleSeats: SeatStyleFn = () => ({ shape: 'circle' });
   protected readonly showSource = signal(false);
   protected readonly theme = signal<Theme>(getInitialTheme());
 

@@ -85,6 +85,13 @@ describe('App', () => {
     expect(el.querySelector('.demo-aisles [data-seat-attributes~="aisle"]')).not.toBeNull();
   });
 
+  it('draws every seat as a circle from its toggle', () => {
+    toggleNamed('Circle seat shape').click();
+    fixture.detectChanges();
+    const d = el.querySelector('.kerusi-seat__box')!.getAttribute('d')!;
+    expect(d.split(' A ').length - 1).toBe(2);
+  });
+
   it('renders one svg per section of the selected scenario', () => {
     const sectionCount = SCENARIOS[0].map.sections.length;
     expect(el.querySelectorAll('kerusi-section svg')).toHaveLength(sectionCount);

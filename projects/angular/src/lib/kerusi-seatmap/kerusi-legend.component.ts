@@ -5,6 +5,7 @@ import {
   formatMoney,
   KerusiSeatmapColors,
   legendSwatchFill,
+  legendSwatchPath,
   legendSwatchText,
   occupantFillFor,
   occupantStrokeFor,
@@ -101,6 +102,11 @@ export class KerusiLegendComponent {
       this.typeColors(),
       this.seatTypeStyles()?.[entry.id],
     );
+  }
+
+  /** The swatch outline for a type styled with its own shape; `undefined` keeps the square. */
+  protected typeShape(entry: RenderLegendEntry): string | undefined {
+    return legendSwatchPath(this.seatTypeStyles()?.[entry.id], this.glyphSize);
   }
 
   protected swatchText(entry: RenderLegendEntry): string {

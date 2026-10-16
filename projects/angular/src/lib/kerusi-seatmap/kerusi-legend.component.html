@@ -5,12 +5,24 @@
       <ul class="kerusi-legend__list">
         @for (entry of types(); track entry.id) {
           <li class="kerusi-legend__item" [attr.data-seat-type]="entry.id">
-            <span
-              class="kerusi-legend__swatch"
-              aria-hidden="true"
-              [style.background]="swatch(entry)"
-              [style.color]="swatchText(entry)"
-            ></span>
+            @if (typeShape(entry); as d) {
+              <!-- A type styled with its own shape keys that shape, not a square. -->
+              <svg
+                class="kerusi-legend__swatch kerusi-legend__swatch--glyph"
+                aria-hidden="true"
+                focusable="false"
+                [attr.viewBox]="'0 0 ' + glyphSize + ' ' + glyphSize"
+              >
+                <path [attr.d]="d" [style.fill]="swatch(entry)" />
+              </svg>
+            } @else {
+              <span
+                class="kerusi-legend__swatch"
+                aria-hidden="true"
+                [style.background]="swatch(entry)"
+                [style.color]="swatchText(entry)"
+              ></span>
+            }
             <span class="kerusi-legend__label">{{ entry.label }}</span>
             @if (showPrices() && price(entry)) {
               <span class="kerusi-legend__price">{{ price(entry) }}</span>

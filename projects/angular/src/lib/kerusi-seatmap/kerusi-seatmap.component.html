@@ -119,6 +119,7 @@
       [locale]="resolvedLocale()"
       [colors]="resolvedColors()"
       [typeColors]="typeColors()"
+      [seatTypeStyles]="seatTypeStyles()"
       [showPrices]="showLegendPrices()"
     />
   }
@@ -147,6 +148,8 @@
         [colors]="resolvedColors()"
         [typeColors]="typeColors()"
         [seatTemplate]="seatTemplate()?.template"
+        [seatStyle]="seatStyle()"
+        [seatTypeStyles]="seatTypeStyles()"
         [unitScale]="unitScale()"
         [interactive]="interactive()"
         (seatActivate)="onSeatActivate($event)"

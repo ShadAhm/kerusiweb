@@ -56,6 +56,8 @@ import {
   SeatAriaStrings,
   seatAriaLabel,
   SeatRenderStatus,
+  SeatStyleFn,
+  SeatTypeStyles,
   SectionLayout,
   stepViewport,
   summarizeSelection,
@@ -164,6 +166,17 @@ export class KerusiSeatmapComponent {
   readonly colors = input<KerusiSeatmapColors>({});
   /** Let an available seat take its `SeatType.color` (§4.7). */
   readonly typeColors = input<boolean>(true);
+  /**
+   * Styles for every seat of a type, keyed by `SeatType.id`: fill, label colour
+   * and classes. Never changes a selected or blocked seat's fill. Also shown in
+   * the legend.
+   */
+  readonly seatTypeStyles = input<SeatTypeStyles | undefined>(undefined);
+  /**
+   * A style for one seat, laid over its `seatTypeStyles` entry; return nothing
+   * to leave a seat be. Never changes a selected or blocked seat's fill.
+   */
+  readonly seatStyle = input<SeatStyleFn | undefined>(undefined);
   /**
    * A `<ng-template kerusiSeat let-seat>` placed inside the map draws the inside
    * of every seat in place of the stock glyph. See {@link KerusiSeatTemplateDirective}.

@@ -13,7 +13,12 @@ import {
   seatSelectedFrame,
   seatWashFill,
 } from '@kerusiweb/core';
-import type { KerusiSeatmapColors, RenderLegendEntry, SeatOccupantVariant } from '@kerusiweb/core';
+import type {
+  KerusiSeatmapColors,
+  RenderLegendEntry,
+  SeatOccupantVariant,
+  SeatTypeStyles,
+} from '@kerusiweb/core';
 
 /** Which marks, beyond the body fill, a status swatch draws. */
 type StatusKind = 'plain' | 'blocked' | SeatOccupantVariant;
@@ -34,6 +39,8 @@ export interface KerusiLegendProps {
   colors?: Required<KerusiSeatmapColors>;
   /** Whether an available seat takes its type color — mirrors the seatmap prop. */
   typeColors?: boolean;
+  /** Mirrors the seatmap prop: a type's style is what its swatch shows. */
+  seatTypeStyles?: SeatTypeStyles;
   showPrices?: boolean;
   /** Hide types no seat in the rendered map actually uses. */
   hideUnusedTypes?: boolean;
@@ -80,6 +87,7 @@ export function KerusiLegend({
   locale = 'en',
   colors = DEFAULT_KERUSI_COLORS,
   typeColors = true,
+  seatTypeStyles,
   showPrices = true,
   hideUnusedTypes = true,
   headingSeatTypes = 'Seat types',
@@ -105,8 +113,18 @@ export function KerusiLegend({
                       // Same token and fallback as an available seat of the
                       // type, so a rule that sets `--kerusi-seat-fill` on the
                       // seats and the legend items keeps them in step.
-                      background: legendSwatchFill(entry, colors, typeColors),
-                      color: legendSwatchText(entry, colors, typeColors),
+                      background: legendSwatchFill(
+                        entry,
+                        colors,
+                        typeColors,
+                        seatTypeStyles?.[entry.id],
+                      ),
+                      color: legendSwatchText(
+                        entry,
+                        colors,
+                        typeColors,
+                        seatTypeStyles?.[entry.id],
+                      ),
                     }}
                   />
                   <span className="kerusi-legend__label">{entry.label}</span>

@@ -7,3 +7,4 @@
  * `fixtures.spec.ts` in the Angular demo is the gate that validates them.
  */
 export * from './scenarios.js';
+export * from './seat-styles.js';

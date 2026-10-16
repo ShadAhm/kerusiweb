@@ -5,6 +5,7 @@ import {
   elementStyle,
   elementTextFill,
   resolveSeatGlyph,
+  resolveSeatStyle,
   screenPath,
 } from '@kerusiweb/core';
 import type {
@@ -13,6 +14,8 @@ import type {
   PlacedSeat,
   RenderSection,
   SeatGlyph,
+  SeatStyleFn,
+  SeatTypeStyles,
   SectionLayout,
 } from '@kerusiweb/core';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
@@ -30,6 +33,10 @@ export interface KerusiSectionProps {
   colors?: Required<KerusiSeatmapColors>;
   /** Whether an available seat may take its `SeatType.color` (§4.7). */
   typeColors?: boolean;
+  /** Styles for every seat of a type, keyed by `SeatType.id`. */
+  seatTypeStyles?: SeatTypeStyles;
+  /** A style for one seat, laid over its type's. */
+  seatStyle?: SeatStyleFn;
   /** Draws the inside of each seat in place of the stock glyph. */
   renderSeat?: (ctx: SeatRenderContext) => ReactNode;
   /** When false, seats render but do not respond to pointer or keyboard. */
@@ -72,6 +79,8 @@ export function KerusiSection({
   ariaLabels = EMPTY_LABELS,
   colors = DEFAULT_KERUSI_COLORS,
   typeColors = true,
+  seatTypeStyles,
+  seatStyle,
   renderSeat,
   interactive = true,
   unitScale = 1,
@@ -120,6 +129,8 @@ export function KerusiSection({
           ariaLabel={ariaLabels.get(placed.seat.id) ?? placed.seat.label}
           colors={colors}
           typeColors={typeColors}
+          seatTypeStyles={seatTypeStyles}
+          seatStyle={seatStyle}
           renderSeat={renderSeat}
           interactive={interactive}
           onSeatActivate={onSeatActivate}
@@ -141,6 +152,8 @@ interface SeatProps {
   ariaLabel: string;
   colors: Required<KerusiSeatmapColors>;
   typeColors: boolean;
+  seatTypeStyles?: SeatTypeStyles;
+  seatStyle?: SeatStyleFn;
   renderSeat?: (ctx: SeatRenderContext) => ReactNode;
   interactive: boolean;
   onSeatActivate?: (seatId: string) => void;
@@ -156,6 +169,8 @@ function SectionSeat({
   ariaLabel,
   colors,
   typeColors,
+  seatTypeStyles,
+  seatStyle,
   renderSeat,
   interactive,
   onSeatActivate,
@@ -164,7 +179,8 @@ function SectionSeat({
   registerSeat,
 }: SeatProps) {
   const seat = placed.seat;
-  const glyph = resolveSeatGlyph(placed, selected, colors, typeColors);
+  const style = resolveSeatStyle(seat, selected, seatTypeStyles, seatStyle);
+  const glyph = resolveSeatGlyph(placed, selected, colors, typeColors, style);
   const stock = <SeatGlyphMarks glyph={glyph} />;
 
   return (

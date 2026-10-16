@@ -10,7 +10,7 @@ import {
   KerusiSeatTemplateDirective,
   SeatDisallowed,
 } from '@kerusiweb/angular';
-import { DEMO_LOCALES, Scenario, SCENARIOS } from '@kerusi/demo-scenarios';
+import { DEMO_LOCALES, premiumTypeStyles, Scenario, SCENARIOS } from '@kerusi/demo-scenarios';
 
 const THEME_STORAGE_KEY = 'kerusi-demo-theme';
 
@@ -36,6 +36,10 @@ export class App {
   protected readonly maximizable = signal(true);
   /** Draws round seats through a `kerusiSeat` template. */
   protected readonly roundSeats = signal(false);
+  /** Recolours aisle seats from a stylesheet rule (`styles.css`). */
+  protected readonly aisleCss = signal(false);
+  /** Paints the venue's top-priced seat type gold through `seatTypeStyles`. */
+  protected readonly goldPremium = signal(false);
   protected readonly showSource = signal(false);
   protected readonly theme = signal<Theme>(getInitialTheme());
 
@@ -80,6 +84,10 @@ export class App {
   }
 
   /** Resolved selection: the seats picked, their prices, and the total. */
+  protected readonly seatTypeStyles = computed(() =>
+    this.goldPremium() ? premiumTypeStyles(this.scenario().map) : undefined,
+  );
+
   protected readonly summary = computed(() => {
     const scenario = this.scenario();
     const model = buildRenderModel(scenario.map, scenario.state, { locale: this.locale() });

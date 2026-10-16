@@ -14,6 +14,11 @@ describe('App', () => {
     fixture.detectChanges();
   });
 
+  const toggleNamed = (name: string) =>
+    [...el.querySelectorAll<HTMLLabelElement>('label.toggle')]
+      .find((label) => label.textContent?.includes(name))!
+      .querySelector('input')!;
+
   it('names the library', () => {
     expect(el.querySelector('h1')?.textContent).toContain('@kerusiweb/angular');
   });
@@ -54,6 +59,30 @@ describe('App', () => {
     fixture.detectChanges();
     expect(firstSeat().querySelector('.kerusi-seat__box')).not.toBeNull();
     expect(firstSeat().querySelector('.kerusi-seat__focus')).toBeNull();
+  });
+
+  it('paints the top-priced seat type gold, seats and legend alike, from its toggle', () => {
+    const toggle = toggleNamed('Gold premium seats');
+    toggle.click();
+    fixture.detectChanges();
+    const gold = 'var(--kerusi-seat-fill, #d4a017)';
+    const swatches = [
+      ...el.querySelectorAll<HTMLElement>('.kerusi-legend__item .kerusi-legend__swatch'),
+    ];
+    const goldSwatch = swatches.find((s) => s.style.background === gold)!;
+    expect(goldSwatch).toBeDefined();
+    const type = goldSwatch.closest('[data-seat-type]')!.getAttribute('data-seat-type');
+    const box = el.querySelector<SVGPathElement>(
+      `g.kerusi-seat[data-seat-type="${type}"]:not(.kerusi-seat--selected):not(.kerusi-seat--blocked) .kerusi-seat__box`,
+    )!;
+    expect(box.style.fill).toBe(gold);
+  });
+
+  it('marks the stage for the aisle-seat CSS rule from its toggle', () => {
+    toggleNamed('Aisle seats via CSS').click();
+    fixture.detectChanges();
+    expect(el.querySelector('.stage')!.classList).toContain('demo-aisles');
+    expect(el.querySelector('.demo-aisles [data-seat-attributes~="aisle"]')).not.toBeNull();
   });
 
   it('renders one svg per section of the selected scenario', () => {

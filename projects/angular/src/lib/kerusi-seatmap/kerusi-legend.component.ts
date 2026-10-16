@@ -12,6 +12,7 @@ import {
   seatBodyPath,
   SeatOccupantVariant,
   seatCoreFill,
+  SeatTypeStyles,
   seatOccupantPath,
   seatOccupantStroke,
   seatSelectedFrame,
@@ -56,6 +57,8 @@ export class KerusiLegendComponent {
   readonly colors = input<Required<KerusiSeatmapColors>>(DEFAULT_KERUSI_COLORS);
   /** Whether an available seat takes its type color — mirrors the seatmap input. */
   readonly typeColors = input<boolean>(true);
+  /** Mirrors the seatmap input: a type's style is what its swatch shows. */
+  readonly seatTypeStyles = input<SeatTypeStyles | undefined>(undefined);
   readonly showPrices = input<boolean>(true);
   /** Hide types no seat in the rendered map actually uses. */
   readonly hideUnusedTypes = input<boolean>(true);
@@ -92,11 +95,21 @@ export class KerusiLegendComponent {
   // Same token and fallback as an available seat of the type, so a rule that
   // sets `--kerusi-seat-fill` on the seats and the legend items keeps them in step.
   protected swatch(entry: RenderLegendEntry): string {
-    return legendSwatchFill(entry, this.colors(), this.typeColors());
+    return legendSwatchFill(
+      entry,
+      this.colors(),
+      this.typeColors(),
+      this.seatTypeStyles()?.[entry.id],
+    );
   }
 
   protected swatchText(entry: RenderLegendEntry): string {
-    return legendSwatchText(entry, this.colors(), this.typeColors());
+    return legendSwatchText(
+      entry,
+      this.colors(),
+      this.typeColors(),
+      this.seatTypeStyles()?.[entry.id],
+    );
   }
 
   // --- status swatches -------------------------------------------------------

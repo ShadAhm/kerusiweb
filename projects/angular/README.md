@@ -62,6 +62,8 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 | --------------------------------- | --------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `colors`                          | `KerusiSeatmapColors` | theme defaults   | Per-status fills, element tones, focus ring, backdrop. See [Theming](#theming) for the CSS custom properties.                   |
 | `typeColors`                      | `boolean`             | `true`           | Let an available seat take its `SeatType.color` (§4.7).                                                                         |
+| `seatTypeStyles`                  | `SeatTypeStyles`      | —                | Styles for every seat of a type, keyed by `SeatType.id`. Also shown in the legend. See [From code](#from-code).                 |
+| `seatStyle`                       | `SeatStyleFn`         | —                | A style for one seat, over its type's. Never recolours a selected or blocked seat. See [From code](#from-code).                 |
 | `<ng-template kerusiSeat>`        | content child         | —                | Draws the inside of every seat yourself. See [Custom seat content](#custom-seat-content).                                       |
 | `seatSize`                        | `number`              | `28`             | Grid cell edge, in viewBox units.                                                                                               |
 | `seatGap`                         | `number`              | `6`              | Gap between grid cells.                                                                                                         |
@@ -305,6 +307,59 @@ kerusi-seatmap .kerusi-seat[data-seat-attributes~='aisle'] {
 - **Where the rules go.** Put them in a global stylesheet. From a component's
   own stylesheet, Angular's emulated encapsulation scopes them away from the
   map's elements unless you prefix them with `::ng-deep`.
+
+#### From code
+
+When the choice lives in TypeScript (a recommendation, a search result, the
+document's own `Seat.metadata`), use `seatTypeStyles` for whole types and
+`seatStyle` for single seats. Both take a `KerusiSeatStyle`:
+
+| Field        | Type                          |                                                                                                        |
+| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `fill`       | `string`                      | The seat's own colour, the same slot as `--kerusi-seat-fill`. Any CSS colour.                          |
+| `labelColor` | `string`                      | The number's colour. Defaults to black or white for a hex `fill`; set it for any other kind of colour. |
+| `className`  | `string \| readonly string[]` | Extra classes on the seat's `<g>`, for CSS that needs more than colour.                                |
+
+```ts
+import { SeatStyleFn, SeatTypeStyles } from '@kerusiweb/core';
+
+export class VenueComponent {
+  protected readonly typeStyles: SeatTypeStyles = {
+    vip: { fill: '#d4a017', labelColor: '#000000' },
+  };
+  protected readonly highlight: SeatStyleFn = (seat) =>
+    seat.source.metadata?.['bestView'] ? { fill: '#2f6b45', className: 'best-view' } : undefined;
+}
+```
+
+```html
+<kerusi-seatmap [map]="map" [seatTypeStyles]="typeStyles" [seatStyle]="highlight" />
+```
+
+A seat's colour resolves in this order, first match wins:
+
+| #   | Source                                    |                                                          |
+| --- | ----------------------------------------- | -------------------------------------------------------- |
+| 1   | Selected                                  | `selectedBg` frame and `selectedFg` core, always.        |
+| 2   | Blocked                                   | `blockedBg`, always.                                     |
+| 3   | `--kerusi-seat-fill` from your stylesheet | See above.                                               |
+| 4   | `seatStyle(seat)`                         | Its `fill`.                                              |
+| 5   | `seatTypeStyles[seat.type]`               | Its `fill`. Applies whether or not `[typeColors]` is on. |
+| 6   | `SeatType.color`                          | When `[typeColors]` is on.                               |
+| 7   | `availableBg`                             | The theme.                                               |
+
+- **Status always reads.** Neither option can change a selected or blocked
+  seat's colour, and a held or booked seat keeps its wash and occupant figure
+  over whatever colour it has. A style that could recolour your own picks
+  would make them ambiguous. For anything beyond this, use a
+  [custom seat template](#custom-seat-content).
+- **Per-seat over per-type, field by field.** A `seatStyle` result replaces only
+  the fields it sets, so a type's `fill` survives a per-seat `className`.
+  Classes from both are kept.
+- **The legend shows `seatTypeStyles`**, because a type has one value to show.
+  A per-seat `seatStyle` has no single value a legend could draw.
+- The function runs for every seat whenever the selection, the state or the
+  theme changes, so keep it cheap.
 
 ### Custom seat content
 

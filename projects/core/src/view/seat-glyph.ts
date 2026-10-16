@@ -6,6 +6,7 @@ import {
   seatSelectedFrame,
 } from '../render/seat-shapes.js';
 import { PlacedSeat } from '../render/section-layout.js';
+import { classList, KerusiSeatStyle } from './kerusi-seat-style.js';
 import {
   KerusiSeatmapColors,
   occupantFillFor,
@@ -135,13 +136,17 @@ export interface KerusiSeatContext {
  * lands on a frame filled `selectedBg` and reads as a hard nub. Because the core
  * is an exact scaled copy of the body (see `seatSelectedFrame`), measuring from
  * it keeps every clearance a mark had against the body, so the frame width stays
- * free to change.
+ * free to change. *
+ * `style` is the seat's resolved `seatStyle` / `seatTypeStyles` entry (see
+ * `resolveSeatStyle`). It changes the seat's own colour, label colour and
+ * classes; it never changes a selected or blocked seat's fill.
  */
 export function resolveSeatGlyph(
   placed: PlacedSeat,
   selected: boolean,
   colors: Required<KerusiSeatmapColors>,
   typeColors: boolean,
+  style?: KerusiSeatStyle,
 ): SeatGlyph {
   const seat = placed.seat;
   const variant = seatOccupantVariant(seat, selected);
@@ -153,15 +158,15 @@ export function resolveSeatGlyph(
   };
   const markBox = selected ? coreBox(box) : box;
   const bodyD = seatBodyPath(box.x, box.y, box.width, box.height);
-  const textFill = seatTextFill(seat, selected, colors, typeColors);
+  const textFill = seatTextFill(seat, selected, colors, typeColors, style);
 
   return {
     variant,
-    className: seatClassName(seat, selected),
+    className: seatClassName(seat, selected, style?.className),
     data: seatDataAttributes(seat),
     box,
     markBox,
-    body: { d: bodyD, fill: seatFill(seat, selected, colors, typeColors) },
+    body: { d: bodyD, fill: seatFill(seat, selected, colors, typeColors, style) },
     wash:
       variant === 'held' || variant === 'booked'
         ? { d: bodyD, fill: seatWashFill(variant, colors) }
@@ -231,8 +236,15 @@ export function seatDataAttributes(seat: RenderSeat): SeatDataAttributes {
   };
 }
 
-/** The class list for a seat's `<g>`: the hooks the READMEs document. */
-export function seatClassName(seat: RenderSeat, selected: boolean): string {
+/**
+ * The class list for a seat's `<g>`: the hooks the READMEs document, then any
+ * `extra` classes from the seat's style.
+ */
+export function seatClassName(
+  seat: RenderSeat,
+  selected: boolean,
+  extra?: string | readonly string[],
+): string {
   return [
     'kerusi-seat',
     `kerusi-seat--${seat.status}`,
@@ -240,6 +252,7 @@ export function seatClassName(seat: RenderSeat, selected: boolean): string {
     seat.selectable ? '' : 'kerusi-seat--unselectable',
     seat.accessibility?.wheelchairAccessible ? 'kerusi-seat--wheelchair' : '',
     seat.companions.length > 0 ? 'kerusi-seat--companion' : '',
+    ...classList(extra),
   ]
     .filter(Boolean)
     .join(' ');

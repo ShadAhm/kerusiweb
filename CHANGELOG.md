@@ -45,6 +45,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    reads. Legend type items carry the same `data-seat-type` and their swatches
    read the same token, so one rule recolours the seats and the key together.
 
+6. **`seatStyle` and `seatTypeStyles`** (#26), on both bindings. A
+   `KerusiSeatStyle` sets a seat's `fill`, `labelColor` and extra `className`
+   from code: per type through `seatTypeStyles` (which the legend shows too), per
+   seat through a `seatStyle(seat, { selected })` function laid over it field by
+   field. A style takes the same slot as `SeatType.color`, below a stylesheet's
+   `--kerusi-seat-fill`, and never reaches a selected or blocked seat. A hex
+   `fill` gets a readable black or white label unless `labelColor` says
+   otherwise. Core adds `resolveSeatStyle()`, `isHexColor()`, and an optional
+   trailing `style` argument on `seatFill`, `seatTextFill`, `resolveSeatGlyph`
+   and the legend swatch helpers. Both demos gain "Aisle seats via CSS" and
+   "Gold premium seats" toggles.
+
 ### Changed
 
 - **`SeatType.color` can now be overridden per seat.** It still has no theme

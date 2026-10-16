@@ -1,4 +1,10 @@
-import type { KerusiMap, KerusiState, KerusiViolation } from '@kerusiweb/core';
+import type {
+  KerusiMap,
+  KerusiState,
+  KerusiViolation,
+  SeatStyleFn,
+  SeatTypeStyles,
+} from '@kerusiweb/core';
 import { act, fireEvent, render } from '@testing-library/react';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -53,6 +59,8 @@ interface HostState {
   locale?: string;
   showLegend: boolean;
   maxSelection?: number;
+  seatStyle?: SeatStyleFn;
+  seatTypeStyles?: SeatTypeStyles;
 }
 
 const INITIAL: HostState = { map: VENUE, selection: [], showLegend: false };
@@ -78,6 +86,8 @@ describe('KerusiSeatmap', () => {
         locale={s.locale}
         showLegend={s.showLegend}
         maxSelection={s.maxSelection}
+        seatStyle={s.seatStyle}
+        seatTypeStyles={s.seatTypeStyles}
         onSeatDisallowed={(event) => {
           disallowed = event;
         }}
@@ -102,6 +112,7 @@ describe('KerusiSeatmap', () => {
   const svgs = () => [...el.querySelectorAll<SVGSVGElement>('svg.kerusi-section-svg')];
   const box = (id: string) => seat(id).querySelector<SVGPathElement>('.kerusi-seat__box')!;
   const core = (id: string) => seat(id).querySelector<SVGPathElement>('.kerusi-seat__core')!;
+  const label = (id: string) => seat(id).querySelector<SVGTextElement>('.kerusi-seat__label')!;
   const tabStops = () =>
     seats()
       .filter((g) => g.getAttribute('tabindex') === '0')
@@ -581,6 +592,50 @@ describe('KerusiSeatmap', () => {
       expect(item.querySelector<HTMLElement>('.kerusi-legend__swatch')!.style.background).toBe(
         box('A1').style.fill,
       );
+    });
+  });
+
+  describe('seat styles from code', () => {
+    it('paints every seat of a type from seatTypeStyles, and its legend swatch with it', () => {
+      set({
+        seatTypeStyles: { sofa: { fill: '#d4a017', className: 'sofa-gold' } },
+        showLegend: true,
+      });
+      expect(box('L1').style.fill).toBe('var(--kerusi-seat-fill, #d4a017)');
+      expect(seat('L1').classList).toContain('sofa-gold');
+      expect(box('A1').style.fill).toBe('var(--kerusi-seat-fill, #3a8f63)');
+      const swatch = el.querySelector<HTMLElement>(
+        '.kerusi-legend__item[data-seat-type="sofa"] .kerusi-legend__swatch',
+      )!;
+      expect(swatch.style.background).toBe('var(--kerusi-seat-fill, #d4a017)');
+    });
+
+    it('lets seatStyle pick out single seats, over their type style', () => {
+      set({
+        seatTypeStyles: { standard: { fill: '#d4a017' } },
+        seatStyle: (s) => (s.id === 'A2' ? { fill: '#101010', className: 'picked' } : undefined),
+      });
+      expect(box('A1').style.fill).toBe('var(--kerusi-seat-fill, #d4a017)');
+      expect(box('A2').style.fill).toBe('var(--kerusi-seat-fill, #101010)');
+      expect(seat('A2').classList).toContain('picked');
+      // A readable label is derived from a hex fill.
+      expect(label('A2').style.fill).toBe('var(--kerusi-seat-label, #ffffff)');
+    });
+
+    it('never restyles a selected or blocked seat, whose colour is the status cue', () => {
+      set({
+        seatStyle: () => ({ fill: '#101010', labelColor: '#ff0000' }),
+        selection: ['A1'],
+        state: {
+          kerusi: '1.0',
+          mapId: 'venue',
+          updatedAt: 't',
+          seats: { A2: { status: 'blocked' } },
+        },
+      });
+      expect(box('A1').style.fill).toBe('var(--kerusi-selected-bg, #7854af)');
+      expect(box('A2').style.fill).toBe('var(--kerusi-blocked-bg, #5a616e)');
+      expect(label('A2').style.fill).toBe('var(--kerusi-blocked-fg, #d2d7df)');
     });
   });
 

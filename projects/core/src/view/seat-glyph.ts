@@ -1,0 +1,212 @@
+import { RenderSeat } from '../render/render-model.js';
+import {
+  seatBodyPath,
+  seatOccupantPath,
+  seatOccupantStroke,
+  seatSelectedFrame,
+} from '../render/seat-shapes.js';
+import { PlacedSeat } from '../render/section-layout.js';
+import {
+  KerusiSeatmapColors,
+  occupantFillFor,
+  occupantStrokeFor,
+  SeatOccupantVariant,
+  seatCoreFill,
+  seatFill,
+  seatOccupantVariant,
+  seatTextFill,
+  seatWashFill,
+} from './kerusi-seatmap-colors.js';
+
+/**
+ * The seat glyph, resolved: every path, paint and position a binding draws
+ * inside one seat's `<g>`.
+ *
+ * Both bindings used to call the paint and shape functions one by one, and each
+ * kept its own copy of the "mark box" rule below. That is exactly the code the
+ * architecture says belongs in core, so it lives here now and a binding only
+ * binds the result. It is also what a custom seat template receives, so a
+ * consumer drawing their own seat can reuse the library's paths and colours
+ * rather than re-derive them.
+ */
+
+/** An axis-aligned box in viewBox units. */
+export interface SeatBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** A filled path. */
+export interface SeatGlyphShape {
+  /** The path's `d` attribute. */
+  d: string;
+  /** A CSS paint, usually a `var(--kerusi-*, …)` with the resolved fallback. */
+  fill: string;
+}
+
+export interface SeatGlyph {
+  /** `null` for an available or blocked seat: nothing to mark. */
+  variant: SeatOccupantVariant | null;
+  /** The classes for the seat's `<g>`: `kerusi-seat`, its status, and the modifiers. */
+  className: string;
+  /** The seat's own placed box. */
+  box: SeatBox;
+  /**
+   * The box the decorative marks sit on: the seat's own, or the selected core's
+   * when it is selected. See {@link resolveSeatGlyph}.
+   */
+  markBox: SeatBox;
+  /** The outline: square-ish front, tapered back, so facing reads from the shape. */
+  body: SeatGlyphShape;
+  /** The dimming wash over a held or booked seat; absent otherwise. */
+  wash?: SeatGlyphShape;
+  /** The bright plate inside a selected seat's frame; absent otherwise. */
+  core?: SeatGlyphShape;
+  /** The occupant figure for a selected, held or booked seat; absent otherwise. */
+  occupant?: SeatGlyphShape & {
+    variant: SeatOccupantVariant;
+    /** `none` except for the hollow held figure. */
+    stroke: string;
+    strokeWidth: number;
+  };
+  /** The seat number, centred on the seat and kept upright. */
+  label: {
+    text: string;
+    x: number;
+    y: number;
+    fontSize: number;
+    fill: string;
+    /** A core-coloured halo behind a selected seat's number; `none` otherwise. */
+    halo: string;
+    haloWidth: number;
+    /** Cancels the seat's rotation; `null` when the seat does not rotate. */
+    transform: string | null;
+  };
+  /** The corner marker for `accessibility.wheelchairAccessible`; absent otherwise. */
+  wheelchair?: { cx: number; cy: number; r: number; fill: string };
+}
+
+/**
+ * What a custom seat template is handed: the seat, whether it is selected, and
+ * the stock glyph already resolved for it. Each binding extends this with a
+ * framework-native way to draw the stock glyph (`defaultContent`).
+ */
+export interface KerusiSeatContext {
+  /** The seat as placed in its section, in viewBox units. */
+  placed: PlacedSeat;
+  /** The resolved seat: status, type, price, accessibility, `source.metadata`. */
+  seat: RenderSeat;
+  /** Whether the seat is in the current selection. */
+  selected: boolean;
+  /** The stock glyph's paths and paints, for reuse. */
+  glyph: SeatGlyph;
+}
+
+/**
+ * Resolves the stock glyph for one placed seat.
+ *
+ * Everything over a selected seat sits on its core, so every mark is measured
+ * from the core's box rather than the seat's. Drawing to the seat's box leaves
+ * the occupant's hips crossing the frame, where a figure tinted `selectedBg`
+ * lands on a frame filled `selectedBg` and reads as a hard nub. Because the core
+ * is an exact scaled copy of the body (see `seatSelectedFrame`), measuring from
+ * it keeps every clearance a mark had against the body, so the frame width stays
+ * free to change.
+ */
+export function resolveSeatGlyph(
+  placed: PlacedSeat,
+  selected: boolean,
+  colors: Required<KerusiSeatmapColors>,
+  typeColors: boolean,
+): SeatGlyph {
+  const seat = placed.seat;
+  const variant = seatOccupantVariant(seat, selected);
+  const box: SeatBox = {
+    x: placed.x,
+    y: placed.y,
+    width: placed.width,
+    height: placed.height,
+  };
+  const markBox = selected ? coreBox(box) : box;
+  const bodyD = seatBodyPath(box.x, box.y, box.width, box.height);
+  const textFill = seatTextFill(seat, selected, colors, typeColors);
+
+  return {
+    variant,
+    className: seatClassName(seat, selected),
+    box,
+    markBox,
+    body: { d: bodyD, fill: seatFill(seat, selected, colors, typeColors) },
+    wash:
+      variant === 'held' || variant === 'booked'
+        ? { d: bodyD, fill: seatWashFill(variant, colors) }
+        : undefined,
+    core: selected
+      ? {
+          d: seatBodyPath(markBox.x, markBox.y, markBox.width, markBox.height),
+          fill: seatCoreFill(colors),
+        }
+      : undefined,
+    occupant: variant
+      ? {
+          variant,
+          d: seatOccupantPath(markBox.x, markBox.y, markBox.width, markBox.height),
+          fill: occupantFillFor(variant, colors),
+          stroke: occupantStrokeFor(variant, colors),
+          strokeWidth: seatOccupantStroke(markBox.width, markBox.height),
+        }
+      : undefined,
+    label: {
+      text: seat.label,
+      x: placed.centerX,
+      y: placed.centerY,
+      fontSize: placed.fontSize,
+      fill: textFill,
+      // The label is centred on the occupant's shoulder line, so without the
+      // halo a selected seat's number is `selectedBg` over a `selectedBg`
+      // silhouette. It also rescues a label too long for the core.
+      halo: selected ? seatCoreFill(colors) : 'none',
+      haloWidth: selected ? placed.fontSize * 0.22 : 0,
+      transform: placed.rotation
+        ? `rotate(${-placed.rotation} ${placed.centerX} ${placed.centerY})`
+        : null,
+    },
+    // The marker keeps the same relative corner on whichever box it sits on, so
+    // a selected seat's dot stays whole instead of being bitten off by the frame.
+    wheelchair: seat.accessibility?.wheelchairAccessible
+      ? {
+          cx: markBox.x + markBox.width * 0.82,
+          cy: markBox.y + markBox.height * 0.18,
+          r: markBox.width * 0.13,
+          fill: textFill,
+        }
+      : undefined,
+  };
+}
+
+/** The selected core's box: the seat's, inset by the frame width on every side. */
+function coreBox(box: SeatBox): SeatBox {
+  const frame = seatSelectedFrame(box.width, box.height);
+  return {
+    x: box.x + frame,
+    y: box.y + frame,
+    width: box.width - frame * 2,
+    height: box.height - frame * 2,
+  };
+}
+
+/** The class list for a seat's `<g>`: the hooks the READMEs document. */
+export function seatClassName(seat: RenderSeat, selected: boolean): string {
+  return [
+    'kerusi-seat',
+    `kerusi-seat--${seat.status}`,
+    selected ? 'kerusi-seat--selected' : '',
+    seat.selectable ? '' : 'kerusi-seat--unselectable',
+    seat.accessibility?.wheelchairAccessible ? 'kerusi-seat--wheelchair' : '',
+    seat.companions.length > 0 ? 'kerusi-seat--companion' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}

@@ -68,13 +68,15 @@
     }
   }
 
-  @for (placed of layout().seats; track placed.seat.id) {
+  @for (entry of seats(); track entry.placed.seat.id) {
+    @let placed = entry.placed;
+    @let glyph = entry.glyph;
     <g
-      [class]="seatClasses(placed)"
+      [class]="glyph.className"
       role="button"
       [attr.tabindex]="tabIndex(placed)"
       [attr.aria-label]="ariaLabel(placed)"
-      [attr.aria-pressed]="isSelected(placed)"
+      [attr.aria-pressed]="entry.selected"
       [attr.aria-disabled]="!placed.seat.selectable"
       [attr.data-seat-id]="placed.seat.id"
       [attr.transform]="transform(placed)"
@@ -82,60 +84,58 @@
       (focus)="onSeatFocus(placed)"
       (keydown)="onKeydown($event)"
     >
-      @let variant = occupantVariant(placed);
       <!-- Tapered toward the back, square at the front, so which way the seat
            faces is legible from the outline alone. -->
-      <path class="kerusi-seat__box" [attr.d]="bodyPath(placed)" [style.fill]="fill(placed)" />
-      @if (variant === 'held' || variant === 'booked') {
+      <path class="kerusi-seat__box" [attr.d]="glyph.body.d" [style.fill]="glyph.body.fill" />
+      @if (glyph.wash; as wash) {
         <!-- Colour stays the seat type's; a taken seat recedes under a wash
              instead, so the type colour still reads on a busy map. -->
-        <path
-          class="kerusi-seat__wash"
-          [attr.d]="bodyPath(placed)"
-          [style.fill]="washFill(placed)"
-        />
+        <path class="kerusi-seat__wash" [attr.d]="wash.d" [style.fill]="wash.fill" />
       }
-      @if (variant === 'selected') {
+      @if (glyph.core; as core) {
         <!-- Selection is the one state drawn from two tones: the body above is
              the frame, this is the bright core inside it. Whichever way the
              host page is themed, one of the two separates from it — which is
              why nothing here has to know about the page. -->
-        <path class="kerusi-seat__core" [attr.d]="corePath(placed)" [style.fill]="coreFill()" />
+        <path class="kerusi-seat__core" [attr.d]="core.d" [style.fill]="core.fill" />
       }
-      @if (variant) {
+      @if (glyph.occupant; as occupant) {
         <!-- Deliberately not counter-rotated: the occupant leans with the
              seat. Solid = settled (yours, or sold); hollow = a hold still in
              progress. -->
         <path
-          class="kerusi-seat__occupant kerusi-seat__occupant--{{ variant }}"
-          [attr.d]="occupantPath(placed)"
-          [attr.stroke-width]="occupantStroke(placed)"
-          [style.fill]="occupantFill(variant)"
-          [style.stroke]="occupantStrokeColor(variant)"
+          class="kerusi-seat__occupant kerusi-seat__occupant--{{ occupant.variant }}"
+          [attr.d]="occupant.d"
+          [attr.stroke-width]="occupant.strokeWidth"
+          [style.fill]="occupant.fill"
+          [style.stroke]="occupant.stroke"
         />
       }
+      <!-- The halo colour and width are bound here rather than in the
+           stylesheet: a CSS `var(--kerusi-selected-fg, …)` rule would carry
+           the library default as its fallback and skip the [colors] tier. -->
       <text
         class="kerusi-seat__label"
         text-anchor="middle"
         dominant-baseline="central"
-        [attr.x]="placed.centerX"
-        [attr.y]="placed.centerY"
-        [attr.font-size]="placed.fontSize"
-        [style.fill]="textFill(placed)"
-        [style.stroke]="labelHalo(placed)"
-        [attr.stroke-width]="labelHaloWidth(placed)"
-        [attr.transform]="counterRotate(placed)"
+        [attr.x]="glyph.label.x"
+        [attr.y]="glyph.label.y"
+        [attr.font-size]="glyph.label.fontSize"
+        [style.fill]="glyph.label.fill"
+        [style.stroke]="glyph.label.halo"
+        [attr.stroke-width]="glyph.label.haloWidth"
+        [attr.transform]="glyph.label.transform"
       >
-        {{ placed.seat.label }}
+        {{ glyph.label.text }}
       </text>
-      @if (placed.seat.accessibility?.wheelchairAccessible) {
+      @if (glyph.wheelchair; as wheelchair) {
         <!-- A corner marker, not a different fill: availability owns the fill. -->
         <circle
           class="kerusi-seat__wheelchair"
-          [attr.cx]="wheelchairCx(placed)"
-          [attr.cy]="wheelchairCy(placed)"
-          [attr.r]="wheelchairRadius(placed)"
-          [style.fill]="textFill(placed)"
+          [attr.cx]="wheelchair.cx"
+          [attr.cy]="wheelchair.cy"
+          [attr.r]="wheelchair.r"
+          [style.fill]="wheelchair.fill"
         />
       }
     </g>

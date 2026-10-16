@@ -10,6 +10,7 @@
 export * from './control-strings.js';
 export * from './kerusi-seatmap-colors.js';
 export * from './rtl.js';
+export * from './seat-glyph.js';
 export * from './seat-aria.js';
 export * from './selection.js';
 export * from './viewport.js';

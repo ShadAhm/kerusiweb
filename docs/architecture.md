@@ -34,11 +34,11 @@ Anything that would be **written identically in a React binding**. In practice
 that is everything from the wire format down to the SVG path strings: the whole
 pipeline, stopping just short of markup.
 
-| Folder        | Holds                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/kerusi/` | The Kerusi document types (`KerusiMap`, `KerusiState`, `KerusiSession`), the conformance validator, and the price, locale, row-order, layout-mode and live-delta resolution built on them.                                                                                                                                                                                    |
-| `src/render/` | `buildRenderModel()` (a map + state resolved into a `RenderMap`), plus `computeSectionLayout()` geometry, `buildNavigationGraph()` keyboard order, and the `seat-shapes` / `element-shapes` functions that return SVG path `d` strings.                                                                                                                                       |
-| `src/view/`   | Presentation _policy_ that still knows nothing about markup: the colour system (`kerusi-seatmap-colors`), the announcement strings (`seat-aria`), the rules deciding whether a seat may be toggled (`selection`), and the zoom, pan and gesture arithmetic behind a `zoomable` map (`viewport`, `viewport-gesture`) with the control strings and colours (`control-strings`). |
+| Folder        | Holds                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/kerusi/` | The Kerusi document types (`KerusiMap`, `KerusiState`, `KerusiSession`), the conformance validator, and the price, locale, row-order, layout-mode and live-delta resolution built on them.                                                                                                                                                                                                                                                                                  |
+| `src/render/` | `buildRenderModel()` (a map + state resolved into a `RenderMap`), plus `computeSectionLayout()` geometry, `buildNavigationGraph()` keyboard order, and the `seat-shapes` / `element-shapes` functions that return SVG path `d` strings.                                                                                                                                                                                                                                     |
+| `src/view/`   | Presentation _policy_ that still knows nothing about markup: the colour system (`kerusi-seatmap-colors`), the resolved seat glyph every binding draws and a custom seat template reuses (`seat-glyph`), the announcement strings (`seat-aria`), the rules deciding whether a seat may be toggled (`selection`), and the zoom, pan and gesture arithmetic behind a `zoomable` map (`viewport`, `viewport-gesture`) with the control strings and colours (`control-strings`). |
 
 Rules for core:
 
@@ -52,7 +52,7 @@ Rules for core:
 
 Only what the framework itself supplies:
 
-- **Components, decorators, templates**: the three components in `lib/kerusi-seatmap/` and their `.html`/`.css`. Their job is to bind data core already computed: `[attr.d]="seatBodyPath(...)"`, `@for` over `layout().seats`.
+- **Components, decorators, templates**: the three components in `lib/kerusi-seatmap/` and their `.html`/`.css`. Their job is to bind data core already computed: `resolveSeatGlyph()` hands each seat its paths, paints and label position, so a template binds `[attr.d]="glyph.body.d"` inside an `@for` over the layout's seats.
 - **Reactivity primitives**: `signal`, `computed`, `effect`, `input`, `model`, `output`. `KerusiStateStore` (`lib/kerusi-state-store.ts`) is _only_ a signal wrapper; the delta-ordering and hold-expiry logic it calls (`applyStateDeltaOrdered`, `expireHolds`) lives in core.
 - **Dependency injection**: `inject(ElementRef)`.
 - **Direct DOM access.** Two sites are about seats: reading `dataset['seatId']` off a key event's target, and locating a `<g>` to focus. Angular does the second with a `querySelectorAll` scan in `kerusi-seatmap.component.ts`; React registers each seat node in a ref map (`use-roving-focus.ts`). Same job, framework-native means, and neither belongs in core. The opt-in `zoomable` and `maximizable` features add a third kind: listeners (pointer, wheel, click-capture, Safari gesture events) and size measurements on the viewport element, and the maximize side effects (the Fullscreen API, locking `body` scroll). Only the _wiring_ is in the bindings (`use-viewport.ts` and `use-maximized.ts` in React, the constructor effects in Angular). What a gesture, wheel tick or key _means_ is `viewport.ts` and `viewport-gesture.ts` in core, so a binding turns DOM events into `reduceGesture()` calls and applies what comes back.
@@ -97,11 +97,12 @@ Adding the second binding meant promoting three functions into core first, by
 the rule above. Each had been living in the Angular package, and each would
 otherwise have been retyped verbatim:
 
-| Promoted        | Now in                          | Was                                                                                                           |
-| --------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `isRtlLocale`   | `view/rtl.ts`                   | a module-private helper in `kerusi-seatmap.component.ts`                                                      |
-| `heldSeats`     | `kerusi/kerusi-state.ts`        | the body of `KerusiStateStore.heldSeats`; core already exported the `HeldSeat` type with nothing producing it |
-| `resolveColors` | `view/kerusi-seatmap-colors.ts` | the `{...DEFAULT_KERUSI_COLORS, ...colors}` spread every paint call site repeated                             |
+| Promoted           | Now in                          | Was                                                                                                               |
+| ------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `isRtlLocale`      | `view/rtl.ts`                   | a module-private helper in `kerusi-seatmap.component.ts`                                                          |
+| `heldSeats`        | `kerusi/kerusi-state.ts`        | the body of `KerusiStateStore.heldSeats`; core already exported the `HeldSeat` type with nothing producing it     |
+| `resolveColors`    | `view/kerusi-seatmap-colors.ts` | the `{...DEFAULT_KERUSI_COLORS, ...colors}` spread every paint call site repeated                                 |
+| `resolveSeatGlyph` | `view/seat-glyph.ts`            | each binding's own `markBox` copy and the six-to-eight paint calls per seat that both section components repeated |
 
 ## Build order
 

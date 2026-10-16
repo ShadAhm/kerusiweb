@@ -6,22 +6,11 @@ import {
   elementStyle,
   elementTextFill,
   KerusiSeatmapColors,
-  occupantFillFor,
-  occupantStrokeFor,
   PlacedElement,
   PlacedSeat,
   RenderSection,
+  resolveSeatGlyph,
   screenPath,
-  seatBodyPath,
-  SeatOccupantVariant,
-  seatCoreFill,
-  seatFill,
-  seatOccupantPath,
-  seatOccupantStroke,
-  seatOccupantVariant,
-  seatSelectedFrame,
-  seatTextFill,
-  seatWashFill,
   SectionLayout,
 } from '@kerusiweb/core';
 
@@ -78,133 +67,22 @@ export class KerusiSectionComponent {
   /** The section's natural width in CSS pixels; it never draws wider. */
   protected readonly naturalWidth = computed(() => this.layout().width * this.unitScale());
 
-  protected isSelected(placed: PlacedSeat): boolean {
-    return this.selection().has(placed.seat.id);
-  }
-
-  protected fill(placed: PlacedSeat): string {
-    return seatFill(placed.seat, this.isSelected(placed), this.colors(), this.typeColors());
-  }
-
-  protected textFill(placed: PlacedSeat): string {
-    return seatTextFill(placed.seat, this.isSelected(placed), this.colors(), this.typeColors());
-  }
+  /**
+   * Every seat with its glyph resolved, once per change of layout, selection or
+   * theme rather than once per binding per change detection.
+   */
+  protected readonly seats = computed(() => {
+    const selection = this.selection();
+    const colors = this.colors();
+    const typeColors = this.typeColors();
+    return this.layout().seats.map((placed) => {
+      const selected = selection.has(placed.seat.id);
+      return { placed, selected, glyph: resolveSeatGlyph(placed, selected, colors, typeColors) };
+    });
+  });
 
   protected backdrop(): string {
     return cssVar('backdrop', this.colors().backdrop);
-  }
-
-  // --- the seat glyph -------------------------------------------------------
-
-  /** The seat's outline: square-ish front, tapered back — shape carries facing. */
-  protected bodyPath(placed: PlacedSeat): string {
-    return seatBodyPath(placed.x, placed.y, placed.width, placed.height);
-  }
-
-  /** `null` for an available or blocked seat — nothing to mark. */
-  protected occupantVariant(placed: PlacedSeat): SeatOccupantVariant | null {
-    return seatOccupantVariant(placed.seat, this.isSelected(placed));
-  }
-
-  /**
-   * The box a seat's decorative marks are drawn to: the seat's own, or — when
-   * it is selected — the core plate's, which is inset by the frame width.
-   *
-   * Everything over a selected seat sits on the core, so it all has to be
-   * measured from the core. Drawing to the seat's box instead leaves the
-   * occupant's hips crossing the frame, where a figure tinted `selectedBg`
-   * lands on a frame filled `selectedBg` and reads as a hard nub. Since the
-   * core is an exact scaled copy of the body (see {@link seatSelectedFrame}),
-   * routing through here reproduces every clearance the mark had against the
-   * body, scaled — so the frame width stays free to change.
-   */
-  private markBox(placed: PlacedSeat): { x: number; y: number; width: number; height: number } {
-    if (!this.isSelected(placed)) {
-      return placed;
-    }
-    const frame = seatSelectedFrame(placed.width, placed.height);
-    return {
-      x: placed.x + frame,
-      y: placed.y + frame,
-      width: placed.width - frame * 2,
-      height: placed.height - frame * 2,
-    };
-  }
-
-  /** The bright plate inside a selected seat's frame. */
-  protected corePath(placed: PlacedSeat): string {
-    const box = this.markBox(placed);
-    return seatBodyPath(box.x, box.y, box.width, box.height);
-  }
-
-  protected coreFill(): string {
-    return seatCoreFill(this.colors());
-  }
-
-  /** The dimming wash over a held or booked seat's type colour. */
-  protected washFill(placed: PlacedSeat): string {
-    // Only called for held/booked seats — see the template's @if.
-    return seatWashFill(placed.seat.status as 'held' | 'booked', this.colors());
-  }
-
-  /** The occupant figure for a marked seat, sized to whatever it sits on. */
-  protected occupantPath(placed: PlacedSeat): string {
-    const box = this.markBox(placed);
-    return seatOccupantPath(box.x, box.y, box.width, box.height);
-  }
-
-  protected occupantStroke(placed: PlacedSeat): number {
-    const box = this.markBox(placed);
-    return seatOccupantStroke(box.width, box.height);
-  }
-
-  // The wheelchair marker keeps the same relative corner it always had; only
-  // the box it is relative to changes, so a selected seat's dot stays whole
-  // instead of being bitten off by the frame.
-  protected wheelchairCx(placed: PlacedSeat): number {
-    const box = this.markBox(placed);
-    return box.x + box.width * 0.82;
-  }
-
-  protected wheelchairCy(placed: PlacedSeat): number {
-    const box = this.markBox(placed);
-    return box.y + box.height * 0.18;
-  }
-
-  protected wheelchairRadius(placed: PlacedSeat): number {
-    return this.markBox(placed).width * 0.13;
-  }
-
-  /**
-   * A core-coloured outline behind a selected seat's number, painted under the
-   * glyphs via `paint-order`.
-   *
-   * The label is centred on the occupant's shoulder line, so without this it is
-   * `selectedBg` over a `selectedBg` silhouette — the figure, not the plate, is
-   * what it actually has to contrast against. The halo also rescues a label too
-   * long for the core, which would otherwise run onto the frame and vanish into
-   * it.
-   *
-   * Bound here rather than in the stylesheet on purpose: a CSS
-   * `var(--kerusi-selected-fg, …)` rule would carry the library default as its
-   * fallback and silently skip the `[colors]` input tier, which only the
-   * TypeScript side can resolve.
-   */
-  protected labelHalo(placed: PlacedSeat): string {
-    return this.isSelected(placed) ? seatCoreFill(this.colors()) : 'none';
-  }
-
-  protected labelHaloWidth(placed: PlacedSeat): number {
-    return this.isSelected(placed) ? placed.fontSize * 0.22 : 0;
-  }
-
-  /** Solid for selected/booked; `none` for held, which draws hollow instead. */
-  protected occupantFill(variant: SeatOccupantVariant): string {
-    return occupantFillFor(variant, this.colors());
-  }
-
-  protected occupantStrokeColor(variant: SeatOccupantVariant): string {
-    return occupantStrokeFor(variant, this.colors());
   }
 
   /** The section's single tab stop; every other seat is reachable by arrow key. */
@@ -217,20 +95,6 @@ export class KerusiSectionComponent {
 
   protected ariaLabel(placed: PlacedSeat): string {
     return this.ariaLabels().get(placed.seat.id) ?? placed.seat.label;
-  }
-
-  protected seatClasses(placed: PlacedSeat): string {
-    const seat = placed.seat;
-    return [
-      'kerusi-seat',
-      `kerusi-seat--${seat.status}`,
-      this.isSelected(placed) ? 'kerusi-seat--selected' : '',
-      seat.selectable ? '' : 'kerusi-seat--unselectable',
-      seat.accessibility?.wheelchairAccessible ? 'kerusi-seat--wheelchair' : '',
-      seat.companions.length > 0 ? 'kerusi-seat--companion' : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
   }
 
   /** SVG rotate() about the item's center; null when it does not rotate. */

@@ -1,11 +1,14 @@
 import { RenderSeat } from '../render/render-model.js';
 import {
-  seatBodyPath,
+  SeatBox,
+  seatMarkerAnchor,
   seatOccupantPath,
   seatOccupantStroke,
   seatSelectedFrame,
+  seatShapePath,
 } from '../render/seat-shapes.js';
 import { PlacedSeat } from '../render/section-layout.js';
+import { classList, KerusiSeatStyle } from './kerusi-seat-style.js';
 import {
   KerusiSeatmapColors,
   occupantFillFor,
@@ -30,14 +33,6 @@ import {
  * rather than re-derive them.
  */
 
-/** An axis-aligned box in viewBox units. */
-export interface SeatBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 /** A filled path. */
 export interface SeatGlyphShape {
   /** The path's `d` attribute. */
@@ -51,6 +46,11 @@ export interface SeatGlyph {
   variant: SeatOccupantVariant | null;
   /** The classes for the seat's `<g>`: `kerusi-seat`, its status, and the modifiers. */
   className: string;
+  /**
+   * The `data-*` attributes for the seat's `<g>`, so CSS can pick seats out by
+   * what the document says about them. An absent field is not rendered.
+   */
+  data: SeatDataAttributes;
   /** The seat's own placed box. */
   box: SeatBox;
   /**
@@ -58,7 +58,10 @@ export interface SeatGlyph {
    * when it is selected. See {@link resolveSeatGlyph}.
    */
   markBox: SeatBox;
-  /** The outline: square-ish front, tapered back, so facing reads from the shape. */
+  /**
+   * The outline: by default square-ish at the front and tapered at the back, so
+   * facing reads from the shape; otherwise the seat style's `shape`.
+   */
   body: SeatGlyphShape;
   /** The dimming wash over a held or booked seat; absent otherwise. */
   wash?: SeatGlyphShape;
@@ -88,6 +91,23 @@ export interface SeatGlyph {
   wheelchair?: { cx: number; cy: number; r: number; fill: string };
 }
 
+/** See {@link SeatGlyph.data}. Each field is bound as the attribute named beside it. */
+export interface SeatDataAttributes {
+  /** `data-seat-type`: `Seat.type`. */
+  type: string;
+  /** `data-seat-status`: the merged availability, same as the status class. */
+  status: string;
+  /** `data-section-id`: the section the seat belongs to. */
+  section: string;
+  /** `data-seat-row`: `Seat.row`, when the seat names one. */
+  row?: string;
+  /**
+   * `data-seat-attributes`: `Seat.attributes`, space-separated, when there are
+   * any, so `[data-seat-attributes~="aisle"]` matches one tag among several.
+   */
+  attributes?: string;
+}
+
 /**
  * What a custom seat template is handed: the seat, whether it is selected, and
  * the stock glyph already resolved for it. Each binding extends this with a
@@ -113,13 +133,17 @@ export interface KerusiSeatContext {
  * lands on a frame filled `selectedBg` and reads as a hard nub. Because the core
  * is an exact scaled copy of the body (see `seatSelectedFrame`), measuring from
  * it keeps every clearance a mark had against the body, so the frame width stays
- * free to change.
+ * free to change. *
+ * `style` is the seat's resolved `seatStyle` / `seatTypeStyles` entry (see
+ * `resolveSeatStyle`). It changes the seat's own colour, label colour and
+ * classes; it never changes a selected or blocked seat's fill.
  */
 export function resolveSeatGlyph(
   placed: PlacedSeat,
   selected: boolean,
   colors: Required<KerusiSeatmapColors>,
   typeColors: boolean,
+  style?: KerusiSeatStyle,
 ): SeatGlyph {
   const seat = placed.seat;
   const variant = seatOccupantVariant(seat, selected);
@@ -130,22 +154,25 @@ export function resolveSeatGlyph(
     height: placed.height,
   };
   const markBox = selected ? coreBox(box) : box;
-  const bodyD = seatBodyPath(box.x, box.y, box.width, box.height);
-  const textFill = seatTextFill(seat, selected, colors, typeColors);
+  const shape = style?.shape;
+  const bodyD = seatShapePath(shape, box.x, box.y, box.width, box.height);
+  const anchor = seatMarkerAnchor(shape);
+  const textFill = seatTextFill(seat, selected, colors, typeColors, style);
 
   return {
     variant,
-    className: seatClassName(seat, selected),
+    className: seatClassName(seat, selected, style?.className),
+    data: seatDataAttributes(seat),
     box,
     markBox,
-    body: { d: bodyD, fill: seatFill(seat, selected, colors, typeColors) },
+    body: { d: bodyD, fill: seatFill(seat, selected, colors, typeColors, style) },
     wash:
       variant === 'held' || variant === 'booked'
         ? { d: bodyD, fill: seatWashFill(variant, colors) }
         : undefined,
     core: selected
       ? {
-          d: seatBodyPath(markBox.x, markBox.y, markBox.width, markBox.height),
+          d: seatShapePath(shape, markBox.x, markBox.y, markBox.width, markBox.height),
           fill: seatCoreFill(colors),
         }
       : undefined,
@@ -177,13 +204,26 @@ export function resolveSeatGlyph(
     // a selected seat's dot stays whole instead of being bitten off by the frame.
     wheelchair: seat.accessibility?.wheelchairAccessible
       ? {
-          cx: markBox.x + markBox.width * 0.82,
-          cy: markBox.y + markBox.height * 0.18,
+          cx: markBox.x + markBox.width * anchor.x,
+          cy: markBox.y + markBox.height * anchor.y,
           r: markBox.width * 0.13,
           fill: textFill,
         }
       : undefined,
   };
+}
+
+/**
+ * The outline for a legend type swatch drawn in its type's `shape`, on a
+ * `size`-square box, or `undefined` to keep the flat square swatch: a type with
+ * no shape, or the default `'seat'`, has nothing a square does not already say.
+ */
+export function legendSwatchPath(
+  typeStyle: KerusiSeatStyle | undefined,
+  size: number,
+): string | undefined {
+  const shape = typeStyle?.shape;
+  return shape && shape !== 'seat' ? seatShapePath(shape, 0, 0, size, size) : undefined;
 }
 
 /** The selected core's box: the seat's, inset by the frame width on every side. */
@@ -197,8 +237,26 @@ function coreBox(box: SeatBox): SeatBox {
   };
 }
 
-/** The class list for a seat's `<g>`: the hooks the READMEs document. */
-export function seatClassName(seat: RenderSeat, selected: boolean): string {
+/** The `data-*` attributes for a seat's `<g>`; see {@link SeatDataAttributes}. */
+export function seatDataAttributes(seat: RenderSeat): SeatDataAttributes {
+  return {
+    type: seat.type.id,
+    status: seat.status,
+    section: seat.sectionId,
+    row: seat.row || undefined,
+    attributes: seat.attributes.length ? seat.attributes.join(' ') : undefined,
+  };
+}
+
+/**
+ * The class list for a seat's `<g>`: the hooks the READMEs document, then any
+ * `extra` classes from the seat's style.
+ */
+export function seatClassName(
+  seat: RenderSeat,
+  selected: boolean,
+  extra?: string | readonly string[],
+): string {
   return [
     'kerusi-seat',
     `kerusi-seat--${seat.status}`,
@@ -206,6 +264,7 @@ export function seatClassName(seat: RenderSeat, selected: boolean): string {
     seat.selectable ? '' : 'kerusi-seat--unselectable',
     seat.accessibility?.wheelchairAccessible ? 'kerusi-seat--wheelchair' : '',
     seat.companions.length > 0 ? 'kerusi-seat--companion' : '',
+    ...classList(extra),
   ]
     .filter(Boolean)
     .join(' ');

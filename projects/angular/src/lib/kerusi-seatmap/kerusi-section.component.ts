@@ -18,7 +18,10 @@ import {
   PlacedSeat,
   RenderSection,
   resolveSeatGlyph,
+  resolveSeatStyle,
   screenPath,
+  SeatStyleFn,
+  SeatTypeStyles,
   SectionLayout,
 } from '@kerusiweb/core';
 import { SeatTemplateOutletContext } from './kerusi-seat-template.directive';
@@ -55,6 +58,10 @@ export class KerusiSectionComponent {
   readonly colors = input<Required<KerusiSeatmapColors>>(DEFAULT_KERUSI_COLORS);
   /** Whether an available seat may take its `SeatType.color` (§4.7). */
   readonly typeColors = input<boolean>(true);
+  /** Styles for every seat of a type, keyed by `SeatType.id`. */
+  readonly seatTypeStyles = input<SeatTypeStyles | undefined>(undefined);
+  /** A style for one seat, laid over its type's. */
+  readonly seatStyle = input<SeatStyleFn | undefined>(undefined);
   /** Draws the inside of each seat in place of the stock glyph. */
   readonly seatTemplate = input<TemplateRef<SeatTemplateOutletContext> | undefined>(undefined);
   /** When false, seats render but do not respond to pointer or keyboard. */
@@ -87,9 +94,16 @@ export class KerusiSectionComponent {
     const selection = this.selection();
     const colors = this.colors();
     const typeColors = this.typeColors();
+    const typeStyles = this.seatTypeStyles();
+    const seatStyle = this.seatStyle();
     return this.layout().seats.map((placed) => {
       const selected = selection.has(placed.seat.id);
-      return { placed, selected, glyph: resolveSeatGlyph(placed, selected, colors, typeColors) };
+      const style = resolveSeatStyle(placed.seat, selected, typeStyles, seatStyle);
+      return {
+        placed,
+        selected,
+        glyph: resolveSeatGlyph(placed, selected, colors, typeColors, style),
+      };
     });
   });
 

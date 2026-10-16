@@ -92,6 +92,8 @@ usually a mistake.
 | --------------------------------- | --------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `colors`                          | `KerusiSeatmapColors`                   | theme defaults   | Per-status fills, element tones, focus ring, backdrop. See [Theming](#theming).                                                 |
 | `typeColors`                      | `boolean`                               | `true`           | Let an available seat take its `SeatType.color` (§4.7).                                                                         |
+| `seatTypeStyles`                  | `SeatTypeStyles`                        | —                | Styles for every seat of a type, keyed by `SeatType.id`. Also shown in the legend. See [From code](#from-code).                 |
+| `seatStyle`                       | `SeatStyleFn`                           | —                | A style for one seat, over its type's. Never recolours a selected or blocked seat. See [From code](#from-code).                 |
 | `renderSeat`                      | `(ctx: SeatRenderContext) => ReactNode` | —                | Draws the inside of every seat yourself. See [Custom seat content](#custom-seat-content).                                       |
 | `seatSize`                        | `number`                                | `28`             | Grid cell edge, in viewBox units.                                                                                               |
 | `seatGap`                         | `number`                                | `6`              | Gap between grid cells.                                                                                                         |
@@ -222,12 +224,143 @@ Every key of `KerusiSeatmapColors` has a property, kebab-cased:
 | `focusRing`                           | `--kerusi-focus-ring`                                       |
 | `backdrop`                            | `--kerusi-backdrop`                                         |
 
+A `SeatType.color` from the document has **no theme token**, because it is the
+map's own value under §4.7. It can be overridden only seat by seat (or type by
+type) with `--kerusi-seat-fill`; see
+[Styling individual seats](#styling-individual-seats). Turn it off wholesale
+with `typeColors={false}` if you want the theme to own every fill.
+
 For anything the palette does not cover, each seat group carries the same class
 hooks as the Angular binding (`.kerusi-seat`, `--available` / `--held` /
 `--booked` / `--blocked`, `--selected`, `--unselectable`, `--wheelchair`,
 `--companion`), and inside a seat: `.kerusi-seat__box`, `__wash`, `__core`,
 `__occupant` (`__occupant--selected` / `--held` / `--booked`), `__label`,
 `__wheelchair`, and, only while `renderSeat` is set, `__focus`.
+
+### Styling individual seats
+
+The palette themes every seat of a status at once. To pick out _some_ seats (a
+VIP block, every aisle seat, one row), select them in CSS and set the per-seat
+tokens. Each seat's `<g>` carries what the document says about it:
+
+| Attribute              | Value                                                  | Example selector                  |
+| ---------------------- | ------------------------------------------------------ | --------------------------------- |
+| `data-seat-id`         | `Seat.id`                                              | `[data-seat-id="12A"]`            |
+| `data-seat-type`       | `Seat.type`                                            | `[data-seat-type="recliner"]`     |
+| `data-seat-row`        | `Seat.row`, when the seat has one                      | `[data-seat-row="A"]`             |
+| `data-seat-status`     | `available`, `held`, `booked` or `blocked`             | `[data-seat-status="held"]`       |
+| `data-seat-attributes` | `Seat.attributes`, space-separated, when there are any | `[data-seat-attributes~="aisle"]` |
+| `data-section-id`      | The seat's section                                     | `[data-section-id="balcony"]`     |
+
+Two tokens then recolour the seats a selector picks out:
+
+| Token                 | Replaces                                                       |
+| --------------------- | -------------------------------------------------------------- |
+| `--kerusi-seat-fill`  | The seat's own colour: its `SeatType.color`, or `availableBg`. |
+| `--kerusi-seat-label` | The colour of the number drawn on it.                          |
+
+```css
+.kerusi-seatmap :is(.kerusi-seat, .kerusi-legend__item)[data-seat-type='vip'] {
+  --kerusi-seat-fill: #d4a017;
+  --kerusi-seat-label: #000000;
+}
+
+.kerusi-seatmap .kerusi-seat[data-seat-attributes~='aisle'] {
+  --kerusi-seat-fill: #2f6b45;
+  --kerusi-seat-label: #ffffff;
+}
+```
+
+- **Per seat, not global.** The library never sets these tokens and gives them
+  no map-wide default. They are meant for a selector that picks seats out;
+  setting one on the map itself would repaint every seat and hide the
+  document's type colours, which is what `typeColors={false}` and `availableBg` are for.
+- **Status still shows.** They replace only the seat's own colour. A held or
+  booked seat keeps it under its wash and occupant figure, while a selected seat
+  keeps its selected frame and core, and a blocked seat its grey, whatever the
+  tokens say. Status is never carried by colour alone.
+- **Set the label with the fill.** The library cannot read a colour set in CSS,
+  so it cannot choose a readable number colour for it.
+- **Keep the legend in step.** Each type in the legend carries the same
+  `data-seat-type`, and its swatch reads `--kerusi-seat-fill`. Include
+  `.kerusi-legend__item` in a type selector, as above, and the key matches the
+  map.
+
+#### From code
+
+When the choice lives in TypeScript (a recommendation, a search result, the
+document's own `Seat.metadata`), use `seatTypeStyles` for whole types and
+`seatStyle` for single seats. Both take a `KerusiSeatStyle`:
+
+| Field        | Type                          |                                                                                                                    |
+| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `fill`       | `string`                      | The seat's own colour, the same slot as `--kerusi-seat-fill`. Any CSS colour.                                      |
+| `labelColor` | `string`                      | The number's colour. Defaults to black or white for a hex `fill`; set it for any other kind of colour.             |
+| `className`  | `string \| readonly string[]` | Extra classes on the seat's `<g>`, for CSS that needs more than colour.                                            |
+| `shape`      | `KerusiSeatShape`             | The seat's outline: `'seat'` (default), `'square'`, `'rounded'`, `'circle'`, or a function. See [Shapes](#shapes). |
+
+```tsx
+import type { SeatStyleFn, SeatTypeStyles } from '@kerusiweb/core';
+
+const typeStyles: SeatTypeStyles = { vip: { fill: '#d4a017', labelColor: '#000000' } };
+const highlight: SeatStyleFn = (seat) =>
+  seat.source.metadata?.['bestView'] ? { fill: '#2f6b45', className: 'best-view' } : undefined;
+
+<KerusiSeatmap map={map} seatTypeStyles={typeStyles} seatStyle={highlight} />;
+```
+
+A seat's colour resolves in this order, first match wins:
+
+| #   | Source                                    |                                                        |
+| --- | ----------------------------------------- | ------------------------------------------------------ |
+| 1   | Selected                                  | `selectedBg` frame and `selectedFg` core, always.      |
+| 2   | Blocked                                   | `blockedBg`, always.                                   |
+| 3   | `--kerusi-seat-fill` from your stylesheet | See above.                                             |
+| 4   | `seatStyle(seat)`                         | Its `fill`.                                            |
+| 5   | `seatTypeStyles[seat.type]`               | Its `fill`. Applies whether or not `typeColors` is on. |
+| 6   | `SeatType.color`                          | When `typeColors` is on.                               |
+| 7   | `availableBg`                             | The theme.                                             |
+
+- **Status always reads.** Neither option can change a selected or blocked
+  seat's colour, and a held or booked seat keeps its wash and occupant figure
+  over whatever colour it has. A style that could recolour your own picks
+  would make them ambiguous. For anything beyond this, use a
+  [custom seat template](#custom-seat-content).
+- **Per-seat over per-type, field by field.** A `seatStyle` result replaces only
+  the fields it sets, so a type's `fill` survives a per-seat `className`.
+  Classes from both are kept.
+- **The legend shows `seatTypeStyles`**, because a type has one value to show.
+  A per-seat `seatStyle` has no single value a legend could draw.
+- The function runs for every seat on every render of the map, so keep it
+  cheap. A new function or object each render is fine, since neither rebuilds the
+  render model, but declaring them once outside the component is simplest.
+
+#### Shapes
+
+A style's `shape` changes the seat's outline. It works in `seatTypeStyles` (a
+sofa type drawn rounded, say) and in `seatStyle`; for every seat at once, use
+`seatStyle={() => ({ shape: 'circle' })}`.
+
+| `shape`                    |                                                                             |
+| -------------------------- | --------------------------------------------------------------------------- |
+| `'seat'`                   | The default: square-ish at the front, tapered at the back.                  |
+| `'square'`                 | A square with the same slight corners as the seat's front.                  |
+| `'rounded'`                | A square with soft corners.                                                 |
+| `'circle'`                 | A circle filling the seat's box.                                            |
+| `(box: SeatBox) => string` | Your own closed path `d`, drawn inside `box` (`x`, `y`, `width`, `height`). |
+
+- **Status marks follow the shape.** The wash, the selected frame and core, and
+  a seat template's focus outline are all drawn in it, and the occupant figure
+  and wheelchair marker sit inside every preset.
+- **Only `'seat'` shows which way a seat faces.** The other presets are
+  symmetric, so on rotated seats (a fanned theatre, a stadium bowl) that cue is
+  lost.
+- **A function shape must draw relative to the box it is given.** It is called
+  once for the seat and again for the selected core's smaller box. Leave room
+  for the occupant figure (the middle 44% of the width, from 15% to 86% of the
+  height) and keep the top-right corner filled for the wheelchair marker.
+- **The legend draws a shaped type in its shape.** Types without a `shape`, and
+  every status swatch, keep their usual swatches.
 
 ### Custom seat content
 
@@ -291,13 +424,14 @@ them is to render `defaultContent` and add to it. Otherwise reuse `glyph.wash`,
 
 **Focus outline.** The stock focus ring strokes `.kerusi-seat__box`, which your
 content may not have. So while a seat template is in use, the library draws one
-more path in every seat, after your content: `.kerusi-seat__focus`, an outline of
-the seat's body shown only on `:focus-visible`, so keyboard focus stays visible
-whatever you draw (WCAG 2.4.7). It takes the same colour as the stock ring
-(`--kerusi-focus-ring`, then `colors.focusRing`, then `currentColor`). It follows
-the seat's body outline, not your drawing; if you draw your own focus indicator,
-restyle or hide it with `.kerusi-seat:focus-visible .kerusi-seat__focus`. Without
-a seat template it is not rendered at all, and the markup is unchanged.
+more path in every seat, after your content: `.kerusi-seat__focus`, an outline
+of the seat's body shown only on `:focus-visible`, so keyboard focus stays
+visible whatever you draw (WCAG 2.4.7). It takes the same colour as the stock
+ring (`--kerusi-focus-ring`, then `colors.focusRing`, then `currentColor`). It
+follows the seat's outline (its [`shape`](#shapes), if a style gives one), not
+your drawing; if you draw your own focus indicator, restyle or hide it with
+`.kerusi-seat:focus-visible .kerusi-seat__focus`. Without a seat template it is
+not rendered at all, and the markup is unchanged.
 
 **Legend.** The legend keeps drawing the stock glyph. If your seats look very
 different, turn it off and show your own key.

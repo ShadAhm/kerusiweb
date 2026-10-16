@@ -2,9 +2,11 @@ import {
   cssVar,
   DEFAULT_KERUSI_COLORS,
   formatMoney,
+  legendSwatchFill,
+  legendSwatchPath,
+  legendSwatchText,
   occupantFillFor,
   occupantStrokeFor,
-  readableOn,
   seatBodyPath,
   seatCoreFill,
   seatOccupantPath,
@@ -12,7 +14,12 @@ import {
   seatSelectedFrame,
   seatWashFill,
 } from '@kerusiweb/core';
-import type { KerusiSeatmapColors, RenderLegendEntry, SeatOccupantVariant } from '@kerusiweb/core';
+import type {
+  KerusiSeatmapColors,
+  RenderLegendEntry,
+  SeatOccupantVariant,
+  SeatTypeStyles,
+} from '@kerusiweb/core';
 
 /** Which marks, beyond the body fill, a status swatch draws. */
 type StatusKind = 'plain' | 'blocked' | SeatOccupantVariant;
@@ -33,6 +40,8 @@ export interface KerusiLegendProps {
   colors?: Required<KerusiSeatmapColors>;
   /** Whether an available seat takes its type color — mirrors the seatmap prop. */
   typeColors?: boolean;
+  /** Mirrors the seatmap prop: a type's style is what its swatch shows. */
+  seatTypeStyles?: SeatTypeStyles;
   showPrices?: boolean;
   /** Hide types no seat in the rendered map actually uses. */
   hideUnusedTypes?: boolean;
@@ -79,6 +88,7 @@ export function KerusiLegend({
   locale = 'en',
   colors = DEFAULT_KERUSI_COLORS,
   typeColors = true,
+  seatTypeStyles,
   showPrices = true,
   hideUnusedTypes = true,
   headingSeatTypes = 'Seat types',
@@ -94,22 +104,35 @@ export function KerusiLegend({
           <h4 className="kerusi-legend__heading">{headingSeatTypes}</h4>
           <ul className="kerusi-legend__list">
             {types.map((entry) => {
-              const typeColor = (typeColors && entry.color) || null;
               const price = entry.price ? formatMoney(entry.price, locale) : '';
+              const typeStyle = seatTypeStyles?.[entry.id];
+              const shapePath = legendSwatchPath(typeStyle, GLYPH_SIZE);
+              const swatchFill = legendSwatchFill(entry, colors, typeColors, typeStyle);
               return (
-                <li key={entry.id} className="kerusi-legend__item">
-                  <span
-                    className="kerusi-legend__swatch"
-                    aria-hidden="true"
-                    style={{
-                      background: typeColor ?? cssVar('availableBg', colors.availableBg),
-                      // Mirrors `seatTextFill`: only a document-supplied color
-                      // needs guessing at.
-                      color: typeColor
-                        ? readableOn(typeColor)
-                        : cssVar('availableFg', colors.availableFg),
-                    }}
-                  />
+                <li key={entry.id} className="kerusi-legend__item" data-seat-type={entry.id}>
+                  {shapePath ? (
+                    /* A type styled with its own shape keys that shape, not a square. */
+                    <svg
+                      className="kerusi-legend__swatch kerusi-legend__swatch--glyph"
+                      aria-hidden="true"
+                      focusable="false"
+                      viewBox={`0 0 ${GLYPH_SIZE} ${GLYPH_SIZE}`}
+                    >
+                      <path d={shapePath} style={{ fill: swatchFill }} />
+                    </svg>
+                  ) : (
+                    <span
+                      className="kerusi-legend__swatch"
+                      aria-hidden="true"
+                      style={{
+                        // Same token and fallback as an available seat of the
+                        // type, so a rule that sets `--kerusi-seat-fill` on the
+                        // seats and the legend items keeps them in step.
+                        background: swatchFill,
+                        color: legendSwatchText(entry, colors, typeColors, typeStyle),
+                      }}
+                    />
+                  )}
                   <span className="kerusi-legend__label">{entry.label}</span>
                   {showPrices && price && <span className="kerusi-legend__price">{price}</span>}
                 </li>

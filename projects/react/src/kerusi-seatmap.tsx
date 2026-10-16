@@ -93,6 +93,8 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       ariaStrings = DEFAULT_SEAT_ARIA_STRINGS,
       colors,
       typeColors = true,
+      seatTypeStyles,
+      seatStyle,
       renderSeat,
       seatSize = 28,
       seatGap = 6,
@@ -527,6 +529,8 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
             ariaLabels={ariaLabels}
             colors={resolvedColors}
             typeColors={typeColors}
+            seatTypeStyles={seatTypeStyles}
+            seatStyle={seatStyle}
             renderSeat={renderSeat}
             unitScale={unitScale}
             interactive={interactive}
@@ -679,6 +683,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
             locale={resolvedLocale}
             colors={resolvedColors}
             typeColors={typeColors}
+            seatTypeStyles={seatTypeStyles}
             showPrices={showLegendPrices}
           />
         )}

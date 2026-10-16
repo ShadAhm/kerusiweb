@@ -8,6 +8,7 @@
  */
 
 export * from './control-strings.js';
+export * from './kerusi-seat-style.js';
 export * from './kerusi-seatmap-colors.js';
 export * from './rtl.js';
 export * from './seat-glyph.js';

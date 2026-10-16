@@ -35,6 +35,49 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 4. **Both demos gain a "Custom seat template" toggle** that draws round seats from
    the glyph's paints, keeping the stock status marks.
 
+5. **Per-seat CSS hooks** (#26). Every seat's `<g>` now carries `data-seat-type`,
+   `data-seat-status`, `data-section-id` and, when the document gives them,
+   `data-seat-row` and `data-seat-attributes` (space-separated, for
+   `[data-seat-attributes~="aisle"]`). Two per-seat tokens, `--kerusi-seat-fill`
+   and `--kerusi-seat-label`, set on a seat selector, replace that seat's own
+   colour without `!important`. They never reach a selected or blocked seat, and
+   held and booked seats keep their wash and occupant figure, so status still
+   reads. Legend type items carry the same `data-seat-type` and their swatches
+   read the same token, so one rule recolours the seats and the key together.
+
+6. **`seatStyle` and `seatTypeStyles`** (#26), on both bindings. A
+   `KerusiSeatStyle` sets a seat's `fill`, `labelColor` and extra `className`
+   from code: per type through `seatTypeStyles` (which the legend shows too), per
+   seat through a `seatStyle(seat, { selected })` function laid over it field by
+   field. A style takes the same slot as `SeatType.color`, below a stylesheet's
+   `--kerusi-seat-fill`, and never reaches a selected or blocked seat. A hex
+   `fill` gets a readable black or white label unless `labelColor` says
+   otherwise. Core adds `resolveSeatStyle()`, `isHexColor()`, and an optional
+   trailing `style` argument on `seatFill`, `seatTextFill`, `resolveSeatGlyph`
+   and the legend swatch helpers. Both demos gain "Aisle seats via CSS" and
+   "Gold premium seats" toggles.
+
+7. **Seat shapes** (#26). `KerusiSeatStyle.shape` takes `'seat'` (the default
+   tapered outline), `'square'`, `'rounded'`, `'circle'`, or a function returning
+   a path `d` for a box. The wash, the selected frame and core, and a seat
+   template's focus outline follow it; the occupant figure and wheelchair marker
+   stay inside every preset (the marker moves in on a circle). A type styled with
+   a shape is keyed with it in the legend. Core adds `seatShapePath()`,
+   `seatMarkerAnchor()`, `legendSwatchPath()` and the `KerusiSeatShape` and
+   `SeatBox` types. Both demos gain a "Circle seat shape" toggle.
+
+### Changed
+
+- **`SeatType.color` can now be overridden per seat.** It still has no theme
+  token, but `--kerusi-seat-fill` set on a seat selector replaces it for the
+  seats that selector matches.
+- **Seat markup.** An unselected, unblocked seat's fill is now emitted as
+  `var(--kerusi-seat-fill, <its colour>)` and its label as
+  `var(--kerusi-seat-label, <its colour>)`, alongside the new `data-*`
+  attributes. Nothing looks different, but a test that snapshots the SVG will
+  see the change. `legendSwatchFill()` and `legendSwatchText()` in core now
+  compute the legend's type swatches for both bindings.
+
 ## [2.2.0] - 2026-10-11
 
 ### Added

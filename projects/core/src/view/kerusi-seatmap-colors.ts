@@ -1,4 +1,5 @@
-import { RenderSeat } from '../render/render-model.js';
+import { RenderLegendEntry, RenderSeat } from '../render/render-model.js';
+import { KerusiSeatStyle } from './kerusi-seat-style.js';
 
 /**
  * Theming for `<kerusi-seatmap>`.
@@ -120,7 +121,8 @@ export function resolveColors(colors?: KerusiSeatmapColors): Required<KerusiSeat
  *
  * `SeatType.color` deliberately does not go through here. That is the
  * document's own value under §4.7, not the theme's, and {@link readableOn}
- * still has to be able to parse it.
+ * still has to be able to parse it. It can only be overridden per seat, through
+ * {@link SEAT_FILL_VAR}, never by a global token.
  */
 export function cssVar(key: keyof KerusiSeatmapColors, value: string): string {
   return `var(${cssVarName(key)}, ${value})`;
@@ -132,9 +134,33 @@ export function cssVarName(key: keyof KerusiSeatmapColors): string {
 }
 
 /**
+ * The per-seat fill token. Unlike the `--kerusi-*` theme tokens above, this one
+ * is meant to be set on *some* seats, from a selector that picks them out:
+ *
+ * ```css
+ * .kerusi-seat[data-seat-type="vip"] { --kerusi-seat-fill: #d4a017; }
+ * ```
+ *
+ * Custom properties inherit, so setting it on the seat's `<g>` reaches the body
+ * inside it. It replaces only the seat's own colour (the slot `SeatType.color`
+ * fills), never the selected or blocked treatment, so status stays readable.
+ * The library never sets it, and there is deliberately no global default: a
+ * document's type colour is overridden one targeted selector at a time.
+ */
+export const SEAT_FILL_VAR = '--kerusi-seat-fill';
+
+/** The label colour that pairs with {@link SEAT_FILL_VAR}, set the same way. */
+export const SEAT_LABEL_VAR = '--kerusi-seat-label';
+
+/**
  * The fill for a seat's body, in precedence order:
  *
- *   selected → blocked → `SeatType.color` → available
+ *   selected → blocked → `--kerusi-seat-fill` → `style.fill` → `SeatType.color`
+ *   → available
+ *
+ * `style` is the seat's resolved `seatStyle` / `seatTypeStyles` entry (see
+ * `resolveSeatStyle`). Like the CSS token it only fills the seat's own-colour
+ * slot, so it can never hide the selected or blocked treatment.
  *
  * For a selected seat this is the *frame*: {@link seatCoreFill}'s core is drawn
  * inside it and covers most of the body, so `selectedBg` reads as a border
@@ -154,6 +180,7 @@ export function seatFill(
   selected: boolean,
   colors: Required<KerusiSeatmapColors>,
   useTypeColors: boolean,
+  style?: KerusiSeatStyle,
 ): string {
   if (selected) {
     return cssVar('selectedBg', colors.selectedBg);
@@ -161,7 +188,39 @@ export function seatFill(
   if (seat.status === 'blocked') {
     return cssVar('blockedBg', colors.blockedBg);
   }
-  return (useTypeColors && seat.typeColor) || cssVar('availableBg', colors.availableBg);
+  return `var(${SEAT_FILL_VAR}, ${baseFill(seat.typeColor, colors, useTypeColors, style)})`;
+}
+
+/** A seat's own colour: its type's, when allowed, or the theme's available fill. */
+function baseFill(
+  typeColor: string | undefined,
+  colors: Required<KerusiSeatmapColors>,
+  useTypeColors: boolean,
+  style?: KerusiSeatStyle,
+): string {
+  return style?.fill || (useTypeColors && typeColor) || cssVar('availableBg', colors.availableBg);
+}
+
+/** The label colour to pair with {@link baseFill}. */
+function baseText(
+  typeColor: string | undefined,
+  colors: Required<KerusiSeatmapColors>,
+  useTypeColors: boolean,
+  style?: KerusiSeatStyle,
+): string {
+  if (style?.labelColor) {
+    return style.labelColor;
+  }
+  if (style?.fill) {
+    // Only a hex colour can be read for contrast; for anything else the theme's
+    // label colour is the safer guess, and the docs say to set `labelColor`.
+    return isHexColor(style.fill)
+      ? readableOn(style.fill)
+      : cssVar('availableFg', colors.availableFg);
+  }
+  return useTypeColors && typeColor
+    ? readableOn(typeColor)
+    : cssVar('availableFg', colors.availableFg);
 }
 
 /**
@@ -184,6 +243,7 @@ export function seatTextFill(
   selected: boolean,
   colors: Required<KerusiSeatmapColors>,
   useTypeColors: boolean,
+  style?: KerusiSeatStyle,
 ): string {
   if (selected) {
     return cssVar('selectedBg', colors.selectedBg);
@@ -191,9 +251,33 @@ export function seatTextFill(
   if (seat.status === 'blocked') {
     return cssVar('blockedFg', colors.blockedFg);
   }
-  return useTypeColors && seat.typeColor
-    ? readableOn(seat.typeColor)
-    : cssVar('availableFg', colors.availableFg);
+  return `var(${SEAT_LABEL_VAR}, ${baseText(seat.typeColor, colors, useTypeColors, style)})`;
+}
+
+/**
+ * A legend type swatch's fill: the same per-seat token and the same fallback as
+ * an available seat of that type, so a rule that sets `--kerusi-seat-fill` on
+ * `.kerusi-legend__item[data-seat-type="…"]` as well as on the seats keeps the
+ * key in step with the map. Pass the type's `seatTypeStyles` entry for the same
+ * reason; a per-seat `seatStyle` has no single value a legend could show.
+ */
+export function legendSwatchFill(
+  entry: RenderLegendEntry,
+  colors: Required<KerusiSeatmapColors>,
+  useTypeColors: boolean,
+  typeStyle?: KerusiSeatStyle,
+): string {
+  return `var(${SEAT_FILL_VAR}, ${baseFill(entry.color, colors, useTypeColors, typeStyle)})`;
+}
+
+/** The text colour that pairs with {@link legendSwatchFill}. */
+export function legendSwatchText(
+  entry: RenderLegendEntry,
+  colors: Required<KerusiSeatmapColors>,
+  useTypeColors: boolean,
+  typeStyle?: KerusiSeatStyle,
+): string {
+  return `var(${SEAT_LABEL_VAR}, ${baseText(entry.color, colors, useTypeColors, typeStyle)})`;
 }
 
 /** Which occupant figure marks a seat, if any — see {@link seatFill}. */
@@ -313,6 +397,11 @@ export function readableOn(background: string): string {
   });
   const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
   return luminance > 0.179 ? '#000000' : '#ffffff';
+}
+
+/** Whether {@link readableOn} can read this colour: `#rgb` or `#rrggbb`. */
+export function isHexColor(color: string): boolean {
+  return parseHex(color) !== undefined;
 }
 
 /** `#rgb` or `#rrggbb` to channel values. Returns `undefined` for anything else. */

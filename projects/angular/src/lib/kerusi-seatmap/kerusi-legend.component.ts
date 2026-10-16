@@ -4,13 +4,16 @@ import {
   DEFAULT_KERUSI_COLORS,
   formatMoney,
   KerusiSeatmapColors,
+  legendSwatchFill,
+  legendSwatchPath,
+  legendSwatchText,
   occupantFillFor,
   occupantStrokeFor,
-  readableOn,
   RenderLegendEntry,
   seatBodyPath,
   SeatOccupantVariant,
   seatCoreFill,
+  SeatTypeStyles,
   seatOccupantPath,
   seatOccupantStroke,
   seatSelectedFrame,
@@ -55,6 +58,8 @@ export class KerusiLegendComponent {
   readonly colors = input<Required<KerusiSeatmapColors>>(DEFAULT_KERUSI_COLORS);
   /** Whether an available seat takes its type color — mirrors the seatmap input. */
   readonly typeColors = input<boolean>(true);
+  /** Mirrors the seatmap input: a type's style is what its swatch shows. */
+  readonly seatTypeStyles = input<SeatTypeStyles | undefined>(undefined);
   readonly showPrices = input<boolean>(true);
   /** Hide types no seat in the rendered map actually uses. */
   readonly hideUnusedTypes = input<boolean>(true);
@@ -88,14 +93,29 @@ export class KerusiLegendComponent {
     ];
   });
 
+  // Same token and fallback as an available seat of the type, so a rule that
+  // sets `--kerusi-seat-fill` on the seats and the legend items keeps them in step.
   protected swatch(entry: RenderLegendEntry): string {
-    return (this.typeColors() && entry.color) || cssVar('availableBg', this.colors().availableBg);
+    return legendSwatchFill(
+      entry,
+      this.colors(),
+      this.typeColors(),
+      this.seatTypeStyles()?.[entry.id],
+    );
+  }
+
+  /** The swatch outline for a type styled with its own shape; `undefined` keeps the square. */
+  protected typeShape(entry: RenderLegendEntry): string | undefined {
+    return legendSwatchPath(this.seatTypeStyles()?.[entry.id], this.glyphSize);
   }
 
   protected swatchText(entry: RenderLegendEntry): string {
-    const typeColor = this.typeColors() && entry.color;
-    // Mirrors `seatTextFill`: only a document-supplied color needs guessing at.
-    return typeColor ? readableOn(typeColor) : cssVar('availableFg', this.colors().availableFg);
+    return legendSwatchText(
+      entry,
+      this.colors(),
+      this.typeColors(),
+      this.seatTypeStyles()?.[entry.id],
+    );
   }
 
   // --- status swatches -------------------------------------------------------

@@ -182,3 +182,87 @@ export function seatOccupantPath(x: number, y: number, width: number, height: nu
 export function seatOccupantStroke(width: number, height: number): number {
   return Math.min(width, height) * OCCUPANT_STROKE;
 }
+
+// --- shapes -----------------------------------------------------------------
+
+/** An axis-aligned box in viewBox units. */
+export interface SeatBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * The outline a seat is drawn with.
+ *
+ * - `'seat'`: the default tapered outline, {@link seatBodyPath}. The only one
+ *   that shows which way a seat faces.
+ * - `'square'`: a square with the same slight corners as the seat's front.
+ * - `'rounded'`: a square with soft corners.
+ * - `'circle'`: a circle filling the box.
+ * - A function: given a box, return a closed path `d` inside it. It is called
+ *   for the seat's box and again for the selected core's smaller box, so it
+ *   must draw relative to the box it is given, not to fixed coordinates.
+ */
+export type KerusiSeatShape = 'seat' | 'square' | 'rounded' | 'circle' | ((box: SeatBox) => string);
+
+/** The `'rounded'` preset's corner radius, as a fraction of the short edge. */
+const ROUNDED_RADIUS = 0.25;
+
+/** A seat's outline in the given shape; `undefined` means the default `'seat'`. */
+export function seatShapePath(
+  shape: KerusiSeatShape | undefined,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): string {
+  if (typeof shape === 'function') {
+    return shape({ x, y, width, height });
+  }
+  const edge = Math.min(width, height);
+  switch (shape) {
+    case 'square':
+      return roundedRect(x, y, width, height, edge * FRONT_RADIUS);
+    case 'rounded':
+      return roundedRect(x, y, width, height, edge * ROUNDED_RADIUS);
+    case 'circle':
+      return ellipse(x, y, width, height);
+    default:
+      return seatBodyPath(x, y, width, height);
+  }
+}
+
+/**
+ * Where the wheelchair marker's centre sits, as fractions of the box it is
+ * drawn on. The stock corner, (0.82, 0.18), overhangs a circle, so the circle
+ * pulls it in along the diagonal; every other preset keeps the stock corner. A
+ * function shape gets the stock corner too, so it should leave that corner
+ * filled.
+ */
+export function seatMarkerAnchor(shape: KerusiSeatShape | undefined): { x: number; y: number } {
+  return shape === 'circle' ? { x: 0.75, y: 0.25 } : { x: 0.82, y: 0.18 };
+}
+
+function roundedRect(x: number, y: number, width: number, height: number, radius: number): string {
+  const points: Point[] = [
+    [x, y],
+    [x + width, y],
+    [x + width, y + height],
+    [x, y + height],
+  ];
+  return roundedPolygon(points, [radius, radius, radius, radius]);
+}
+
+/** An ellipse filling the box: two half arcs, since a circle cannot be a subpath. */
+function ellipse(x: number, y: number, width: number, height: number): string {
+  const rx = r(width / 2);
+  const ry = r(height / 2);
+  const cy = r(y + height / 2);
+  return (
+    `M ${r(x)} ${cy} ` +
+    `A ${rx} ${ry} 0 1 1 ${r(x + width)} ${cy} ` +
+    `A ${rx} ${ry} 0 1 1 ${r(x)} ${cy} Z`
+  );
+}

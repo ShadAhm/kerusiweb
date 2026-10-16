@@ -11,6 +11,8 @@ import type {
   RenderSeat,
   SeatAriaStrings,
   SeatRenderStatus,
+  SeatStyleFn,
+  SeatTypeStyles,
   SelectionSummary,
 } from '@kerusiweb/core';
 import type { CSSProperties, ReactNode } from 'react';
@@ -115,6 +117,17 @@ export interface KerusiSeatmapProps {
   colors?: KerusiSeatmapColors;
   /** Let an available seat take its `SeatType.color` (§4.7). */
   typeColors?: boolean;
+  /**
+   * Styles for every seat of a type, keyed by `SeatType.id`: fill, label colour
+   * and classes. Never changes a selected or blocked seat's fill. Also shown in
+   * the legend.
+   */
+  seatTypeStyles?: SeatTypeStyles;
+  /**
+   * A style for one seat, laid over its `seatTypeStyles` entry; return nothing
+   * to leave a seat be. Never changes a selected or blocked seat's fill.
+   */
+  seatStyle?: SeatStyleFn;
   /**
    * Draws the inside of every seat yourself. The library keeps the seat's
    * `<g>`, with its role, ARIA state, tab stop, rotation and event handlers, and

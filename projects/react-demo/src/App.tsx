@@ -1,8 +1,8 @@
 import { buildRenderModel, formatMoney, summarizeSelection } from '@kerusiweb/core';
-import type { KerusiViolation } from '@kerusiweb/core';
+import type { KerusiViolation, SeatStyleFn } from '@kerusiweb/core';
 import { KerusiSeatmap } from '@kerusiweb/react';
 import type { SeatDisallowed, SeatRenderContext } from '@kerusiweb/react';
-import { DEMO_LOCALES, SCENARIOS } from '@kerusi/demo-scenarios';
+import { DEMO_LOCALES, premiumTypeStyles, SCENARIOS } from '@kerusi/demo-scenarios';
 import type { Scenario } from '@kerusi/demo-scenarios';
 import { useCallback, useMemo, useState } from 'react';
 
@@ -18,6 +18,9 @@ export function App() {
   const [zoomable, setZoomable] = useState(true);
   const [maximizable, setMaximizable] = useState(true);
   const [roundSeats, setRoundSeats] = useState(false);
+  const [aisleCss, setAisleCss] = useState(false);
+  const [goldPremium, setGoldPremium] = useState(false);
+  const [circleShape, setCircleShape] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   /** Selections are per scenario, so switching tabs does not lose a pick. */
@@ -59,6 +62,11 @@ export function App() {
   }, []);
 
   /** Resolved selection: the seats picked, their prices, and the total. */
+  const seatTypeStyles = useMemo(
+    () => (goldPremium ? premiumTypeStyles(scenario.map) : undefined),
+    [goldPremium, scenario.map],
+  );
+
   const summary = useMemo(() => {
     const model = buildRenderModel(scenario.map, scenario.state, { locale });
     const { seats, total, unpriced } = summarizeSelection(model, selection);
@@ -188,11 +196,35 @@ export function App() {
                 />
                 Custom seat template
               </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={aisleCss}
+                  onChange={(e) => setAisleCss(e.target.checked)}
+                />
+                Aisle seats via CSS
+              </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={goldPremium}
+                  onChange={(e) => setGoldPremium(e.target.checked)}
+                />
+                Gold premium seats
+              </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={circleShape}
+                  onChange={(e) => setCircleShape(e.target.checked)}
+                />
+                Circle seat shape
+              </label>
             </div>
           </div>
 
           <div className="scenario-body">
-            <div className="stage">
+            <div className={aisleCss ? 'stage demo-aisles' : 'stage'}>
               <KerusiSeatmap
                 map={scenario.map}
                 state={scenario.state}
@@ -205,6 +237,8 @@ export function App() {
                 showLegend={showLegend}
                 zoomable={zoomable}
                 maximizable={maximizable}
+                seatTypeStyles={seatTypeStyles}
+                seatStyle={circleShape ? circleSeats : undefined}
                 renderSeat={roundSeats ? renderRoundSeat : undefined}
                 onSeatDisallowed={onDisallowed}
                 onValidationIssues={setIssues}
@@ -327,6 +361,9 @@ export function App() {
 }
 
 const EMPTY: readonly string[] = [];
+
+/** The "Circle seat shape" toggle: every seat as a circle, through `seatStyle`. */
+const circleSeats: SeatStyleFn = () => ({ shape: 'circle' });
 
 /**
  * The "Custom seat template" toggle: round seats, drawn from the paints and

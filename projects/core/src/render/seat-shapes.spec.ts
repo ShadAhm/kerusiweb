@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  SeatBox,
   seatBodyPath,
+  seatMarkerAnchor,
+  seatShapePath,
   seatOccupantPath,
   seatOccupantStroke,
   seatRingStroke,
@@ -168,5 +171,59 @@ describe('seatOccupantStroke', () => {
   it("takes its width from the seat's short edge", () => {
     expect(seatOccupantStroke(100, 100)).toBeCloseTo(5);
     expect(seatOccupantStroke(40, 20)).toBeCloseTo(1);
+  });
+});
+
+describe('seatShapePath', () => {
+  it('draws the stock seat by default and for "seat"', () => {
+    expect(seatShapePath(undefined, 10, 20, 30, 30)).toBe(seatBodyPath(10, 20, 30, 30));
+    expect(seatShapePath('seat', 10, 20, 30, 30)).toBe(seatBodyPath(10, 20, 30, 30));
+  });
+
+  it.each(['square', 'rounded', 'circle'] as const)(
+    'draws a closed "%s" inside its own box',
+    (shape) => {
+      const d = seatShapePath(shape, 10, 20, 30, 30);
+      expect(d.trim().endsWith('Z')).toBe(true);
+      expect(d).not.toContain('NaN');
+      const p = points(d);
+      const xs = p.filter((_, i) => i % 2 === 0);
+      const ys = p.filter((_, i) => i % 2 === 1);
+      expect(Math.min(...xs)).toBeGreaterThanOrEqual(10);
+      expect(Math.max(...xs)).toBeLessThanOrEqual(40);
+      expect(Math.min(...ys)).toBeGreaterThanOrEqual(20);
+      expect(Math.max(...ys)).toBeLessThanOrEqual(50);
+    },
+  );
+
+  it('rounds "rounded" more than "square"', () => {
+    const radius = (d: string) => Number(d.split(' A ')[1]!.split(' ')[0]);
+    expect(radius(seatShapePath('rounded', 0, 0, 100, 100))).toBeGreaterThan(
+      radius(seatShapePath('square', 0, 0, 100, 100)),
+    );
+  });
+
+  it('hands a function shape the box it is drawing', () => {
+    const boxes: SeatBox[] = [];
+    const d = seatShapePath(
+      (box) => {
+        boxes.push(box);
+        return 'M 0 0 Z';
+      },
+      1,
+      2,
+      3,
+      4,
+    );
+    expect(d).toBe('M 0 0 Z');
+    expect(boxes).toEqual([{ x: 1, y: 2, width: 3, height: 4 }]);
+  });
+});
+
+describe('seatMarkerAnchor', () => {
+  it('keeps the stock corner, and pulls it in for a circle', () => {
+    expect(seatMarkerAnchor(undefined)).toEqual({ x: 0.82, y: 0.18 });
+    expect(seatMarkerAnchor('rounded')).toEqual({ x: 0.82, y: 0.18 });
+    expect(seatMarkerAnchor('circle')).toEqual({ x: 0.75, y: 0.25 });
   });
 });

@@ -1,1 +1,9 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* The "Aisle seats via CSS" toggle: the per-seat tokens from a stylesheet,
+   selected by the data attributes every seat carries. Nothing but this rule is
+   needed; a selected seat still shows as selected, a taken one as taken. */
+.demo-aisles .kerusi-seat[data-seat-attributes~='aisle'] {
+  --kerusi-seat-fill: #f2c94c;
+  --kerusi-seat-label: #000000;
+}

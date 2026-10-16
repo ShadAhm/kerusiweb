@@ -1,0 +1,77 @@
+name: Publish to npm
+
+# Publishes @kerusiweb/core, @kerusiweb/angular and @kerusiweb/react when a
+# version tag is pushed: `git tag v2.4.0 && git push origin v2.4.0`.
+# The tag must match the version in all three package.json files, which the
+# release PR bumps beforehand. See "Releasing" in CONTRIBUTING.md.
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+# One publish at a time, and never cancel one half-way through.
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # Lets npm sign a provenance statement linking each package to this run.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Check the tag matches every package version
+        run: |
+          node -e '
+            const tag = process.env.GITHUB_REF_NAME.replace(/^v/, "");
+            const pkgs = ["core", "angular", "react"].map((p) => require(`./projects/${p}/package.json`));
+            const wrong = pkgs.filter((p) => p.version !== tag);
+            if (wrong.length) {
+              for (const p of wrong) console.error(`${p.name} is ${p.version}, but the tag is v${tag}`);
+              process.exit(1);
+            }
+            for (const p of pkgs.slice(1)) {
+              const peer = p.peerDependencies["@kerusiweb/core"];
+              if (peer !== `^${tag}`) {
+                console.error(`${p.name} needs @kerusiweb/core "${peer}"; expected "^${tag}"`);
+                process.exit(1);
+              }
+            }
+            console.log(`All three packages are ${tag}.`);
+          '
+
+      - run: npm ci
+      - run: npm run build:core
+      - run: npm run test:ci
+      - run: npm run build:angular
+      - run: npm run build:react
+
+      # Core first: both bindings need this version of it on the registry.
+      # A version that is already published is skipped, so re-running a
+      # workflow that failed part-way picks up where it stopped.
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          publish() {
+            name="$1"; dir="$2"
+            if npm view "$name@${VERSION#v}" version >/dev/null 2>&1; then
+              echo "$name@${VERSION#v} is already on npm; skipping."
+            else
+              npm publish "$dir" --provenance
+            fi
+          }
+          publish @kerusiweb/core ./projects/core
+          publish @kerusiweb/angular ./dist/angular
+          publish @kerusiweb/react ./projects/react

@@ -430,8 +430,8 @@ describe('KerusiSeatmapComponent', () => {
       host.showLegend.set(true);
       fixture.detectChanges();
       const swatch = el.querySelector<HTMLElement>('.kerusi-legend__swatch')!;
-      expect(box('A1').style.fill).toBe('rgb(58, 143, 99)');
-      expect(swatch.style.background).toBe('rgb(58, 143, 99)');
+      expect(box('A1').style.fill).toBe('var(--kerusi-seat-fill, #3a8f63)');
+      expect(swatch.style.background).toBe('var(--kerusi-seat-fill, #3a8f63)');
     });
 
     it('draws every availability swatch as the seat glyph, not a flat colour', () => {
@@ -463,17 +463,63 @@ describe('KerusiSeatmapComponent', () => {
 
   describe('seat fills', () => {
     it('colors an available seat from its SeatType.color (§4.7)', () => {
-      expect(box('A1').style.fill).toBe('rgb(58, 143, 99)');
+      expect(box('A1').style.fill).toBe('var(--kerusi-seat-fill, #3a8f63)');
     });
 
     it('routes theme colors through a CSS custom property, keeping the input as fallback', () => {
       // The sofa type declares no color, so L1's fill comes from the theme.
-      expect(box('L1').style.fill).toBe('var(--kerusi-available-bg, #76d75d)');
+      expect(box('L1').style.fill).toBe(
+        'var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))',
+      );
     });
 
     it('publishes focusRing, so the focus ring is themable', () => {
       // Under `--kerusi-focus-ring`, which a stylesheet may set to win outright.
       expect(svgs()[0].style.getPropertyValue('--kerusi-focus-ring-input')).toBe('#1b1f27');
+    });
+  });
+
+  describe('per-seat styling hooks', () => {
+    it('tags each seat with data attributes CSS can select by', () => {
+      const a1 = seat('A1');
+      expect(a1.getAttribute('data-seat-type')).toBe('standard');
+      expect(a1.getAttribute('data-seat-status')).toBe('available');
+      expect(a1.getAttribute('data-section-id')).toBe('stalls');
+      expect(a1.getAttribute('data-seat-row')).toBe('A');
+      expect(a1.hasAttribute('data-seat-attributes')).toBe(false);
+
+      const l1 = seat('L1');
+      expect(l1.getAttribute('data-seat-type')).toBe('sofa');
+      expect(l1.getAttribute('data-section-id')).toBe('balcony');
+      expect(l1.hasAttribute('data-seat-row')).toBe(false);
+    });
+
+    it('lists a seat’s attributes space-separated, for a ~= selector', () => {
+      const [stalls, balcony] = VENUE.sections;
+      const seats = stalls.seats.map((s) =>
+        s.id === 'A1' ? { ...s, attributes: ['aisle', 'extra-legroom'] } : s,
+      );
+      host.map.set({ ...VENUE, sections: [{ ...stalls, seats }, balcony] });
+      fixture.detectChanges();
+      expect(seat('A1').getAttribute('data-seat-attributes')).toBe('aisle extra-legroom');
+      expect(el.querySelector('[data-seat-attributes~="aisle"]')).toBe(seat('A1'));
+    });
+
+    it('routes a seat’s own colour through --kerusi-seat-fill, but never a selected one', () => {
+      expect(box('A1').style.fill).toBe('var(--kerusi-seat-fill, #3a8f63)');
+      host.selection.set(['A1']);
+      fixture.detectChanges();
+      expect(box('A1').style.fill).toBe('var(--kerusi-selected-bg, #7854af)');
+    });
+
+    it('tags each legend type with data-seat-type, so one rule recolours seats and key', () => {
+      host.showLegend.set(true);
+      fixture.detectChanges();
+      const item = el.querySelector('.kerusi-legend__item[data-seat-type="standard"]')!;
+      expect(item).not.toBeNull();
+      expect(item.querySelector<HTMLElement>('.kerusi-legend__swatch')!.style.background).toBe(
+        box('A1').style.fill,
+      );
     });
   });
 
@@ -492,7 +538,7 @@ describe('KerusiSeatmapComponent', () => {
         seats: { A1: { status: 'held' } },
       });
       fixture.detectChanges();
-      expect(box('A1').style.fill).toBe('rgb(58, 143, 99)');
+      expect(box('A1').style.fill).toBe('var(--kerusi-seat-fill, #3a8f63)');
       expect(seat('A1').querySelector('.kerusi-seat__wash')).not.toBeNull();
       const occupant = seat('A1').querySelector<SVGPathElement>('.kerusi-seat__occupant--held')!;
       expect(occupant).not.toBeNull();
@@ -508,7 +554,7 @@ describe('KerusiSeatmapComponent', () => {
         seats: { A1: { status: 'booked' } },
       });
       fixture.detectChanges();
-      expect(box('A1').style.fill).toBe('rgb(58, 143, 99)');
+      expect(box('A1').style.fill).toBe('var(--kerusi-seat-fill, #3a8f63)');
       expect(seat('A1').querySelector('.kerusi-seat__wash')).not.toBeNull();
       const occupant = seat('A1').querySelector<SVGPathElement>('.kerusi-seat__occupant--booked')!;
       expect(occupant).not.toBeNull();

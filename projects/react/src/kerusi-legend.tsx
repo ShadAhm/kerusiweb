@@ -2,9 +2,10 @@ import {
   cssVar,
   DEFAULT_KERUSI_COLORS,
   formatMoney,
+  legendSwatchFill,
+  legendSwatchText,
   occupantFillFor,
   occupantStrokeFor,
-  readableOn,
   seatBodyPath,
   seatCoreFill,
   seatOccupantPath,
@@ -94,20 +95,18 @@ export function KerusiLegend({
           <h4 className="kerusi-legend__heading">{headingSeatTypes}</h4>
           <ul className="kerusi-legend__list">
             {types.map((entry) => {
-              const typeColor = (typeColors && entry.color) || null;
               const price = entry.price ? formatMoney(entry.price, locale) : '';
               return (
-                <li key={entry.id} className="kerusi-legend__item">
+                <li key={entry.id} className="kerusi-legend__item" data-seat-type={entry.id}>
                   <span
                     className="kerusi-legend__swatch"
                     aria-hidden="true"
                     style={{
-                      background: typeColor ?? cssVar('availableBg', colors.availableBg),
-                      // Mirrors `seatTextFill`: only a document-supplied color
-                      // needs guessing at.
-                      color: typeColor
-                        ? readableOn(typeColor)
-                        : cssVar('availableFg', colors.availableFg),
+                      // Same token and fallback as an available seat of the
+                      // type, so a rule that sets `--kerusi-seat-fill` on the
+                      // seats and the legend items keeps them in step.
+                      background: legendSwatchFill(entry, colors, typeColors),
+                      color: legendSwatchText(entry, colors, typeColors),
                     }}
                   />
                   <span className="kerusi-legend__label">{entry.label}</span>

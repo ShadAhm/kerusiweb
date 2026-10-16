@@ -51,6 +51,11 @@ export interface SeatGlyph {
   variant: SeatOccupantVariant | null;
   /** The classes for the seat's `<g>`: `kerusi-seat`, its status, and the modifiers. */
   className: string;
+  /**
+   * The `data-*` attributes for the seat's `<g>`, so CSS can pick seats out by
+   * what the document says about them. An absent field is not rendered.
+   */
+  data: SeatDataAttributes;
   /** The seat's own placed box. */
   box: SeatBox;
   /**
@@ -86,6 +91,23 @@ export interface SeatGlyph {
   };
   /** The corner marker for `accessibility.wheelchairAccessible`; absent otherwise. */
   wheelchair?: { cx: number; cy: number; r: number; fill: string };
+}
+
+/** See {@link SeatGlyph.data}. Each field is bound as the attribute named beside it. */
+export interface SeatDataAttributes {
+  /** `data-seat-type`: `Seat.type`. */
+  type: string;
+  /** `data-seat-status`: the merged availability, same as the status class. */
+  status: string;
+  /** `data-section-id`: the section the seat belongs to. */
+  section: string;
+  /** `data-seat-row`: `Seat.row`, when the seat names one. */
+  row?: string;
+  /**
+   * `data-seat-attributes`: `Seat.attributes`, space-separated, when there are
+   * any, so `[data-seat-attributes~="aisle"]` matches one tag among several.
+   */
+  attributes?: string;
 }
 
 /**
@@ -136,6 +158,7 @@ export function resolveSeatGlyph(
   return {
     variant,
     className: seatClassName(seat, selected),
+    data: seatDataAttributes(seat),
     box,
     markBox,
     body: { d: bodyD, fill: seatFill(seat, selected, colors, typeColors) },
@@ -194,6 +217,17 @@ function coreBox(box: SeatBox): SeatBox {
     y: box.y + frame,
     width: box.width - frame * 2,
     height: box.height - frame * 2,
+  };
+}
+
+/** The `data-*` attributes for a seat's `<g>`; see {@link SeatDataAttributes}. */
+export function seatDataAttributes(seat: RenderSeat): SeatDataAttributes {
+  return {
+    type: seat.type.id,
+    status: seat.status,
+    section: seat.sectionId,
+    row: seat.row || undefined,
+    attributes: seat.attributes.length ? seat.attributes.join(' ') : undefined,
   };
 }
 

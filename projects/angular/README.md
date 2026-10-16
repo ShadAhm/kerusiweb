@@ -211,9 +211,11 @@ Every key of `KerusiSeatmapColors` has a property, kebab-cased:
 | `focusRing`                           | `--kerusi-focus-ring`                                       |
 | `backdrop`                            | `--kerusi-backdrop`                                         |
 
-A `SeatType.color` from the document is **not** themable, because it is
-the map's own value under §4.7. Turn it off wholesale with
-`[typeColors]="false"` if you want the theme to own every fill.
+A `SeatType.color` from the document has **no theme token**, because it is
+the map's own value under §4.7. It can be overridden only seat by seat (or type
+by type) with `--kerusi-seat-fill`; see
+[Styling individual seats](#styling-individual-seats). Turn it off wholesale
+with `[typeColors]="false"` if you want the theme to own every fill.
 
 Overriding `selectedBg` does not cost you the selected cue: the core and the
 figure are shape, not color. Do set `selectedFg` alongside it, though. It is the
@@ -251,6 +253,58 @@ For anything the palette does not cover, each seat group carries class hooks:
 Inside a seat: `.kerusi-seat__box`, `__wash`, `__core`, `__occupant`
 (`__occupant--selected` / `--held` / `--booked`), `__label`, `__wheelchair`, and,
 only while a [seat template](#custom-seat-content) is in use, `__focus`.
+
+### Styling individual seats
+
+The palette themes every seat of a status at once. To pick out _some_ seats (a
+VIP block, every aisle seat, one row), select them in CSS and set the per-seat
+tokens. Each seat's `<g>` carries what the document says about it:
+
+| Attribute              | Value                                                  | Example selector                  |
+| ---------------------- | ------------------------------------------------------ | --------------------------------- |
+| `data-seat-id`         | `Seat.id`                                              | `[data-seat-id="12A"]`            |
+| `data-seat-type`       | `Seat.type`                                            | `[data-seat-type="recliner"]`     |
+| `data-seat-row`        | `Seat.row`, when the seat has one                      | `[data-seat-row="A"]`             |
+| `data-seat-status`     | `available`, `held`, `booked` or `blocked`             | `[data-seat-status="held"]`       |
+| `data-seat-attributes` | `Seat.attributes`, space-separated, when there are any | `[data-seat-attributes~="aisle"]` |
+| `data-section-id`      | The seat's section                                     | `[data-section-id="balcony"]`     |
+
+Two tokens then recolour the seats a selector picks out:
+
+| Token                 | Replaces                                                       |
+| --------------------- | -------------------------------------------------------------- |
+| `--kerusi-seat-fill`  | The seat's own colour: its `SeatType.color`, or `availableBg`. |
+| `--kerusi-seat-label` | The colour of the number drawn on it.                          |
+
+```css
+kerusi-seatmap :is(.kerusi-seat, .kerusi-legend__item)[data-seat-type='vip'] {
+  --kerusi-seat-fill: #d4a017;
+  --kerusi-seat-label: #000000;
+}
+
+kerusi-seatmap .kerusi-seat[data-seat-attributes~='aisle'] {
+  --kerusi-seat-fill: #2f6b45;
+  --kerusi-seat-label: #ffffff;
+}
+```
+
+- **Per seat, not global.** The library never sets these tokens and gives them
+  no map-wide default. They are meant for a selector that picks seats out;
+  setting one on the map itself would repaint every seat and hide the
+  document's type colours, which is what `[typeColors]="false"` and `availableBg` are for.
+- **Status still shows.** They replace only the seat's own colour. A held or
+  booked seat keeps it under its wash and occupant figure, while a selected seat
+  keeps its selected frame and core, and a blocked seat its grey, whatever the
+  tokens say. Status is never carried by colour alone.
+- **Set the label with the fill.** The library cannot read a colour set in CSS,
+  so it cannot choose a readable number colour for it.
+- **Keep the legend in step.** Each type in the legend carries the same
+  `data-seat-type`, and its swatch reads `--kerusi-seat-fill`. Include
+  `.kerusi-legend__item` in a type selector, as above, and the key matches the
+  map.
+- **Where the rules go.** Put them in a global stylesheet. From a component's
+  own stylesheet, Angular's emulated encapsulation scopes them away from the
+  map's elements unless you prefix them with `::ng-deep`.
 
 ### Custom seat content
 

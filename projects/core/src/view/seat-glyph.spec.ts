@@ -7,14 +7,17 @@ import { computeSectionLayout, PlacedSeat } from '../render/section-layout.js';
 import {
   cssVar,
   DEFAULT_KERUSI_COLORS,
+  legendSwatchFill,
+  legendSwatchText,
   occupantFillFor,
   occupantStrokeFor,
+  readableOn,
   seatCoreFill,
   seatFill,
   seatTextFill,
   seatWashFill,
 } from './kerusi-seatmap-colors.js';
-import { resolveSeatGlyph, seatClassName } from './seat-glyph.js';
+import { resolveSeatGlyph, seatClassName, seatDataAttributes } from './seat-glyph.js';
 
 const MAP: KerusiMap = {
   kerusi: '1.0',
@@ -25,7 +28,15 @@ const MAP: KerusiMap = {
       id: 'main',
       layout: 'freeform',
       seats: [
-        { id: 'A1', label: '1', x: 10, y: 10, type: 'standard' },
+        {
+          id: 'A1',
+          label: '1',
+          row: 'A',
+          x: 10,
+          y: 10,
+          type: 'standard',
+          attributes: ['aisle', 'extra-legroom'],
+        },
         { id: 'A2', label: '2', x: 30, y: 10, type: 'plain', rotation: 30 },
         {
           id: 'A3',
@@ -87,9 +98,11 @@ describe('resolveSeatGlyph', () => {
 
   it('takes the type colour, or the theme when typeColors is off', () => {
     const p = placed('A1');
-    expect(resolveSeatGlyph(p, false, colors, true).body.fill).toBe('#3a8f63');
+    expect(resolveSeatGlyph(p, false, colors, true).body.fill).toBe(
+      'var(--kerusi-seat-fill, #3a8f63)',
+    );
     expect(resolveSeatGlyph(p, false, colors, false).body.fill).toBe(
-      cssVar('availableBg', colors.availableBg),
+      `var(--kerusi-seat-fill, ${cssVar('availableBg', colors.availableBg)})`,
     );
   });
 
@@ -164,6 +177,76 @@ describe('seatClassName', () => {
     );
     expect(seatClassName(placed('L1').seat, false)).toBe(
       'kerusi-seat kerusi-seat--held kerusi-seat--unselectable kerusi-seat--companion',
+    );
+  });
+});
+
+describe('the per-seat tokens', () => {
+  it('lets --kerusi-seat-fill and --kerusi-seat-label replace a seat’s own colour', () => {
+    const glyph = resolveSeatGlyph(placed('A1'), false, colors, true);
+    expect(glyph.body.fill).toBe('var(--kerusi-seat-fill, #3a8f63)');
+    expect(glyph.label.fill).toBe(`var(--kerusi-seat-label, ${readableOn('#3a8f63')})`);
+  });
+
+  it('keeps them under a held or booked seat’s wash, which still marks the status', () => {
+    for (const id of ['L1', 'L2']) {
+      const glyph = resolveSeatGlyph(placed(id), false, colors, true);
+      expect(glyph.body.fill).toBe('var(--kerusi-seat-fill, #3a8f63)');
+      expect(glyph.wash).toBeDefined();
+      expect(glyph.occupant).toBeDefined();
+    }
+  });
+
+  it('never reaches a selected or blocked seat, whose colour is the status cue', () => {
+    const selected = resolveSeatGlyph(placed('A1'), true, colors, true);
+    expect(selected.body.fill).toBe(cssVar('selectedBg', colors.selectedBg));
+    expect(selected.label.fill).not.toContain('--kerusi-seat-label');
+
+    const blockedState: KerusiState = { ...STATE, seats: { A1: { status: 'blocked' } } };
+    const blocked = resolveSeatGlyph(placed('A1', blockedState), false, colors, true);
+    expect(blocked.body.fill).toBe(cssVar('blockedBg', colors.blockedBg));
+    expect(blocked.label.fill).toBe(cssVar('blockedFg', colors.blockedFg));
+  });
+
+  it('gives a legend swatch the same token and fallback as an available seat of its type', () => {
+    const [standard, plain] = buildRenderModel(MAP, STATE).legend;
+    expect(legendSwatchFill(standard, colors, true)).toBe('var(--kerusi-seat-fill, #3a8f63)');
+    expect(legendSwatchFill(standard, colors, false)).toBe(
+      `var(--kerusi-seat-fill, ${cssVar('availableBg', colors.availableBg)})`,
+    );
+    expect(legendSwatchFill(plain, colors, true)).toBe(
+      seatFill(placed('A2').seat, false, colors, true),
+    );
+    expect(legendSwatchText(standard, colors, true)).toBe(
+      seatTextFill(placed('A1').seat, false, colors, true),
+    );
+  });
+});
+
+describe('seatDataAttributes', () => {
+  it('carries the type, status, section, row and attributes the document gives', () => {
+    expect(seatDataAttributes(placed('A1').seat)).toEqual({
+      type: 'standard',
+      status: 'available',
+      section: 'main',
+      row: 'A',
+      attributes: 'aisle extra-legroom',
+    });
+  });
+
+  it('omits a row and attributes the seat does not have', () => {
+    expect(seatDataAttributes(placed('L1').seat)).toEqual({
+      type: 'standard',
+      status: 'held',
+      section: 'main',
+      row: undefined,
+      attributes: undefined,
+    });
+  });
+
+  it('is what the glyph carries', () => {
+    expect(resolveSeatGlyph(placed('A1'), false, colors, true).data).toEqual(
+      seatDataAttributes(placed('A1').seat),
     );
   });
 });

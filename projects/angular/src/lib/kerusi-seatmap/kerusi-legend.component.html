@@ -4,7 +4,7 @@
       <h4 class="kerusi-legend__heading">{{ headingSeatTypes() }}</h4>
       <ul class="kerusi-legend__list">
         @for (entry of types(); track entry.id) {
-          <li class="kerusi-legend__item">
+          <li class="kerusi-legend__item" [attr.data-seat-type]="entry.id">
             <span
               class="kerusi-legend__swatch"
               aria-hidden="true"

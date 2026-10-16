@@ -179,6 +179,11 @@ function SectionSeat({
       aria-pressed={selected}
       aria-disabled={!seat.selectable}
       data-seat-id={seat.id}
+      data-seat-type={glyph.data.type}
+      data-seat-status={glyph.data.status}
+      data-section-id={glyph.data.section}
+      data-seat-row={glyph.data.row}
+      data-seat-attributes={glyph.data.attributes}
       transform={transform(placed) ?? undefined}
       onClick={interactive ? () => onSeatActivate?.(seat.id) : undefined}
       onFocus={interactive ? () => onSeatFocused?.(seat.id) : undefined}

@@ -4,9 +4,10 @@ import {
   DEFAULT_KERUSI_COLORS,
   formatMoney,
   KerusiSeatmapColors,
+  legendSwatchFill,
+  legendSwatchText,
   occupantFillFor,
   occupantStrokeFor,
-  readableOn,
   RenderLegendEntry,
   seatBodyPath,
   SeatOccupantVariant,
@@ -88,14 +89,14 @@ export class KerusiLegendComponent {
     ];
   });
 
+  // Same token and fallback as an available seat of the type, so a rule that
+  // sets `--kerusi-seat-fill` on the seats and the legend items keeps them in step.
   protected swatch(entry: RenderLegendEntry): string {
-    return (this.typeColors() && entry.color) || cssVar('availableBg', this.colors().availableBg);
+    return legendSwatchFill(entry, this.colors(), this.typeColors());
   }
 
   protected swatchText(entry: RenderLegendEntry): string {
-    const typeColor = this.typeColors() && entry.color;
-    // Mirrors `seatTextFill`: only a document-supplied color needs guessing at.
-    return typeColor ? readableOn(typeColor) : cssVar('availableFg', this.colors().availableFg);
+    return legendSwatchText(entry, this.colors(), this.typeColors());
   }
 
   // --- status swatches -------------------------------------------------------

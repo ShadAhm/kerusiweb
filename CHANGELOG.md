@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-16
+
 ### Added
 
 1. **Custom seat content** (#26). React takes a `renderSeat` prop and Angular an
@@ -530,6 +532,8 @@ Carried over from the legacy directive:
 - Rendering is per-instance (no global element id lookup), so multiple pickers
   can coexist on one page.
 
+[2.3.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.3.0
+[2.2.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.2.0
 [2.1.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.1.0
 [2.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.0.0
 [1.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v1.0.0

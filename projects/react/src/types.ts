@@ -2,6 +2,7 @@ import type {
   DisallowedReason,
   KerusiControlStrings,
   KerusiMap,
+  KerusiSeatContext,
   KerusiSeatmapColors,
   KerusiSession,
   KerusiState,
@@ -46,6 +47,18 @@ export interface SeatInteraction {
 export interface SeatDisallowed {
   seat: RenderSeat;
   reason: DisallowedReason;
+}
+
+/**
+ * What `renderSeat` is handed for each seat: the seat, whether it is selected,
+ * the stock glyph core resolved for it, and the stock drawing itself.
+ */
+export interface SeatRenderContext extends KerusiSeatContext {
+  /**
+   * The library's own drawing of this seat, as a fragment. Return it to keep
+   * the stock seat, or place it alongside your own marks to add to it.
+   */
+  defaultContent: ReactNode;
 }
 
 /** What a `ref` on `<KerusiSeatmap>` exposes. */
@@ -102,6 +115,15 @@ export interface KerusiSeatmapProps {
   colors?: KerusiSeatmapColors;
   /** Let an available seat take its `SeatType.color` (§4.7). */
   typeColors?: boolean;
+  /**
+   * Draws the inside of every seat yourself. The library keeps the seat's
+   * `<g>`, with its role, ARIA state, tab stop, rotation and event handlers, and
+   * renders whatever this returns inside it, in viewBox units. Return
+   * `ctx.defaultContent` for the stock seat, or add to it. While this is set the
+   * library also draws a focus outline over your content, so keyboard focus
+   * stays visible whatever you draw.
+   */
+  renderSeat?: (ctx: SeatRenderContext) => ReactNode;
   /** Grid cell edge, in viewBox units. */
   seatSize?: number;
   /** Gap between grid cells, in viewBox units. */

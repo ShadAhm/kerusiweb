@@ -1,8 +1,10 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { KerusiMap, KerusiState, KerusiViolation } from '@kerusiweb/core';
 import { KerusiSeatmapComponent, SeatDisallowed } from './kerusi-seatmap.component';
+import { KerusiSeatTemplateDirective } from './kerusi-seat-template.directive';
 
 /** Two sections in different layout modes, plus a companion pair. */
 const VENUE: KerusiMap = {
@@ -576,6 +578,10 @@ describe('KerusiSeatmapComponent', () => {
       expect(label.style.stroke).toBe('var(--kerusi-selected-fg, #f3ecff)');
     });
 
+    it('draws no focus outline of its own, since the stock ring strokes the body', () => {
+      expect(el.querySelector('.kerusi-seat__focus')).toBeNull();
+    });
+
     it('leaves an unselected seat’s label unhaloed', () => {
       const label = seat('A1').querySelector<SVGTextElement>('.kerusi-seat__label')!;
       expect(label.style.stroke).toBe('none');
@@ -637,5 +643,110 @@ describe('KerusiSeatmapComponent', () => {
       const spread = (points: number[]) => Math.max(...points) - Math.min(...points);
       expect(spread(picked)).toBeLessThan(spread(booked));
     });
+  });
+});
+
+/** Draws a status mark and a corner dot, over the stock seat or instead of it. */
+@Component({
+  imports: [KerusiSeatmapComponent, KerusiSeatTemplateDirective, NgTemplateOutlet],
+  template: `
+    <kerusi-seatmap [map]="map" [(selection)]="selection">
+      <ng-template kerusiSeat let-seat>
+        @if (keepStock()) {
+          <ng-container *ngTemplateOutlet="seat.defaultContent; context: { $implicit: seat }" />
+        }
+        <svg:text class="custom-mark">
+          {{ seat.seat.id }}:{{ seat.selected ? 'on' : 'off' }}
+        </svg:text>
+        <svg:circle
+          class="custom-dot"
+          [attr.cx]="seat.glyph.box.x"
+          [attr.cy]="seat.glyph.box.y"
+          r="2"
+        />
+      </ng-template>
+    </kerusi-seatmap>
+  `,
+})
+class CustomSeatHost {
+  readonly map = VENUE;
+  readonly selection = signal<readonly string[]>([]);
+  readonly keepStock = signal(false);
+}
+
+describe('KerusiSeatmapComponent custom seat content', () => {
+  let fixture: ComponentFixture<CustomSeatHost>;
+  let host: CustomSeatHost;
+  let el: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [CustomSeatHost] }).compileComponents();
+    fixture = TestBed.createComponent(CustomSeatHost);
+    host = fixture.componentInstance;
+    el = fixture.nativeElement as HTMLElement;
+    fixture.detectChanges();
+  });
+
+  const seat = (id: string) => el.querySelector<SVGGElement>(`[data-seat-id="${id}"]`)!;
+  const mark = (id: string) => seat(id).querySelector<SVGTextElement>('.custom-mark')!;
+  const key = (id: string, init: KeyboardEventInit) => {
+    seat(id).dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }));
+    fixture.detectChanges();
+  };
+
+  it('draws the custom content inside the library’s own seat group', () => {
+    const g = seat('A1');
+    expect(g.getAttribute('role')).toBe('button');
+    expect(g.getAttribute('aria-pressed')).toBe('false');
+    expect(g.getAttribute('tabindex')).toBe('0');
+    expect(g.getAttribute('aria-label')).toContain('Standard');
+    expect(g.classList).toContain('kerusi-seat');
+    expect(mark('A1').textContent?.trim()).toBe('A1:off');
+  });
+
+  it('creates the custom marks in the SVG namespace', () => {
+    // Without the svg: prefix Angular would create an HTML element here,
+    // which an SVG renderer silently ignores.
+    expect(mark('A1').namespaceURI).toBe('http://www.w3.org/2000/svg');
+  });
+
+  it('hands the template the selection and the resolved glyph', () => {
+    seat('A1').dispatchEvent(new MouseEvent('click'));
+    fixture.detectChanges();
+    expect(mark('A1').textContent?.trim()).toBe('A1:on');
+    expect(mark('A2').textContent?.trim()).toBe('A2:off');
+
+    // The glyph carries the placed box, so A2 sits to the right of A1.
+    const cx = (id: string) => Number(seat(id).querySelector('.custom-dot')!.getAttribute('cx'));
+    expect(cx('A2')).toBeGreaterThan(cx('A1'));
+  });
+
+  it('replaces the stock glyph unless the template renders defaultContent', () => {
+    expect(seat('A1').querySelector('.kerusi-seat__box')).toBeNull();
+
+    host.keepStock.set(true);
+    fixture.detectChanges();
+    const body = seat('A1').querySelector('.kerusi-seat__box')!;
+    expect(body).not.toBeNull();
+    expect(mark('A1')).not.toBeNull();
+    expect(body.getAttribute('d')).toBe(
+      seat('A1').querySelector('.kerusi-seat__focus')!.getAttribute('d'),
+    );
+  });
+
+  it('still selects through the custom content, by pointer and by keyboard', () => {
+    mark('A1').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+    expect(host.selection()).toEqual(['A1']);
+
+    key('A1', { key: 'ArrowRight' });
+    key('A2', { key: 'Enter' });
+    expect(host.selection()).toEqual(['A1', 'A2']);
+  });
+
+  it('draws a focus outline of the body over the custom content', () => {
+    const outline = seat('A1').lastElementChild!;
+    expect(outline.classList).toContain('kerusi-seat__focus');
+    expect(outline.getAttribute('d')).toMatch(/^M /);
   });
 });

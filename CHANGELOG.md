@@ -6,6 +6,35 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+1. **Custom seat content** (#26). React takes a `renderSeat` prop and Angular an
+   `<ng-template kerusiSeat let-seat>` placed inside `<kerusi-seatmap>`; either
+   draws the inside of every seat in place of the stock glyph. The library keeps
+   each seat's `<g>` (role, ARIA state, tab stop, rotation, event handlers), so
+   keyboard navigation, selection and announcements are unchanged whatever is
+   drawn. The template receives the seat, whether it is selected, the stock
+   glyph's resolved paths and paints, and the stock drawing itself
+   (`defaultContent`) to keep or add to. Angular templates must prefix their
+   elements with `svg:`.
+
+2. **A focus outline for custom seats.** While a seat template is in use, the
+   library draws `.kerusi-seat__focus`, an outline of the seat's body, over the
+   custom content, visible only on `:focus-visible` and coloured like the stock
+   ring. Custom content may have no `.kerusi-seat__box` for the stock ring to
+   stroke, so this keeps keyboard focus visible (WCAG 2.4.7). Without a seat
+   template it is not rendered and the markup is unchanged.
+
+3. **`resolveSeatGlyph()` in `@kerusiweb/core`** returns every path, paint and
+   position of the stock seat (`SeatGlyph`), plus `seatClassName()` and the
+   `KerusiSeatContext` type both bindings' template contexts extend. Both
+   section components now bind this one object instead of calling the paint and
+   shape functions one by one, and each binding's copy of the selected seat's
+   mark-box rule is gone. The rendered SVG is unchanged.
+
+4. **Both demos gain a "Custom seat template" toggle** that draws round seats from
+   the glyph's paints, keeping the stock status marks.
+
 ## [2.2.0] - 2026-10-11
 
 ### Added

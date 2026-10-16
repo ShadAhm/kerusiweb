@@ -9,3 +9,4 @@
 export * from './kerusi-seatmap.component';
 export * from './kerusi-section.component';
 export * from './kerusi-legend.component';
+export * from './kerusi-seat-template.directive';

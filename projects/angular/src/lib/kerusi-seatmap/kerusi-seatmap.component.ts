@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  contentChild,
   effect,
   ElementRef,
   inject,
@@ -72,6 +73,7 @@ import {
 } from '@kerusiweb/core';
 import { KerusiSectionComponent } from './kerusi-section.component';
 import { KerusiLegendComponent } from './kerusi-legend.component';
+import { KerusiSeatTemplateDirective } from './kerusi-seat-template.directive';
 
 /** How a document with validation errors is handled. */
 export type ValidationMode =
@@ -162,6 +164,11 @@ export class KerusiSeatmapComponent {
   readonly colors = input<KerusiSeatmapColors>({});
   /** Let an available seat take its `SeatType.color` (§4.7). */
   readonly typeColors = input<boolean>(true);
+  /**
+   * A `<ng-template kerusiSeat let-seat>` placed inside the map draws the inside
+   * of every seat in place of the stock glyph. See {@link KerusiSeatTemplateDirective}.
+   */
+  protected readonly seatTemplate = contentChild(KerusiSeatTemplateDirective);
   /** Grid cell edge, in viewBox units. */
   readonly seatSize = input<number>(28);
   /** Gap between grid cells, in viewBox units. */

@@ -88,17 +88,18 @@ usually a mistake.
 
 **Appearance**
 
-| Prop                              | Type                  | Default          |                                                                                                                                 |
-| --------------------------------- | --------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `colors`                          | `KerusiSeatmapColors` | theme defaults   | Per-status fills, element tones, focus ring, backdrop. See [Theming](#theming).                                                 |
-| `typeColors`                      | `boolean`             | `true`           | Let an available seat take its `SeatType.color` (§4.7).                                                                         |
-| `seatSize`                        | `number`              | `28`             | Grid cell edge, in viewBox units.                                                                                               |
-| `seatGap`                         | `number`              | `6`              | Gap between grid cells.                                                                                                         |
-| `freeformBasis`                   | `number`              | `1000`           | Freeform viewBox width; height follows the aspect ratio.                                                                        |
-| `unitScale`                       | `number`              | `1`              | CSS pixels per viewBox unit. Caps each section at its natural size so a narrow section and a wide one draw seats the same size. |
-| `showSectionLabels`               | `boolean`             | `true`           |                                                                                                                                 |
-| `showLegend` / `showLegendPrices` | `boolean`             | `false` / `true` |                                                                                                                                 |
-| `className` / `style`             | —                     | —                | Applied to the root element, alongside `kerusi-seatmap`.                                                                        |
+| Prop                              | Type                                    | Default          |                                                                                                                                 |
+| --------------------------------- | --------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `colors`                          | `KerusiSeatmapColors`                   | theme defaults   | Per-status fills, element tones, focus ring, backdrop. See [Theming](#theming).                                                 |
+| `typeColors`                      | `boolean`                               | `true`           | Let an available seat take its `SeatType.color` (§4.7).                                                                         |
+| `renderSeat`                      | `(ctx: SeatRenderContext) => ReactNode` | —                | Draws the inside of every seat yourself. See [Custom seat content](#custom-seat-content).                                       |
+| `seatSize`                        | `number`                                | `28`             | Grid cell edge, in viewBox units.                                                                                               |
+| `seatGap`                         | `number`                                | `6`              | Gap between grid cells.                                                                                                         |
+| `freeformBasis`                   | `number`                                | `1000`           | Freeform viewBox width; height follows the aspect ratio.                                                                        |
+| `unitScale`                       | `number`                                | `1`              | CSS pixels per viewBox unit. Caps each section at its natural size so a narrow section and a wide one draw seats the same size. |
+| `showSectionLabels`               | `boolean`                               | `true`           |                                                                                                                                 |
+| `showLegend` / `showLegendPrices` | `boolean`                               | `false` / `true` |                                                                                                                                 |
+| `className` / `style`             | —                                       | —                | Applied to the root element, alongside `kerusi-seatmap`.                                                                        |
 
 **Sections**
 
@@ -220,6 +221,86 @@ Every key of `KerusiSeatmapColors` has a property, kebab-cased:
 | `elementMutedBg` / `elementMutedFg`   | `--kerusi-element-muted-bg` / `--kerusi-element-muted-fg`   |
 | `focusRing`                           | `--kerusi-focus-ring`                                       |
 | `backdrop`                            | `--kerusi-backdrop`                                         |
+
+For anything the palette does not cover, each seat group carries the same class
+hooks as the Angular binding (`.kerusi-seat`, `--available` / `--held` /
+`--booked` / `--blocked`, `--selected`, `--unselectable`, `--wheelchair`,
+`--companion`), and inside a seat: `.kerusi-seat__box`, `__wash`, `__core`,
+`__occupant` (`__occupant--selected` / `--held` / `--booked`), `__label`,
+`__wheelchair`, and, only while `renderSeat` is set, `__focus`.
+
+### Custom seat content
+
+When the palette and the class hooks are not enough (an icon, a badge, a price
+tag, a different shape), draw the inside of each seat yourself with
+`renderSeat`. It returns SVG, in the section's viewBox units:
+
+```tsx
+import { KerusiSeatmap } from '@kerusiweb/react';
+import type { SeatRenderContext } from '@kerusiweb/react';
+
+function drawSeat({ seat, glyph, defaultContent }: SeatRenderContext) {
+  return (
+    <>
+      {/* The stock seat, then a badge on top of it. */}
+      {defaultContent}
+      {seat.source.metadata?.['bestView'] ? (
+        <circle cx={glyph.box.x + glyph.box.width} cy={glyph.box.y} r={4} fill="gold" />
+      ) : null}
+    </>
+  );
+}
+
+<KerusiSeatmap map={map} state={state} renderSeat={drawSeat} />;
+```
+
+`renderSeat` receives a `SeatRenderContext`:
+
+| Field            | Type         |                                                                                                    |
+| ---------------- | ------------ | -------------------------------------------------------------------------------------------------- |
+| `seat`           | `RenderSeat` | Status, type, price, accessibility, and the document's own `source.metadata`.                      |
+| `selected`       | `boolean`    | Whether the seat is in the current selection.                                                      |
+| `placed`         | `PlacedSeat` | The seat's box, centre, font size and rotation, in viewBox units.                                  |
+| `glyph`          | `SeatGlyph`  | The stock seat, resolved by `resolveSeatGlyph()` in core: every path, paint and position it draws. |
+| `defaultContent` | `ReactNode`  | The stock drawing, as a fragment. Return it to keep the stock seat, or place it beside your marks. |
+
+It runs for every seat on every render of the map. A new function each render
+is fine, since it does not rebuild the render model, but declaring it once
+outside the component is simplest.
+
+**What the library keeps.** Each seat's `<g>` stays the library's: its role,
+`aria-label`, `aria-pressed`, `aria-disabled`, tab stop, `data-seat-id`, class
+list, rotation and its click, focus and key handlers. Only what is drawn inside
+it is yours. Keyboard navigation, selection, companions and announcements
+therefore behave exactly as they do for the stock seat, and the accessible name
+still comes from the library (and `ariaStrings`), whatever text you draw.
+
+**Coordinates.** Draw in the section's viewBox units, using `glyph.box` (or
+`placed`) for the seat's position and size. The `<g>` already carries the seat's
+rotation, so draw it unrotated with the front at the top edge;
+`glyph.label.transform` counter-rotates text so it stays upright.
+
+**Status is yours to show.** A template replaces the stock marks, including the
+occupant figure, the wash and the selected frame and core, which are what tell
+held, booked and selected apart by shape rather than colour (WCAG 1.4.1). The
+library's own styling options never alter those marks, so a template is the one
+place that can, and it carries that responsibility. The simplest way to keep
+them is to render `defaultContent` and add to it. Otherwise reuse `glyph.wash`,
+`glyph.core` and `glyph.occupant`, and the `kerusi-seat__wash` and
+`kerusi-seat__occupant--*` classes, which keep the stock opacity.
+
+**Focus outline.** The stock focus ring strokes `.kerusi-seat__box`, which your
+content may not have. So while a seat template is in use, the library draws one
+more path in every seat, after your content: `.kerusi-seat__focus`, an outline of
+the seat's body shown only on `:focus-visible`, so keyboard focus stays visible
+whatever you draw (WCAG 2.4.7). It takes the same colour as the stock ring
+(`--kerusi-focus-ring`, then `colors.focusRing`, then `currentColor`). It follows
+the seat's body outline, not your drawing; if you draw your own focus indicator,
+restyle or hide it with `.kerusi-seat:focus-visible .kerusi-seat__focus`. Without
+a seat template it is not rendered at all, and the markup is unchanged.
+
+**Legend.** The legend keeps drawing the stock glyph. If your seats look very
+different, turn it off and show your own key.
 
 ### Zoom, pan and maximize
 

@@ -4,27 +4,19 @@ import {
   elementFill,
   elementStyle,
   elementTextFill,
-  occupantFillFor,
-  occupantStrokeFor,
+  resolveSeatGlyph,
   screenPath,
-  seatBodyPath,
-  seatCoreFill,
-  seatFill,
-  seatOccupantPath,
-  seatOccupantStroke,
-  seatOccupantVariant,
-  seatSelectedFrame,
-  seatTextFill,
-  seatWashFill,
 } from '@kerusiweb/core';
 import type {
   KerusiSeatmapColors,
   PlacedElement,
   PlacedSeat,
   RenderSection,
+  SeatGlyph,
   SectionLayout,
 } from '@kerusiweb/core';
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
+import type { SeatRenderContext } from './types.js';
 
 export interface KerusiSectionProps {
   section: RenderSection;
@@ -38,6 +30,8 @@ export interface KerusiSectionProps {
   colors?: Required<KerusiSeatmapColors>;
   /** Whether an available seat may take its `SeatType.color` (§4.7). */
   typeColors?: boolean;
+  /** Draws the inside of each seat in place of the stock glyph. */
+  renderSeat?: (ctx: SeatRenderContext) => ReactNode;
   /** When false, seats render but do not respond to pointer or keyboard. */
   interactive?: boolean;
   /**
@@ -78,6 +72,7 @@ export function KerusiSection({
   ariaLabels = EMPTY_LABELS,
   colors = DEFAULT_KERUSI_COLORS,
   typeColors = true,
+  renderSeat,
   interactive = true,
   unitScale = 1,
   onSeatActivate,
@@ -125,6 +120,7 @@ export function KerusiSection({
           ariaLabel={ariaLabels.get(placed.seat.id) ?? placed.seat.label}
           colors={colors}
           typeColors={typeColors}
+          renderSeat={renderSeat}
           interactive={interactive}
           onSeatActivate={onSeatActivate}
           onSeatFocused={onSeatFocused}
@@ -145,6 +141,7 @@ interface SeatProps {
   ariaLabel: string;
   colors: Required<KerusiSeatmapColors>;
   typeColors: boolean;
+  renderSeat?: (ctx: SeatRenderContext) => ReactNode;
   interactive: boolean;
   onSeatActivate?: (seatId: string) => void;
   onSeatFocused?: (seatId: string) => void;
@@ -159,6 +156,7 @@ function SectionSeat({
   ariaLabel,
   colors,
   typeColors,
+  renderSeat,
   interactive,
   onSeatActivate,
   onSeatFocused,
@@ -166,17 +164,15 @@ function SectionSeat({
   registerSeat,
 }: SeatProps) {
   const seat = placed.seat;
-  const variant = seatOccupantVariant(seat, selected);
-  const box = markBox(placed, selected);
-  const body = seatBodyPath(placed.x, placed.y, placed.width, placed.height);
-  const textFill = seatTextFill(seat, selected, colors, typeColors);
+  const glyph = resolveSeatGlyph(placed, selected, colors, typeColors);
+  const stock = <SeatGlyphMarks glyph={glyph} />;
 
   return (
     <g
       ref={(node: SVGGElement | null) => {
         registerSeat?.(seat.id, node);
       }}
-      className={seatClasses(placed, selected)}
+      className={glyph.className}
       role="button"
       tabIndex={interactive && tabStop ? 0 : -1}
       aria-label={ariaLabel}
@@ -188,122 +184,84 @@ function SectionSeat({
       onFocus={interactive ? () => onSeatFocused?.(seat.id) : undefined}
       onKeyDown={interactive ? onSeatKeyDown : undefined}
     >
-      {/* Tapered toward the back, square at the front, so which way the seat
-          faces is legible from the outline alone. */}
-      <path
-        className="kerusi-seat__box"
-        d={body}
-        style={{ fill: seatFill(seat, selected, colors, typeColors) }}
-      />
-      {(variant === 'held' || variant === 'booked') && (
-        /* Colour stays the seat type's; a taken seat recedes under a wash
-           instead, so the type colour still reads on a busy map. */
-        <path
-          className="kerusi-seat__wash"
-          d={body}
-          style={{ fill: seatWashFill(variant, colors) }}
-        />
-      )}
-      {variant === 'selected' && (
-        /* Selection is the one state drawn from two tones: the body above is
-           the frame, this is the bright core inside it. Whichever way the host
-           page is themed, one of the two separates from it — which is why
-           nothing here has to know about the page. */
-        <path
-          className="kerusi-seat__core"
-          d={seatBodyPath(box.x, box.y, box.width, box.height)}
-          style={{ fill: seatCoreFill(colors) }}
-        />
-      )}
-      {variant && (
-        /* Deliberately not counter-rotated: the occupant leans with the seat.
-           Solid = settled (yours, or sold); hollow = a hold still in progress. */
-        <path
-          className={`kerusi-seat__occupant kerusi-seat__occupant--${variant}`}
-          d={seatOccupantPath(box.x, box.y, box.width, box.height)}
-          strokeWidth={seatOccupantStroke(box.width, box.height)}
-          style={{
-            fill: occupantFillFor(variant, colors),
-            stroke: occupantStrokeFor(variant, colors),
-          }}
-        />
-      )}
-      <text
-        className="kerusi-seat__label"
-        textAnchor="middle"
-        dominantBaseline="central"
-        x={placed.centerX}
-        y={placed.centerY}
-        fontSize={placed.fontSize}
-        /* The halo is a core-coloured outline behind a selected seat's number,
-           painted under the glyphs via `paint-order`. The label is centred on
-           the occupant's shoulder line, so without it the number is
-           `selectedFg` over a `selectedBg` silhouette.
-
-           Bound here rather than in the stylesheet on purpose: a CSS
-           `var(--kerusi-selected-fg, …)` rule would carry the library default
-           as its fallback and silently skip the `colors` prop tier, which only
-           this side can resolve. */
-        style={{ fill: textFill, stroke: selected ? seatCoreFill(colors) : 'none' }}
-        strokeWidth={selected ? placed.fontSize * 0.22 : 0}
-        transform={counterRotate(placed) ?? undefined}
-      >
-        {seat.label}
-      </text>
-      {seat.accessibility?.wheelchairAccessible && (
-        /* A corner marker, not a different fill: availability owns the fill. */
-        <circle
-          className="kerusi-seat__wheelchair"
-          cx={box.x + box.width * 0.82}
-          cy={box.y + box.height * 0.18}
-          r={box.width * 0.13}
-          style={{ fill: textFill }}
-        />
+      {renderSeat ? (
+        <>
+          {renderSeat({ placed, seat, selected, glyph, defaultContent: stock })}
+          {/* Drawn over the custom content, because that content may have no
+              `.kerusi-seat__box` for the stock focus ring to stroke. Only
+              visible on :focus-visible. */}
+          <path className="kerusi-seat__focus" d={glyph.body.d} />
+        </>
+      ) : (
+        stock
       )}
     </g>
   );
 }
 
 /**
- * The box a seat's decorative marks are drawn to: the seat's own, or — when it
- * is selected — the core plate's, which is inset by the frame width.
- *
- * Everything over a selected seat sits on the core, so it all has to be
- * measured from the core. Drawing to the seat's box instead leaves the
- * occupant's hips crossing the frame, where a figure tinted `selectedBg` lands
- * on a frame filled `selectedBg` and reads as a hard nub. Since the core is an
- * exact scaled copy of the body (see `seatSelectedFrame`), routing through here
- * reproduces every clearance the mark had against the body, scaled — so the
- * frame width stays free to change.
+ * The stock seat drawing, from a glyph core has already resolved. A fragment,
+ * so it adds no node of its own inside the seat's `<g>`.
  */
-function markBox(
-  placed: PlacedSeat,
-  selected: boolean,
-): { x: number; y: number; width: number; height: number } {
-  if (!selected) {
-    return placed;
-  }
-  const frame = seatSelectedFrame(placed.width, placed.height);
-  return {
-    x: placed.x + frame,
-    y: placed.y + frame,
-    width: placed.width - frame * 2,
-    height: placed.height - frame * 2,
-  };
-}
-
-function seatClasses(placed: PlacedSeat, selected: boolean): string {
-  const seat = placed.seat;
-  return [
-    'kerusi-seat',
-    `kerusi-seat--${seat.status}`,
-    selected ? 'kerusi-seat--selected' : '',
-    seat.selectable ? '' : 'kerusi-seat--unselectable',
-    seat.accessibility?.wheelchairAccessible ? 'kerusi-seat--wheelchair' : '',
-    seat.companions.length > 0 ? 'kerusi-seat--companion' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+function SeatGlyphMarks({ glyph }: { glyph: SeatGlyph }) {
+  const { body, wash, core, occupant, label, wheelchair } = glyph;
+  return (
+    <>
+      {/* Tapered toward the back, square at the front, so which way the seat
+          faces is legible from the outline alone. */}
+      <path className="kerusi-seat__box" d={body.d} style={{ fill: body.fill }} />
+      {wash && (
+        /* Colour stays the seat type's; a taken seat recedes under a wash
+           instead, so the type colour still reads on a busy map. */
+        <path className="kerusi-seat__wash" d={wash.d} style={{ fill: wash.fill }} />
+      )}
+      {core && (
+        /* Selection is the one state drawn from two tones: the body above is
+           the frame, this is the bright core inside it. Whichever way the host
+           page is themed, one of the two separates from it — which is why
+           nothing here has to know about the page. */
+        <path className="kerusi-seat__core" d={core.d} style={{ fill: core.fill }} />
+      )}
+      {occupant && (
+        /* Deliberately not counter-rotated: the occupant leans with the seat.
+           Solid = settled (yours, or sold); hollow = a hold still in progress. */
+        <path
+          className={`kerusi-seat__occupant kerusi-seat__occupant--${occupant.variant}`}
+          d={occupant.d}
+          strokeWidth={occupant.strokeWidth}
+          style={{ fill: occupant.fill, stroke: occupant.stroke }}
+        />
+      )}
+      <text
+        className="kerusi-seat__label"
+        textAnchor="middle"
+        dominantBaseline="central"
+        x={label.x}
+        y={label.y}
+        fontSize={label.fontSize}
+        /* The halo is painted under the glyphs via `paint-order`. Bound here
+           rather than in the stylesheet on purpose: a CSS
+           `var(--kerusi-selected-fg, …)` rule would carry the library default
+           as its fallback and silently skip the `colors` prop tier, which only
+           this side can resolve. */
+        style={{ fill: label.fill, stroke: label.halo }}
+        strokeWidth={label.haloWidth}
+        transform={label.transform ?? undefined}
+      >
+        {label.text}
+      </text>
+      {wheelchair && (
+        /* A corner marker, not a different fill: availability owns the fill. */
+        <circle
+          className="kerusi-seat__wheelchair"
+          cx={wheelchair.cx}
+          cy={wheelchair.cy}
+          r={wheelchair.r}
+          style={{ fill: wheelchair.fill }}
+        />
+      )}
+    </>
+  );
 }
 
 // --- elements ---------------------------------------------------------------

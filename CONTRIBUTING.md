@@ -78,3 +78,53 @@ the changelog entry. The existing entries show the house style.
 Add a `CHANGELOG.md` entry under `## [Unreleased]` for anything a consumer
 would notice. Match the existing tone: say what changed and why it changed,
 not just which files moved.
+
+## Releasing
+
+Pushing a version tag publishes all three packages to npm, through
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml).
+
+1. **Open a release PR** that:
+   - bumps `version` in `projects/core`, `projects/angular` and `projects/react`
+     `package.json` to the new version;
+   - raises the bindings' `peerDependencies["@kerusiweb/core"]` to `^` that
+     version;
+   - moves the `## [Unreleased]` entries in `CHANGELOG.md` under a dated
+     `## [x.y.z] - YYYY-MM-DD` heading, and adds its release link at the bottom.
+2. **Merge it**, then tag the merge commit and push the tag:
+
+   ```bash
+   git checkout master
+   git pull
+   git tag v2.4.0
+   git push origin v2.4.0
+   ```
+
+The workflow then:
+
+- stops at once if the tag does not match all three package versions, or a
+  binding's peer range does not match the tag, so a mistyped tag publishes
+  nothing;
+- runs `npm run test:ci` and builds every package;
+- publishes core first, then Angular and React, each with
+  [npm provenance](https://docs.npmjs.com/generating-provenance-statements);
+- skips any package whose version is already on npm, so if a run fails part-way,
+  re-running it from the Actions tab finishes the job.
+
+Watch it under **Actions → Publish to npm**. npm can take a few minutes to list
+a new version after it is published.
+
+### One-time setup
+
+The workflow publishes with a repository secret named `NPM_TOKEN`:
+
+1. On [npmjs.com](https://www.npmjs.com/), go to **Access Tokens → Generate New
+   Token → Granular Access Token**. Give it **Read and write** permission for the
+   `@kerusiweb` scope (or the three packages). If your npm account requires 2FA
+   to publish, also tick **Bypass two-factor authentication**, since a
+   workflow cannot answer a 2FA prompt.
+2. On GitHub, go to **Settings → Secrets and variables → Actions → New
+   repository secret**, name it `NPM_TOKEN`, and paste the token.
+
+Granular tokens expire. When the token runs out, the publish step fails with a
+401, and you need to generate a new one and update the secret.

@@ -1,11 +1,12 @@
 import {
   buildNavigationGraph,
   buildRenderModel,
+  computeMapLayout,
   controlStyle,
+  cssVar,
   DEFAULT_MAX_ZOOM,
   DEFAULT_SEAT_ARIA_STRINGS,
   disallowedAnnouncement,
-  computeSectionLayout,
   errorsOf,
   expireHolds as expireHoldsIn,
   formatMoney,
@@ -25,11 +26,11 @@ import {
 import type {
   KerusiState,
   KerusiViolation,
+  MapLayout,
   Money,
   NavigationGraph,
   RenderMap,
   RenderSection,
-  SectionLayout,
 } from '@kerusiweb/core';
 import {
   forwardRef,
@@ -61,8 +62,10 @@ const NO_OVERRIDES: Readonly<Record<string, SectionRenderOptions>> = {};
  * Renders a Kerusi seat map.
  *
  * Takes a `KerusiMap` and its `KerusiState` directly — no adapter, no
- * intermediate row model. Each `Section` becomes its own `<svg>` with its own
- * layout mode and proportions, seats take their color from the map's legend,
+ * intermediate row model. The map is one `<svg>` whose `viewBox` is the
+ * document's canvas (§4.5), each `Section` is a group on it, every seat is
+ * drawn exactly where and as large as the document says, seats take their
+ * color from the map's legend,
  * every seat is keyboard-reachable and announced with its type, price, status
  * and §4.3.4 accessibility properties, and selection is an immutable list of
  * seat ids.
@@ -96,9 +99,6 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       seatTypeStyles,
       seatStyle,
       renderSeat,
-      seatSize = 28,
-      seatGap = 6,
-      freeformBasis = 1000,
       unitScale = 1,
       showSectionLabels = true,
       showLegend = false,
@@ -226,25 +226,10 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
     const resolvedColors = useMemo(() => resolveColors(colors), [colors]);
     const selectionSet = useMemo(() => new Set(selection), [selection]);
 
-    /** Placed geometry per section, keyed by section id. */
-    const layouts = useMemo<ReadonlyMap<string, SectionLayout>>(
-      () =>
-        new Map(
-          renderMap.sections.map((section) => {
-            const override = sectionOverrides[section.id] ?? {};
-            return [
-              section.id,
-              computeSectionLayout(section, {
-                seatSize: override.seatSize ?? seatSize,
-                seatGap,
-                freeformBasis,
-                aspectRatio: override.aspectRatio,
-                rtl: isRtl,
-              }),
-            ];
-          }),
-        ),
-      [renderMap, sectionOverrides, seatSize, seatGap, freeformBasis, isRtl],
+    /** Every seat and element placed on the canvas, mirrored as a whole in RTL (D3). */
+    const layout = useMemo<MapLayout>(
+      () => computeMapLayout(renderMap, { rtl: isRtl }),
+      [renderMap, isRtl],
     );
 
     /** Navigation graphs per section — arrows move within, Tab moves between. */
@@ -384,9 +369,9 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
     );
 
     /**
-     * Arrow keys walk the navigation graph, which orders seats by `col` in grid
-     * and mixed sections — §4.3.1's logical adjacency — so the aisle that is a
-     * skipped column is stepped across rather than into.
+     * Arrow keys walk the navigation graph, which follows §4.3.5 adjacency:
+     * along a row by `col`, across an aisle (a skipped `col`) rather than into
+     * it, and between rows to the seat nearest on the canvas (D6).
      */
     const onKeyDown = useCallback(
       (sectionId: string, event: ReactKeyboardEvent<SVGGElement>) => {
@@ -455,6 +440,16 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
 
     const summary = useMemo(() => summarizeSelection(renderMap, selection), [renderMap, selection]);
 
+    const zoomToSection = useCallback(
+      (sectionId: string) => {
+        const placed = layout.sections.find((s) => s.section.id === sectionId);
+        if (placed) {
+          zoom.zoomToCanvasRect(placed.bounds, layout);
+        }
+      },
+      [layout, zoom.zoomToCanvasRect],
+    );
+
     useImperativeHandle(
       ref,
       () => ({
@@ -464,6 +459,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
         zoomIn: zoom.zoomIn,
         zoomOut: zoom.zoomOut,
         resetZoom: zoom.resetZoom,
+        zoomToSection,
         maximized,
         toggleMaximized,
       }),
@@ -474,6 +470,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
         zoom.zoomIn,
         zoom.zoomOut,
         zoom.resetZoom,
+        zoomToSection,
         maximized,
         toggleMaximized,
       ],
@@ -502,46 +499,58 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
 
     const labelFor = (section: RenderSection): string | undefined =>
       sectionOverrides[section.id]?.label ?? section.label;
-    const labelId = (section: RenderSection): string =>
-      `kerusi-section-${renderMap.id}-${section.id}`;
 
-    const sections = renderMap.sections.map((section) => {
-      const label = labelFor(section);
-      return (
-        <section
-          key={section.id}
-          className={`kerusi-seatmap__section kerusi-seatmap__section--${section.layoutMode}`}
-          role="group"
-          aria-labelledby={label ? labelId(section) : undefined}
-          aria-label={label ? undefined : section.id}
-        >
-          {showSectionLabels && label && (
-            <h3 className="kerusi-section-label" id={labelId(section)}>
-              {label}
-            </h3>
-          )}
-
+    /** The whole map: one `<svg>` on the document's canvas, a group per section (D1). */
+    const mapSvg = (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="kerusi-seatmap__svg"
+        role="presentation"
+        focusable="false"
+        viewBox={`0 0 ${layout.width} ${layout.height}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={
+          {
+            // The focus ring's middle tier: the stylesheet reads this property,
+            // so the `colors` prop can reach a rule it cannot otherwise see.
+            '--kerusi-focus-ring-input': resolvedColors.focusRing,
+            // `unitScale` CSS pixels per canvas unit, at most.
+            maxWidth: layout.width * unitScale,
+          } as CSSProperties
+        }
+      >
+        <rect
+          x={0}
+          y={0}
+          width={layout.width}
+          height={layout.height}
+          style={{ fill: cssVar('backdrop', resolvedColors.backdrop) }}
+        />
+        {/* A hidden section's group is simply absent; the canvas keeps its
+            size, so its space stays empty (D4). */}
+        {layout.sections.map((placed) => (
           <KerusiSection
-            section={section}
-            layout={layouts.get(section.id)!}
+            key={placed.section.id}
+            layout={placed}
+            label={labelFor(placed.section)}
+            showLabel={showSectionLabels}
             selection={selectionSet}
-            focusedSeatId={focusedSeatIds[section.id] ?? null}
+            focusedSeatId={focusedSeatIds[placed.section.id] ?? null}
             ariaLabels={ariaLabels}
             colors={resolvedColors}
             typeColors={typeColors}
             seatTypeStyles={seatTypeStyles}
             seatStyle={seatStyle}
             renderSeat={renderSeat}
-            unitScale={unitScale}
             interactive={interactive}
             onSeatActivate={onSeatActivate}
             onSeatFocused={onSeatFocused}
-            onSeatKeyDown={(event) => onKeyDown(section.id, event)}
+            onSeatKeyDown={(event) => onKeyDown(placed.section.id, event)}
             registerSeat={registerSeat}
           />
-        </section>
-      );
-    });
+        ))}
+      </svg>
+    );
 
     const focusRing = { '--kerusi-focus-ring-input': resolvedColors.focusRing } as CSSProperties;
     const buttonStyle: CSSProperties = {
@@ -653,6 +662,8 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
                 style={
                   {
                     ...focusRing,
+                    // Lets a maximized map fit the whole canvas to the screen.
+                    '--kerusi-canvas-aspect': layout.width / layout.height,
                     touchAction: viewportTouchAction(zoom.viewport, maximized),
                   } as CSSProperties
                 }
@@ -666,15 +677,15 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
                   }
                   style={{ transform: viewportTransform(zoom.viewport) }}
                 >
-                  {sections}
+                  {mapSvg}
                 </div>
               </div>
             ) : (
-              sections
+              mapSvg
             )}
           </div>
         ) : (
-          sections
+          mapSvg
         )}
 
         {showLegend && (

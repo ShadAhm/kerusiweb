@@ -5,7 +5,7 @@
  * there, not re-exported here: the document types (`KerusiMap`, `KerusiState`,
  * `KerusiSession`), the conformance validator, the render model
  * (`buildRenderModel`, `RenderMap`, `RenderSeat`), the geometry
- * (`computeSectionLayout`), and the view helpers (`summarizeSelection`,
+ * (`computeMapLayout`), and the view helpers (`summarizeSelection`,
  * `seatAriaLabel`, `DEFAULT_KERUSI_COLORS`). This package supplies only what is
  * React's: components, hooks, and their props.
  *

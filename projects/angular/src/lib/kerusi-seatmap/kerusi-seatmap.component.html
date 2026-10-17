@@ -95,6 +95,7 @@
           [attr.aria-label]="strings().viewport"
           [style.touch-action]="touchAction()"
           [style.--kerusi-focus-ring-input]="resolvedColors().focusRing"
+          [style.--kerusi-canvas-aspect]="canvasAspect()"
         >
           <div
             #content
@@ -102,15 +103,15 @@
             [class.kerusi-viewport__content--animated]="animated()"
             [style.transform]="transform()"
           >
-            <ng-container [ngTemplateOutlet]="sections" />
+            <ng-container [ngTemplateOutlet]="drawing" />
           </div>
         </div>
       } @else {
-        <ng-container [ngTemplateOutlet]="sections" />
+        <ng-container [ngTemplateOutlet]="drawing" />
       }
     </div>
   } @else {
-    <ng-container [ngTemplateOutlet]="sections" />
+    <ng-container [ngTemplateOutlet]="drawing" />
   }
 
   @if (showLegend()) {
@@ -127,35 +128,46 @@
   <p class="kerusi-sr-only" aria-live="polite" aria-atomic="true">{{ liveMessage() }}</p>
 </div>
 
-<ng-template #sections>
-  @for (section of renderMap().sections; track section.id) {
-    <section
-      class="kerusi-seatmap__section kerusi-seatmap__section--{{ section.layoutMode }}"
-      role="group"
-      [attr.aria-labelledby]="labelFor(section) ? labelId(section) : null"
-      [attr.aria-label]="labelFor(section) ? null : section.id"
-    >
-      @if (showSectionLabels() && labelFor(section)) {
-        <h3 class="kerusi-section-label" [id]="labelId(section)">{{ labelFor(section) }}</h3>
-      }
-
-      <kerusi-section
-        [section]="section"
-        [layout]="layoutFor(section)"
+<!-- The whole map: one <svg> on the document's canvas, a group per section (D1). -->
+<ng-template #drawing>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    class="kerusi-seatmap__svg"
+    role="presentation"
+    focusable="false"
+    [style.--kerusi-focus-ring-input]="resolvedColors().focusRing"
+    [attr.viewBox]="viewBox()"
+    [style.max-width.px]="naturalWidth()"
+    preserveAspectRatio="xMidYMid meet"
+  >
+    <rect
+      x="0"
+      y="0"
+      [attr.width]="layout().width"
+      [attr.height]="layout().height"
+      [style.fill]="backdrop()"
+    />
+    <!-- A hidden section's group is simply absent; the canvas keeps its size,
+         so its space stays empty (D4). -->
+    @for (placed of layout().sections; track placed.section.id) {
+      <g
+        kerusi-section
+        [layout]="placed"
+        [label]="labelFor(placed.section)"
+        [showLabel]="showSectionLabels()"
         [selection]="selectionSet()"
-        [focusedSeatId]="focusedSeatIn(section)"
+        [focusedSeatId]="focusedSeatIn(placed.section)"
         [ariaLabels]="ariaLabels()"
         [colors]="resolvedColors()"
         [typeColors]="typeColors()"
         [seatTemplate]="seatTemplate()?.template"
         [seatStyle]="seatStyle()"
         [seatTypeStyles]="seatTypeStyles()"
-        [unitScale]="unitScale()"
         [interactive]="interactive()"
         (seatActivate)="onSeatActivate($event)"
         (seatFocused)="onSeatFocused($event)"
-        (seatKeydown)="onKeydown(section, $event)"
-      />
-    </section>
-  }
+        (seatKeydown)="onKeydown(placed.section, $event)"
+      ></g>
+    }
+  </svg>
 </ng-template>

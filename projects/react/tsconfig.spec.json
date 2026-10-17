@@ -3,6 +3,8 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    /* Wide enough for the parity fixture the Angular specs share, in core. */
+    "rootDir": "../..",
     "outDir": "../../out-tsc/react-spec",
     "types": ["react", "vitest/globals", "@testing-library/jest-dom"]
   },

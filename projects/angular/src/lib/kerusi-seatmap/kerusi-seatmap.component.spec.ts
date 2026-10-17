@@ -8,16 +8,30 @@ import {
   KerusiViolation,
   SeatStyleFn,
   SeatTypeStyles,
+  seatBodyPath,
 } from '@kerusiweb/core';
+import {
+  PARITY_MAP,
+  PARITY_SELECTION,
+  PARITY_SIGNATURE,
+  PARITY_STATE,
+  svgSignature,
+} from '../../../../core/src/testing/parity.fixture';
 import { KerusiSeatmapComponent, SeatDisallowed } from './kerusi-seatmap.component';
 import { KerusiSeatTemplateDirective } from './kerusi-seat-template.directive';
 
-/** Two sections in different layout modes, plus a companion pair. */
+/**
+ * Two sections side by side on one canvas: stalls in a row with an aisle and
+ * declared bounds, and a balcony with no rows or bounds holding a companion
+ * pair, one seat of it turned.
+ */
 const VENUE: KerusiMap = {
   kerusi: '1.0',
   id: 'venue',
   name: 'Panggung Bandaraya',
   locale: 'en',
+  canvas: { width: 400, height: 200 },
+  seatSize: 28,
   legend: [
     { id: 'standard', label: { en: 'Standard', ms: 'Biasa' }, color: '#3a8f63' },
     { id: 'sofa', label: { en: 'Sofa' }, defaultPriceTier: 'top' },
@@ -28,25 +42,31 @@ const VENUE: KerusiMap = {
       id: 'stalls',
       index: 1,
       label: { en: 'Stalls', ms: 'Bawah' },
-      layout: 'grid',
+      bounds: { x: 0, y: 0, width: 200, height: 200 },
       rows: [{ id: 'A', label: 'A', index: 0 }],
       seats: [
-        { id: 'A1', label: '1', row: 'A', col: 1, type: 'standard' },
-        { id: 'A2', label: '2', row: 'A', col: 2, type: 'standard' },
-        // Column 3 is the aisle.
-        { id: 'A4', label: '4', row: 'A', col: 4, type: 'standard' },
+        { id: 'A1', label: '1', row: 'A', col: 1, x: 30, y: 120, type: 'standard' },
+        { id: 'A2', label: '2', row: 'A', col: 2, x: 64, y: 120, type: 'standard' },
+        // Col 3 is the aisle.
+        { id: 'A4', label: '4', row: 'A', col: 4, x: 132, y: 120, type: 'standard' },
       ],
-      elements: [{ id: 'exit-a', kind: 'exit', label: 'Exit', row: 'A', col: 6 }],
+      elements: [{ id: 'exit-a', kind: 'exit', label: 'Exit', x: 180, y: 120 }],
     },
     {
       id: 'balcony',
       index: 2,
       label: { en: 'Balcony', ms: 'Balkoni' },
-      layout: 'freeform',
-      aspectRatio: '3:1',
       seats: [
-        { id: 'L1', label: 'L1', x: 45, y: 50, type: 'sofa', companions: ['L2'] },
-        { id: 'L2', label: 'L2', x: 55, y: 50, type: 'sofa', companions: ['L1'] },
+        { id: 'L1', label: 'L1', x: 260, y: 100, type: 'sofa', companions: ['L2'] },
+        {
+          id: 'L2',
+          label: 'L2',
+          x: 300,
+          y: 100,
+          rotation: 10,
+          type: 'sofa',
+          companions: ['L1'],
+        },
       ],
     },
   ],
@@ -82,6 +102,16 @@ class Host {
   readonly issues = signal<readonly KerusiViolation[]>([]);
 }
 
+/** Renders the map component alone, with the given inputs, for a one-off check. */
+function renderAlone(inputs: Record<string, unknown>): HTMLElement {
+  const fixture = TestBed.createComponent(KerusiSeatmapComponent);
+  for (const [name, value] of Object.entries(inputs)) {
+    fixture.componentRef.setInput(name, value);
+  }
+  fixture.detectChanges();
+  return fixture.nativeElement as HTMLElement;
+}
+
 describe('KerusiSeatmapComponent', () => {
   let fixture: ComponentFixture<Host>;
   let host: Host;
@@ -97,7 +127,8 @@ describe('KerusiSeatmapComponent', () => {
 
   const seats = () => [...el.querySelectorAll<SVGGElement>('g.kerusi-seat')];
   const seat = (id: string) => el.querySelector<SVGGElement>(`[data-seat-id="${id}"]`)!;
-  const svgs = () => [...el.querySelectorAll<SVGSVGElement>('svg.kerusi-section-svg')];
+  const svgs = () => [...el.querySelectorAll<SVGSVGElement>('svg.kerusi-seatmap__svg')];
+  const groups = () => [...el.querySelectorAll<SVGGElement>('g.kerusi-section')];
   const box = (id: string) => seat(id).querySelector<SVGPathElement>('.kerusi-seat__box')!;
   const core = (id: string) => seat(id).querySelector<SVGPathElement>('.kerusi-seat__core')!;
   const label = (id: string) => seat(id).querySelector<SVGTextElement>('.kerusi-seat__label')!;
@@ -128,35 +159,115 @@ describe('KerusiSeatmapComponent', () => {
     return out;
   };
 
-  describe('sections as render units', () => {
-    it('renders one svg per section, in Section.index order', () => {
-      expect(svgs()).toHaveLength(2);
-      const headings = [...el.querySelectorAll('h3')].map((h) => h.textContent?.trim());
-      expect(headings).toEqual(['Stalls', 'Balcony']);
+  describe('one canvas (§4.5, D1)', () => {
+    it('draws the whole map as one svg whose viewBox is the canvas', () => {
+      expect(svgs()).toHaveLength(1);
+      expect(svgs()[0].getAttribute('viewBox')).toBe('0 0 400 200');
     });
 
-    it('gives each section its own viewBox from its own layout mode', () => {
-      const [stalls, balcony] = svgs().map((s) =>
-        s.getAttribute('viewBox')!.split(' ').map(Number),
-      );
-      // The freeform balcony is 3:1; the grid stalls are sized from their cells.
-      expect(balcony[2] / balcony[3]).toBeCloseTo(3, 5);
-      expect(stalls[2] / stalls[3]).not.toBeCloseTo(3, 5);
+    it('makes each section a named group on it, in Section.index order', () => {
+      expect(groups().map((g) => g.getAttribute('data-section-id'))).toEqual(['stalls', 'balcony']);
+      expect(groups().map((g) => g.getAttribute('role'))).toEqual(['group', 'group']);
+      expect(groups().map((g) => g.getAttribute('aria-label'))).toEqual(['Stalls', 'Balcony']);
     });
 
-    it('links each section to its heading for assistive technology', () => {
-      const section = el.querySelector('.kerusi-seatmap__section')!;
-      const id = section.getAttribute('aria-labelledby')!;
-      expect(el.querySelector(`[id="${id}"]`)!.textContent).toContain('Stalls');
+    it('creates the section groups and their marks in the SVG namespace', () => {
+      expect(groups()[0].namespaceURI).toBe('http://www.w3.org/2000/svg');
+      expect(box('A1').namespaceURI).toBe('http://www.w3.org/2000/svg');
     });
 
-    it('renders a grid section element, which the pre-1.0 renderer ignored', () => {
-      const exits = el.querySelectorAll('.kerusi-element--exit');
-      expect(exits).toHaveLength(1);
+    it('draws every seat at its x/y, at the seat size, turned by its rotation', () => {
+      for (const section of VENUE.sections) {
+        for (const doc of section.seats) {
+          const half = VENUE.seatSize / 2;
+          const d = seatBodyPath(doc.x - half, doc.y - half, VENUE.seatSize, VENUE.seatSize);
+          expect(box(doc.id).getAttribute('d')).toBe(d);
+          expect(label(doc.id).getAttribute('x')).toBe(String(doc.x));
+          expect(label(doc.id).getAttribute('y')).toBe(String(doc.y));
+          expect(seat(doc.id).getAttribute('transform')).toBe(
+            doc.rotation ? `rotate(${doc.rotation} ${doc.x} ${doc.y})` : null,
+          );
+        }
+      }
     });
 
-    it('emits no filler node for the skipped aisle column (§4.3.2)', () => {
+    it('caps the drawing at unitScale CSS pixels per canvas unit', () => {
+      expect(svgs()[0].style.maxWidth).toBe('400px');
+      const scaled = renderAlone({ map: VENUE, unitScale: 2 });
+      expect(scaled.querySelector<SVGSVGElement>('svg')!.style.maxWidth).toBe('800px');
+    });
+
+    it('draws an element at its x/y, at the seat size when it gives none', () => {
+      const exit = el.querySelector('.kerusi-element--exit rect')!;
+      expect(['x', 'y', 'width', 'height'].map((a) => exit.getAttribute(a))).toEqual([
+        '166',
+        '106',
+        '28',
+        '28',
+      ]);
+    });
+
+    it('emits no filler node for the skipped aisle col (§4.3.2)', () => {
       expect(seats()).toHaveLength(5);
+    });
+
+    it('leaves a hidden section’s space empty: the canvas keeps its size (D4)', () => {
+      const hidden = renderAlone({ map: VENUE, sectionOverrides: { stalls: { hidden: true } } });
+      expect(hidden.querySelector('svg')!.getAttribute('viewBox')).toBe('0 0 400 200');
+      expect(hidden.querySelector('[data-section-id="stalls"]')).toBeNull();
+      expect(
+        hidden.querySelector('[data-seat-id="L1"] .kerusi-seat__label')!.getAttribute('x'),
+      ).toBe('260');
+    });
+  });
+
+  describe('section labels (D5)', () => {
+    const drawn = (root: HTMLElement) =>
+      [...root.querySelectorAll<SVGTextElement>('text.kerusi-section-label')].map((t) =>
+        t.textContent?.trim(),
+      );
+
+    it('draws a label only for a section that declares bounds', () => {
+      expect(drawn(el)).toEqual(['Stalls']);
+    });
+
+    it('puts it at the top-left of the bounds, hidden from assistive technology', () => {
+      const text = el.querySelector<SVGTextElement>('text.kerusi-section-label')!;
+      // Seat size 28: inset 7, font 14.
+      expect(['x', 'y', 'font-size'].map((a) => text.getAttribute(a))).toEqual(['7', '7', '14']);
+      expect(text.getAttribute('aria-hidden')).toBe('true');
+      expect(text.closest('g.kerusi-section')!.getAttribute('aria-label')).toBe('Stalls');
+    });
+
+    it('draws none when showSectionLabels is off, and keeps the accessible names', () => {
+      const plain = renderAlone({ map: VENUE, showSectionLabels: false });
+      expect(drawn(plain)).toEqual([]);
+      expect(plain.querySelector('g.kerusi-section')!.getAttribute('aria-label')).toBe('Stalls');
+    });
+
+    it('takes an overridden label', () => {
+      const renamed = renderAlone({ map: VENUE, sectionOverrides: { stalls: { label: 'Floor' } } });
+      expect(drawn(renamed)).toEqual(['Floor']);
+    });
+  });
+
+  describe('right-to-left: the whole canvas mirrors (D3)', () => {
+    const rtl = () => renderAlone({ map: VENUE, rtl: true });
+
+    it('mirrors x about the canvas and negates rotation', () => {
+      const root = rtl();
+      const at = (id: string) =>
+        root.querySelector(`[data-seat-id="${id}"] .kerusi-seat__label`)!.getAttribute('x');
+      expect(at('A1')).toBe('370');
+      expect(at('L1')).toBe('140');
+      expect(root.querySelector('[data-seat-id="L2"]')!.getAttribute('transform')).toBe(
+        'rotate(-10 100 100)',
+      );
+    });
+
+    it('moves the section label to the top-right of its mirrored bounds', () => {
+      const text = rtl().querySelector('text.kerusi-section-label')!;
+      expect(text.getAttribute('x')).toBe('393');
     });
   });
 
@@ -164,18 +275,18 @@ describe('KerusiSeatmapComponent', () => {
     const withLabels = (): KerusiMap => {
       const map: KerusiMap = JSON.parse(JSON.stringify(VENUE));
       map.sections[1].elements = [
-        { id: 'heading', kind: 'Label', label: 'Balcony', x: 50, y: 10, width: 20, height: 8 },
+        { id: 'heading', kind: 'Label', label: 'Balcony', x: 280, y: 30, width: 80, height: 20 },
         {
           id: 'turned',
           kind: 'label',
           label: 'Table 3',
-          x: 20,
-          y: 50,
-          width: 10,
-          height: 6,
+          x: 240,
+          y: 160,
+          width: 30,
+          height: 18,
           rotation: 90,
         },
-        { id: 'blank', kind: 'label', x: 80, y: 50, width: 10, height: 6 },
+        { id: 'blank', kind: 'label', x: 360, y: 160, width: 30, height: 18 },
       ];
       return map;
     };
@@ -220,10 +331,7 @@ describe('KerusiSeatmapComponent', () => {
     it('renders localized section labels for the map locale', () => {
       host.locale.set('ms');
       fixture.detectChanges();
-      expect([...el.querySelectorAll('h3')].map((h) => h.textContent?.trim())).toEqual([
-        'Bawah',
-        'Balkoni',
-      ]);
+      expect(groups().map((g) => g.getAttribute('aria-label'))).toEqual(['Bawah', 'Balkoni']);
     });
   });
 
@@ -413,12 +521,12 @@ describe('KerusiSeatmapComponent', () => {
 
     it('reports violations and still renders, in collect mode', () => {
       const broken: KerusiMap = JSON.parse(JSON.stringify(VENUE));
-      // A grid section whose seat carries coordinates — invalid under §4.5.
-      broken.sections[0].seats[0] = { id: 'A1', x: 10, y: 10, type: 'standard' };
+      // A seat off the canvas — invalid under §4.3.1.
+      broken.sections[0].seats[0].x = 900;
       host.map.set(broken);
       fixture.detectChanges();
 
-      expect(host.issues().map((v) => v.rule)).toContain('section-layout-grid');
+      expect(host.issues().map((v) => v.rule)).toContain('seat-outside-canvas');
       expect(seats().length).toBeGreaterThan(0);
     });
   });
@@ -884,5 +992,16 @@ describe('KerusiSeatmapComponent custom seat content', () => {
     const outline = seat('A1').lastElementChild!;
     expect(outline.classList).toContain('kerusi-seat__focus');
     expect(outline.getAttribute('d')).toMatch(/^M /);
+  });
+});
+
+describe('KerusiSeatmapComponent SVG parity with the React binding', () => {
+  it('draws the town hall exactly as the shared signature says', () => {
+    const el = renderAlone({
+      map: PARITY_MAP,
+      state: PARITY_STATE,
+      selection: PARITY_SELECTION,
+    });
+    expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(PARITY_SIGNATURE);
   });
 });

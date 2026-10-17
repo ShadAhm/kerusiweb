@@ -1,10 +1,10 @@
 import { buildRenderModel, formatMoney, summarizeSelection } from '@kerusiweb/core';
-import type { KerusiViolation, SeatStyleFn } from '@kerusiweb/core';
+import type { Bounds, KerusiViolation, SeatStyleFn } from '@kerusiweb/core';
 import { KerusiSeatmap } from '@kerusiweb/react';
-import type { SeatDisallowed, SeatRenderContext } from '@kerusiweb/react';
+import type { KerusiSeatmapHandle, SeatDisallowed, SeatRenderContext } from '@kerusiweb/react';
 import { DEMO_LOCALES, premiumTypeStyles, SCENARIOS } from '@kerusi/demo-scenarios';
 import type { Scenario } from '@kerusi/demo-scenarios';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 const THEME_STORAGE_KEY = 'kerusi-demo-theme';
 
@@ -22,6 +22,7 @@ export function App() {
   const [goldPremium, setGoldPremium] = useState(false);
   const [circleShape, setCircleShape] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const seatmap = useRef<KerusiSeatmapHandle | null>(null);
 
   /** Selections are per scenario, so switching tabs does not lose a pick. */
   const [selections, setSelections] = useState<Record<string, readonly string[]>>({});
@@ -88,9 +89,9 @@ export function App() {
       buildRenderModel(scenario.map, scenario.state).sections.map((section) => ({
         id: section.id,
         label: section.label ?? section.id,
-        mode: section.layoutMode,
-        declared: section.source.layout ?? 'inferred',
-        aspectRatio: section.aspectRatio,
+        seatSize: section.seatSize,
+        bounds: formatBounds(section.bounds),
+        boundsDeclared: section.boundsDeclared,
         seats: section.seats.length,
       })),
     [scenario],
@@ -106,8 +107,8 @@ export function App() {
           <h1>@kerusiweb/react</h1>
           <p>
             A React seat map that renders <a href="https://github.com/ShadAhm/kerusi">Kerusi</a>{' '}
-            documents directly — every positioning mode, sections as real render units, and a
-            keyboard-navigable, screen-reader-friendly SVG.
+            documents directly — one canvas per map, every seat exactly where the document puts it,
+            and a keyboard-navigable, screen-reader-friendly SVG.
           </p>
         </div>
 
@@ -226,13 +227,13 @@ export function App() {
           <div className="scenario-body">
             <div className={aisleCss ? 'stage demo-aisles' : 'stage'}>
               <KerusiSeatmap
+                ref={seatmap}
                 map={scenario.map}
                 state={scenario.state}
                 session={scenario.session}
                 selection={selection}
                 onSelectionChange={onSelectionChange}
                 locale={locale}
-                seatSize={scenario.seatSize ?? 28}
                 typeColors={typeColors}
                 showLegend={showLegend}
                 zoomable={zoomable}
@@ -300,23 +301,36 @@ export function App() {
                   <thead>
                     <tr>
                       <th scope="col">Section</th>
-                      <th scope="col">Mode</th>
-                      <th scope="col">Ratio</th>
+                      <th scope="col">Seat size</th>
+                      <th scope="col">Bounds</th>
                       <th scope="col">Seats</th>
+                      <th scope="col">
+                        <span className="visually-hidden">Zoom</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {sectionSummary.map((section) => (
                       <tr key={section.id}>
                         <td>{section.label}</td>
+                        <td>{section.seatSize}</td>
                         <td>
-                          <code>{section.mode}</code>
-                          {section.declared === 'inferred' && (
-                            <span className="muted"> (inferred)</span>
+                          <code>{section.bounds}</code>
+                          {!section.boundsDeclared && (
+                            <span className="muted"> (from its seats)</span>
                           )}
                         </td>
-                        <td>{section.aspectRatio}</td>
                         <td>{section.seats}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="zoom-section"
+                            disabled={!zoomable}
+                            onClick={() => seatmap.current?.zoomToSection(section.id)}
+                          >
+                            Zoom
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -412,6 +426,12 @@ function renderRoundSeat({ glyph }: SeatRenderContext) {
       </text>
     </>
   );
+}
+
+/** A section's extent on the canvas, for the sections table: `x, y  w × h`. */
+function formatBounds(bounds: Bounds): string {
+  const n = (value: number) => String(Math.round(value * 10) / 10);
+  return `${n(bounds.x)}, ${n(bounds.y)}  ${n(bounds.width)} × ${n(bounds.height)}`;
 }
 
 function getInitialTheme(): Theme {

@@ -12,10 +12,14 @@ aircraft, theatres, stadiums, coaches, trains), with keyboard navigation and
 screen-reader support built in. Angular and React bindings ship today; the
 renderer underneath them is plain TypeScript.
 
-Give it a `KerusiMap` and a `KerusiState` and it draws the venue: each `Section`
-in its own layout mode with its own proportions, seats coloured from the map's
-legend, prices resolved through the standard's precedence order, and companion
-seats booked as a unit.
+Give it a `KerusiMap` and a `KerusiState` and it draws the venue on the map's
+one canvas, every seat exactly where and as large as the document says, seats
+coloured from the map's legend, prices resolved through the standard's
+precedence order, and companion seats booked as a unit.
+
+> **Upgrading from 2.x?** 3.0.0 follows Kerusi rev 15, where a map has one
+> canvas and every seat its own `x`/`y`. Documents and a few inputs change; see
+> [Migrating from 2.x](CHANGELOG.md#migrating-from-2x).
 
 **[Live demos →](https://shadahm.github.io/kerusiweb/)**
 
@@ -47,16 +51,21 @@ const map: KerusiMap = {
   kerusi: '1.0',
   id: 'bus-42',
   domain: 'bus',
+  // One canvas per map, in abstract units; every seat is a 28-unit square.
+  canvas: { width: 192, height: 56 },
+  seatSize: 28,
   legend: [{ id: 'standard', label: 'Standard' }],
   sections: [
     {
       id: 'main',
       seats: [
-        { id: '1A', row: '1', col: 1, type: 'standard' },
-        { id: '1B', row: '1', col: 2, type: 'standard' },
-        // Column 3 is omitted. That gap is the aisle; no filler seat needed.
-        { id: '1C', row: '1', col: 4, type: 'standard' },
-        { id: '1D', row: '1', col: 5, type: 'standard' },
+        // x/y is where a seat is drawn (its centre); row/col says who its
+        // neighbours are.
+        { id: '1A', row: '1', col: 1, x: 28, y: 28, type: 'standard' },
+        { id: '1B', row: '1', col: 2, x: 62, y: 28, type: 'standard' },
+        // Col 3 is omitted. That gap is the aisle; no filler seat needed.
+        { id: '1C', row: '1', col: 4, x: 130, y: 28, type: 'standard' },
+        { id: '1D', row: '1', col: 5, x: 164, y: 28, type: 'standard' },
       ],
     },
   ],
@@ -115,16 +124,15 @@ See the [Angular README](projects/angular/README.md) or the
 The library is a conformant Kerusi consumer. [docs/kerusi-conformance.md](docs/kerusi-conformance.md)
 is a feature-by-feature audit; the highlights:
 
-|                                       |                                                                                                                                                                                            |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **All three positioning modes**       | `grid`, `freeform` (percentage coordinates and per-seat rotation) and `mixed`, validated strictly per §4.5 and inferred when a section omits `layout`.                                     |
-| **Sections as render units**          | Each `Section` is its own `<svg>` with its own layout mode, aspect ratio and heading, so a freeform orchestra and a grid balcony can share one map.                                        |
-| **The document drives the picture**   | `SeatType.color`, price tiers, attributes and `Element.kind` all affect what is drawn.                                                                                                     |
-| **Space is declared, not configured** | An empty row (§4.2.2) reserves the throw in front of a cinema screen or a cross-aisle mid-section, so the same document produces the same vertical arrangement in any conformant renderer. |
-| **Accessibility**                     | Roving tabindex, arrow keys that follow the §4.3.1 `col` order, and seats announced with their type, price, status and every §4.3.4 accessibility property.                                |
-| **Companions**                        | `companions` closures book and release together, and a pair whose other half is sold is refused rather than half-taken.                                                                    |
-| **Live availability**                 | `KerusiStateStore` (Angular) and `useKerusiState` (React) apply deltas in order, discard stale and out-of-scope ones, and revert lapsed holds.                                             |
-| **Validation**                        | Every MUST-level rule, throwing or collecting, with a rule slug and document path per violation, tested against the example corpus published with the standard.                            |
+|                                     |                                                                                                                                                                                                                                     |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **One canvas per map (§4.5)**       | The map is one `<svg>` on the document's canvas. Every seat is drawn at its `x`/`y`, at its seat size and rotation, and nothing is moved, resized or reflowed: the same document draws the same picture in any conformant renderer. |
+| **Sections are zones**              | Sections share the canvas, so a stalls and a balcony can sit side by side. A section's declared `bounds` place its label and let a zoomable map zoom to it.                                                                         |
+| **The document drives the picture** | `SeatType.color`, price tiers, attributes and `Element.kind` all affect what is drawn.                                                                                                                                              |
+| **Accessibility**                   | Roving tabindex, arrow keys that follow §4.3.5 adjacency and cross aisles, and seats announced with their type, price, status, a neighbouring aisle and every §4.3.4 accessibility property.                                        |
+| **Companions**                      | `companions` closures book and release together, and a pair whose other half is sold is refused rather than half-taken.                                                                                                             |
+| **Live availability**               | `KerusiStateStore` (Angular) and `useKerusiState` (React) apply deltas in order, discard stale and out-of-scope ones, and revert lapsed holds.                                                                                      |
+| **Validation**                      | Every MUST-level rule, throwing or collecting, with a rule slug and document path per violation, tested against the example corpus published with the standard.                                                                     |
 
 ## Repository layout
 

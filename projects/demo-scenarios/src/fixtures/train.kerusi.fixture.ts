@@ -1,13 +1,32 @@
 import { KerusiMap, KerusiSession, KerusiState, Seat } from '@kerusiweb/core';
 
 /**
- * Two carriages of an intercity train, each its own `Section`.
+ * Two carriages of an intercity train, each its own `Section`, one above the
+ * other on the canvas.
  *
  * Carriage A is airline-style rows; carriage B is table bays, where four seats
- * face each other around a table. The table is an `Element` spanning the row
+ * face each other around a table. The table is an `Element` in the space
  * between the facing pairs — a fixture that has to be drawn but cannot be
  * booked, which is exactly what §4.4 elements are for.
  */
+
+/**
+ * Each carriage is drawn on a lattice: seats 28 units square, 34 apart. The
+ * lattice is only how this file works out positions; the document carries
+ * each seat's centre as plain `x`/`y` (§4.5), and `col` says only which seats
+ * are neighbours.
+ */
+const SEAT = 28;
+const PITCH = 34;
+
+/** The top of each carriage on the canvas. */
+const CARRIAGE_A_TOP = 28;
+const CARRIAGE_B_TOP = 248;
+
+/** The centre of the lattice cell at column `col` on line `line` of a carriage, in canvas units. */
+function cell(top: number, col: number, line: number): { x: number; y: number } {
+  return { x: SEAT + (col - 1) * PITCH, y: top + SEAT + line * PITCH };
+}
 
 /** An airline-style row: columns 1,2 | aisle | 4,5. */
 function airlineRow(carriage: string, n: number, type: string): Seat[] {
@@ -18,6 +37,7 @@ function airlineRow(carriage: string, n: number, type: string): Seat[] {
     label: letters[i],
     row: `${carriage}${n}`,
     col,
+    ...cell(CARRIAGE_A_TOP, col, n - 1),
     type,
     attributes: i === 0 || i === 3 ? ['window'] : ['aisle'],
   }));
@@ -27,7 +47,7 @@ function airlineRow(carriage: string, n: number, type: string): Seat[] {
  * One half of a table bay: two seats either side of the aisle, sharing a table
  * with the bay opposite. `forward` seats face the direction of travel.
  */
-function bayRow(carriage: string, n: number, type: string, forward: boolean): Seat[] {
+function bayRow(carriage: string, n: number, line: number, type: string, forward: boolean): Seat[] {
   const cols = [1, 2, 4, 5];
   const letters = ['A', 'B', 'C', 'D'];
   return cols.map((col, i) => ({
@@ -35,6 +55,7 @@ function bayRow(carriage: string, n: number, type: string, forward: boolean): Se
     label: letters[i],
     row: `${carriage}${n}`,
     col,
+    ...cell(CARRIAGE_B_TOP, col, line),
     type,
     attributes: [
       i === 0 || i === 3 ? 'window' : 'aisle',
@@ -50,6 +71,8 @@ export const TRAIN_MAP: KerusiMap = {
   name: 'ETS Platinum — Set 7',
   domain: 'train',
   locale: 'en',
+  canvas: { width: 260, height: 576 },
+  seatSize: SEAT,
   legend: [
     {
       id: 'standard',
@@ -79,15 +102,16 @@ export const TRAIN_MAP: KerusiMap = {
       id: 'carriage-a',
       index: 1,
       label: { en: 'Carriage A', ms: 'Gerabak A' },
-      layout: 'grid',
+      bounds: { x: 0, y: CARRIAGE_A_TOP, width: 260, height: 192 },
       rows: Array.from({ length: 5 }, (_, i) => ({
         id: `A${i + 1}`,
         label: `${i + 1}`,
         index: i,
       })),
       elements: [
-        { id: 'a-door', kind: 'exit', label: 'Door', row: 'A1', col: 7 },
-        { id: 'a-wc', kind: 'lavatory', label: 'WC', row: 'A5', col: 7 },
+        // Seat-sized, by default (§4.4.1).
+        { id: 'a-door', kind: 'exit', label: 'Door', ...cell(CARRIAGE_A_TOP, 7, 0) },
+        { id: 'a-wc', kind: 'lavatory', label: 'WC', ...cell(CARRIAGE_A_TOP, 7, 4) },
       ],
       seats: [
         ...airlineRow('A', 1, 'standard'),
@@ -99,6 +123,7 @@ export const TRAIN_MAP: KerusiMap = {
           label: 'A',
           row: 'A4',
           col: 1,
+          ...cell(CARRIAGE_A_TOP, 1, 3),
           type: 'accessible',
           attributes: ['window'],
           companions: ['A4B'],
@@ -114,13 +139,30 @@ export const TRAIN_MAP: KerusiMap = {
           label: 'B',
           row: 'A4',
           col: 2,
+          ...cell(CARRIAGE_A_TOP, 2, 3),
           type: 'accessible',
           attributes: ['aisle'],
           companions: ['A4A'],
           accessibility: { transferArmrest: 'both' },
         },
-        { id: 'A4C', label: 'C', row: 'A4', col: 4, type: 'standard', attributes: ['aisle'] },
-        { id: 'A4D', label: 'D', row: 'A4', col: 5, type: 'standard', attributes: ['window'] },
+        {
+          id: 'A4C',
+          label: 'C',
+          row: 'A4',
+          col: 4,
+          ...cell(CARRIAGE_A_TOP, 4, 3),
+          type: 'standard',
+          attributes: ['aisle'],
+        },
+        {
+          id: 'A4D',
+          label: 'D',
+          row: 'A4',
+          col: 5,
+          ...cell(CARRIAGE_A_TOP, 5, 3),
+          type: 'standard',
+          attributes: ['window'],
+        },
         ...airlineRow('A', 5, 'standard'),
       ],
     },
@@ -128,37 +170,37 @@ export const TRAIN_MAP: KerusiMap = {
       id: 'carriage-b',
       index: 2,
       label: { en: 'Carriage B — table bays', ms: 'Gerabak B — Meja' },
-      layout: 'grid',
-      // Seat rows and the empty rows between them, interleaved: each facing
-      // pair is separated by a seatless row the table occupies (§4.2.2). A
-      // table is a whole row of space here, not a fraction of one — §4.4.1
-      // makes a grid span a positive integer count of cells, and §4.2.2 leaves
-      // "what a row is worth in pixels" to the renderer.
+      bounds: { x: 0, y: CARRIAGE_B_TOP, width: 260, height: 328 },
+      // Rows give order and adjacency, never space (§4.2): the room for each
+      // table between its facing pairs is there because the seats' own `y`
+      // leave a lattice line free, on lines 1, 4 and 7.
       rows: [
         { id: 'B1', label: '1', index: 0 },
-        { id: 'table-row-1', index: 1 },
-        { id: 'B2', label: '2', index: 2 },
-        { id: 'B3', label: '3', index: 3 },
-        { id: 'table-row-2', index: 4 },
-        { id: 'B4', label: '4', index: 5 },
-        { id: 'B5', label: '5', index: 6 },
-        { id: 'table-row-3', index: 7 },
-        { id: 'B6', label: '6', index: 8 },
+        { id: 'B2', label: '2', index: 1 },
+        { id: 'B3', label: '3', index: 2 },
+        { id: 'B4', label: '4', index: 3 },
+        { id: 'B5', label: '5', index: 4 },
+        { id: 'B6', label: '6', index: 5 },
       ],
       elements: [
         // A table sits between each facing pair, spanning both sides of the aisle.
-        { id: 'table-1', kind: 'table', label: 'Table', row: 'table-row-1', col: 1, width: 5 },
-        { id: 'table-2', kind: 'table', label: 'Table', row: 'table-row-2', col: 1, width: 5 },
-        { id: 'table-3', kind: 'table', label: 'Table', row: 'table-row-3', col: 1, width: 5 },
-        { id: 'b-door', kind: 'exit', label: 'Door', row: 'B6', col: 7 },
+        ...[1, 4, 7].map((line, i) => ({
+          id: `table-${i + 1}`,
+          kind: 'table',
+          label: 'Table',
+          x: (cell(CARRIAGE_B_TOP, 1, line).x + cell(CARRIAGE_B_TOP, 5, line).x) / 2,
+          y: cell(CARRIAGE_B_TOP, 1, line).y,
+          width: 4 * PITCH + SEAT,
+        })),
+        { id: 'b-door', kind: 'exit', label: 'Door', ...cell(CARRIAGE_B_TOP, 7, 8) },
       ],
       seats: [
-        ...bayRow('B', 1, 'table', true),
-        ...bayRow('B', 2, 'table', false),
-        ...bayRow('B', 3, 'table', true),
-        ...bayRow('B', 4, 'table', false),
-        ...bayRow('B', 5, 'table', true),
-        ...bayRow('B', 6, 'table', false),
+        ...bayRow('B', 1, 0, 'table', true),
+        ...bayRow('B', 2, 2, 'table', false),
+        ...bayRow('B', 3, 3, 'table', true),
+        ...bayRow('B', 4, 5, 'table', false),
+        ...bayRow('B', 5, 6, 'table', true),
+        ...bayRow('B', 6, 8, 'table', false),
       ],
     },
   ],

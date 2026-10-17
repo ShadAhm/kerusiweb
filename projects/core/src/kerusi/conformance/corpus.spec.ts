@@ -136,7 +136,7 @@ const ACCEPTED: Record<string, string> = {
   'invalid/section-layout-removed.map.kerusi.json':
     'a rev 14 "layout" is now an unknown member, ignored per §7; the seats carry everything rev 15 needs to draw them',
   'invalid/section-aspect-ratio-removed.map.kerusi.json':
-    'a rev 14 "aspectRatio" is now an unknown member, ignored per §7; the canvas alone sets the proportions',
+    'a rev 14 aspect ratio is now an unknown member, ignored per §7; the canvas alone sets the proportions',
   'invalid/element-grid-addressed.map.kerusi.json':
     'an element\'s rev 14 "row"/"col" are now unknown members, ignored per §7; it is placed by its own x/y',
   'invalid/bad-currency.map.kerusi.json':

@@ -31,8 +31,8 @@ or changed fixture shows up as a failure rather than passing silently.
     `additionalProperties: false`. §2 and §7 tell a **consumer** to ignore
     members it does not recognize, so `map-unknown-toplevel-field` MUST be
     accepted by this library. Rejecting it would be the non-conformance.
-  - The same rule covers the members rev 15 removed: a section's `layout` and
-    `aspectRatio`, and an element's `row`/`col`. They are unknown members now,
+  - The same rule covers the members rev 15 removed: a section's layout mode
+    and aspect ratio, and an element's `row`/`col`. They are unknown members now,
     so `section-layout-removed`, `section-aspect-ratio-removed` and
     `element-grid-addressed` are accepted. That is safe: those fixtures also
     carry everything rev 15 requires, and a real rev 14 map is still rejected

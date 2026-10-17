@@ -1,0 +1,37 @@
+{
+  "kerusi": "1.0",
+  "id": "duplicate-row-col",
+  "canvas": {
+    "width": 100,
+    "height": 100
+  },
+  "seatSize": 10,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "seats": [
+        {
+          "id": "A1",
+          "row": "A",
+          "col": 1,
+          "x": 10,
+          "y": 10,
+          "type": "standard"
+        },
+        {
+          "id": "A1b",
+          "row": "A",
+          "col": 1,
+          "x": 30,
+          "y": 10,
+          "type": "standard"
+        }
+      ]
+    }
+  ]
+}

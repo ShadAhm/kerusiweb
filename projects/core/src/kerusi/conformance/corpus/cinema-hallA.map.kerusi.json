@@ -3,6 +3,11 @@
   "id": "cinema3-hallA",
   "name": "Hall A",
   "domain": "cinema",
+  "canvas": {
+    "width": 1000,
+    "height": 800
+  },
+  "seatSize": 40,
   "legend": [
     {
       "id": "standard",
@@ -34,17 +39,47 @@
   "sections": [
     {
       "id": "main",
-      "layout": "freeform",
       "rows": [
         {
           "id": "A",
           "label": "A",
-          "index": 0
+          "index": 0,
+          "shape": {
+            "arc": {
+              "center": [
+                500,
+                -300
+              ],
+              "radius": 520,
+              "start": 100,
+              "sweep": -20,
+              "cols": [
+                1,
+                3
+              ]
+            }
+          }
         },
         {
           "id": "L",
           "label": "L (Love Seats)",
-          "index": 11
+          "index": 11,
+          "shape": {
+            "line": {
+              "from": [
+                480,
+                700
+              ],
+              "to": [
+                520,
+                700
+              ],
+              "cols": [
+                1,
+                2
+              ]
+            }
+          }
         }
       ],
       "elements": [
@@ -52,10 +87,10 @@
           "id": "screen",
           "kind": "screen",
           "label": "Screen",
-          "x": 50,
-          "y": 2,
-          "width": 80,
-          "height": 3
+          "x": 500,
+          "y": 30,
+          "width": 800,
+          "height": 20
         }
       ],
       "seats": [
@@ -63,27 +98,30 @@
           "id": "A1",
           "label": "1",
           "row": "A",
-          "x": 20,
-          "y": 20,
-          "rotation": -5,
+          "col": 1,
+          "x": 410,
+          "y": 212,
+          "rotation": 10,
           "type": "standard"
         },
         {
           "id": "A2",
           "label": "2",
           "row": "A",
-          "x": 26,
-          "y": 19,
-          "rotation": -3,
+          "col": 2,
+          "x": 500,
+          "y": 220,
+          "rotation": 0,
           "type": "standard"
         },
         {
           "id": "A3",
           "label": "3",
           "row": "A",
-          "x": 32,
-          "y": 19,
-          "rotation": -3,
+          "col": 3,
+          "x": 590,
+          "y": 212,
+          "rotation": -10,
           "type": "standard",
           "accessibility": {
             "wheelchairAccessible": true,
@@ -95,8 +133,9 @@
           "id": "L1",
           "label": "1",
           "row": "L",
-          "x": 60,
-          "y": 70,
+          "col": 1,
+          "x": 480,
+          "y": 700,
           "type": "recliner-couple",
           "companions": [
             "L2"
@@ -106,8 +145,9 @@
           "id": "L2",
           "label": "2",
           "row": "L",
-          "x": 66,
-          "y": 70,
+          "col": 2,
+          "x": 520,
+          "y": 700,
           "type": "recliner-couple",
           "companions": [
             "L1"

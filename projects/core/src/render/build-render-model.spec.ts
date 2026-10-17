@@ -6,7 +6,7 @@ import {
   CINEMA_GRID_MAP,
   CINEMA_MAP,
   CINEMA_STATE_BY_MAP,
-} from '../kerusi/kerusi-examples.fixture.js';
+} from './rev14-examples.fixture.js'; // rev 14 bridge: removed in phase 2.
 import { buildRenderModel } from './build-render-model.js';
 
 /** A map with a grid balcony and a freeform stalls — the multi-section case. */

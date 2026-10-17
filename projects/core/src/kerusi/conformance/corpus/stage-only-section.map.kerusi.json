@@ -3,6 +3,11 @@
   "id": "theatre-royal-main",
   "name": "Theatre Royal",
   "domain": "theatre",
+  "canvas": {
+    "width": 400,
+    "height": 300
+  },
+  "seatSize": 40,
   "legend": [
     {
       "id": "stalls",
@@ -14,24 +19,21 @@
       "id": "stage",
       "label": "Stage",
       "index": 0,
-      "layout": "grid",
-      "rows": [
-        {
-          "id": "stage-1",
-          "index": 0
-        },
-        {
-          "id": "stage-2",
-          "index": 1
-        }
-      ],
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 400,
+        "height": 100
+      },
       "elements": [
         {
           "id": "stage-front",
           "kind": "stage",
           "label": "STAGE",
-          "row": "stage-1",
-          "height": 2
+          "x": 200,
+          "y": 50,
+          "width": 360,
+          "height": 60
         }
       ],
       "seats": []
@@ -40,12 +42,33 @@
       "id": "stalls",
       "label": "Stalls",
       "index": 1,
-      "layout": "grid",
+      "bounds": {
+        "x": 0,
+        "y": 120,
+        "width": 400,
+        "height": 180
+      },
       "rows": [
         {
           "id": "A",
           "label": "A",
-          "index": 0
+          "index": 0,
+          "shape": {
+            "line": {
+              "from": [
+                176,
+                200
+              ],
+              "to": [
+                224,
+                200
+              ],
+              "cols": [
+                1,
+                2
+              ]
+            }
+          }
         }
       ],
       "seats": [
@@ -54,6 +77,8 @@
           "label": "1",
           "row": "A",
           "col": 1,
+          "x": 176,
+          "y": 200,
           "type": "stalls"
         },
         {
@@ -61,6 +86,8 @@
           "label": "2",
           "row": "A",
           "col": 2,
+          "x": 224,
+          "y": 200,
           "type": "stalls"
         }
       ]

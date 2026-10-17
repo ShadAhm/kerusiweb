@@ -1,0 +1,143 @@
+import { KerusiMap, Point, RowShape, Seat, Section } from './kerusi-map.model.js';
+
+/**
+ * Canvas geometry the standard defines over a map (§4.2.3, §4.3.1, §4.3.5,
+ * §4.5), with the same semantics as the reference validator's
+ * `schema/semantic-rules.mjs`. Reimplemented rather than imported so core keeps
+ * no runtime dependencies.
+ */
+
+const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+const isInteger = (v: unknown): v is number => Number.isInteger(v);
+
+const rad = (degrees: number): number => (degrees * Math.PI) / 180;
+
+/**
+ * The seat size that applies within a section (§4.5): the section's own
+ * `seatSize` when it declares one, the map's otherwise. `undefined` only for a
+ * document missing both, which the validator rejects.
+ */
+export function seatSizeOf(
+  map: Pick<KerusiMap, 'seatSize'>,
+  section?: Pick<Section, 'seatSize'>,
+): number | undefined {
+  if (isNum(section?.seatSize)) {
+    return section.seatSize;
+  }
+  return isNum(map?.seatSize) ? map.seatSize : undefined;
+}
+
+/**
+ * Whether two seats of the SAME section are neighbours (§4.3.5): same row, and
+ * cols that differ by exactly 1. Nothing else implies adjacency — not distance,
+ * not labels, not array order. Seats in different sections never are, so the
+ * caller must only pass seats from one section.
+ */
+export function areNeighbours(a: Pick<Seat, 'row' | 'col'>, b: Pick<Seat, 'row' | 'col'>): boolean {
+  if (a.row === undefined || b.row === undefined || a.row !== b.row) {
+    return false;
+  }
+  if (!Number.isInteger(a.col) || !Number.isInteger(b.col)) {
+    return false;
+  }
+  return Math.abs(a.col! - b.col!) === 1;
+}
+
+/**
+ * The guide point of column `col` on a row shape (§4.2.3). `null` when the
+ * column lies outside the shape's `cols` range, or the shape is not one the
+ * standard defines.
+ *
+ * Only editors need this. A renderer draws each seat at its own `x`/`y` and
+ * never consults a row shape.
+ */
+export function guidePoint(shape: RowShape, col: number): Point | null {
+  const g =
+    'line' in shape
+      ? shape.line
+      : 'arc' in shape
+        ? shape.arc
+        : 'circle' in shape
+          ? shape.circle
+          : undefined;
+  if (!g) {
+    return null;
+  }
+  const [a, b]: readonly unknown[] = Array.isArray(g.cols) ? g.cols : [];
+  if (!isInteger(col) || !isInteger(a) || !isInteger(b) || col < a || col > b) {
+    return null;
+  }
+  const t = a === b ? 0 : (col - a) / (b - a);
+  const onCircle = (center: Point, radius: number, degrees: number): Point => [
+    center[0] + radius * Math.cos(rad(degrees)),
+    center[1] + radius * Math.sin(rad(degrees)),
+  ];
+
+  if ('line' in shape) {
+    const { from, to } = shape.line;
+    return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+  }
+  if ('arc' in shape) {
+    const { center, radius, start, sweep } = shape.arc;
+    return onCircle(center, radius, start + sweep * t);
+  }
+  const { center, radius, start } = shape.circle;
+  return onCircle(center, radius, start + (360 * (col - a)) / (b - a + 1));
+}
+
+/**
+ * Whether a seat lies on its guide (§4.2.3): within `seatSize / 4` of its guide
+ * point. Editors use this to decide which seats to move when a guide changes;
+ * renderers never do.
+ */
+export function isOnGuide(
+  seat: Pick<Seat, 'col' | 'x' | 'y'>,
+  shape: RowShape,
+  seatSize: number,
+): boolean {
+  if (seat.col === undefined) {
+    return false;
+  }
+  const point = guidePoint(shape, seat.col);
+  if (!point || !isNum(seat.x) || !isNum(seat.y)) {
+    return false;
+  }
+  return Math.hypot(seat.x - point[0], seat.y - point[1]) <= seatSize / 4;
+}
+
+/**
+ * A seat's footprint (§4.5): a square of side `size` centred on `x`/`y`, turned
+ * by `theta` radians.
+ */
+export interface Footprint {
+  x: number;
+  y: number;
+  size: number;
+  theta: number;
+}
+
+export function footprintOf(seat: Pick<Seat, 'x' | 'y' | 'rotation'>, size: number): Footprint {
+  return { x: seat.x, y: seat.y, size, theta: rad(isNum(seat.rotation) ? seat.rotation : 0) };
+}
+
+/**
+ * Whether two footprints overlap (§4.3.1), by the separating axis theorem over
+ * the edge normals of both squares. Footprints that only touch, as neighbouring
+ * seats placed exactly one seat size apart do, don't overlap.
+ */
+export function footprintsOverlap(p: Footprint, q: Footprint): boolean {
+  const dx = q.x - p.x;
+  const dy = q.y - p.y;
+  const tolerance = 1e-9 * Math.max(p.size, q.size);
+  const reach = (f: Footprint, axis: number) =>
+    (f.size / 2) * (Math.abs(Math.cos(f.theta - axis)) + Math.abs(Math.sin(f.theta - axis)));
+
+  for (const axis of [p.theta, p.theta + Math.PI / 2, q.theta, q.theta + Math.PI / 2]) {
+    const gap = Math.abs(dx * Math.cos(axis) + dy * Math.sin(axis));
+    if (gap >= reach(p, axis) + reach(q, axis) - tolerance) {
+      return false;
+    }
+  }
+  return true;
+}

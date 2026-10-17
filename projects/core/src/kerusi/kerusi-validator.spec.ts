@@ -4,9 +4,9 @@ import {
   validateKerusiState,
   validateKerusiStateDelta,
 } from './kerusi-validator.js';
-import { KerusiMap } from './kerusi-map.model.js';
+import { Seat } from './kerusi-map.model.js';
 import { KerusiState, KerusiStateDelta } from './kerusi-state.model.js';
-import { BUS_MAP, CINEMA_MAP, FLIGHT_MAP } from './kerusi-examples.fixture.js';
+import { BUS_MAP, CINEMA_GRID_MAP, CINEMA_MAP, FLIGHT_MAP } from './kerusi-examples.fixture.js';
 
 // Deep-clone a fixture so a negative test can corrupt it without leaking into
 // other tests that share the same imported object.
@@ -21,6 +21,9 @@ describe('validateKerusiMap — valid documents', () => {
   });
   it('accepts the §6.3 flight map', () => {
     expect(() => validateKerusiMap(FLIGHT_MAP)).not.toThrow();
+  });
+  it('accepts the lattice cinema map', () => {
+    expect(() => validateKerusiMap(CINEMA_GRID_MAP)).not.toThrow();
   });
 });
 
@@ -95,9 +98,9 @@ describe('validateKerusiMap — referential integrity (§4.6)', () => {
 });
 
 describe('validateKerusiMap — positioning (§4.3.1)', () => {
-  it('rejects a seat with neither col nor x/y', () => {
+  it('rejects a seat with no x', () => {
     const map = clone(BUS_MAP);
-    delete map.sections[0].seats[0].col;
+    delete (map.sections[0].seats[0] as Partial<Seat>).x;
     try {
       validateKerusiMap(map);
       throw new Error('expected throw');
@@ -105,6 +108,18 @@ describe('validateKerusiMap — positioning (§4.3.1)', () => {
       expect((e as KerusiValidationError).rule).toBe('seat-position');
       expect((e as KerusiValidationError).id).toBe('1A');
     }
+  });
+
+  it('rejects a seat off the canvas', () => {
+    const map = clone(BUS_MAP);
+    map.sections[0].seats[0].x = map.canvas.width + 1;
+    expect(() => validateKerusiMap(map)).toThrowError(/outside the canvas/);
+  });
+
+  it('does not throw for overlapping seats, which are only a warning', () => {
+    const map = clone(BUS_MAP);
+    map.sections[0].seats[1].x = map.sections[0].seats[0].x + 1;
+    expect(() => validateKerusiMap(map)).not.toThrow();
   });
 });
 

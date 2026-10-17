@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KerusiMap } from './kerusi-map.model.js';
+import { KerusiMap, Seat } from './kerusi-map.model.js';
 import { KerusiSession, KerusiState } from './kerusi-state.model.js';
 import { BUS_MAP } from './kerusi-examples.fixture.js';
 import {
@@ -72,6 +72,8 @@ describe('checkKerusiMap — non-throwing collection', () => {
 
   it('stops walking when legend or sections are missing, to keep the report readable', () => {
     expect(checkKerusiMap({ kerusi: '1.0', id: 'm' }).map((v) => v.rule)).toEqual([
+      'map-canvas',
+      'map-seat-size',
       'map-legend',
       'map-sections',
     ]);
@@ -110,7 +112,7 @@ describe('id uniqueness', () => {
   it('rejects a duplicate seat id across sections (§4.3 global uniqueness)', () => {
     const map = clone(BUS_MAP);
     map.sections.push({ ...clone(map.sections[0]), id: 'upper' });
-    expect(checkKerusiMap(map).map((v) => v.rule)).toEqual([
+    expect(errorsOf(checkKerusiMap(map)).map((v) => v.rule)).toEqual([
       'seat-id-duplicate',
       'seat-id-duplicate',
       'seat-id-duplicate',
@@ -120,8 +122,167 @@ describe('id uniqueness', () => {
 
   it('rejects a duplicate section id', () => {
     const map = clone(BUS_MAP);
-    map.sections.push({ id: map.sections[0].id, layout: 'grid', seats: [] });
+    map.sections.push({ id: map.sections[0].id, seats: [] });
     expect(checkKerusiMap(map).map((v) => v.rule)).toEqual(['section-id-duplicate']);
+  });
+
+  it('rejects a duplicate seat type or price tier id (§4.6)', () => {
+    const map = clone(BUS_MAP);
+    map.legend.push({ id: 'standard' });
+    map.priceTiers = [
+      { id: 'regular', price: { amount: 100, currency: 'MYR' } },
+      { id: 'regular', price: { amount: 200, currency: 'MYR' } },
+    ];
+    expect(checkKerusiMap(map).map((v) => v.rule)).toEqual([
+      'seat-type-id-duplicate',
+      'price-tier-id-duplicate',
+    ]);
+  });
+
+  it('rejects a duplicate row id within a section, but not across sections', () => {
+    const map = clone(BUS_MAP);
+    map.sections[0].rows = [{ id: '1' }, { id: '1' }];
+    expect(checkKerusiMap(map).map((v) => v.rule)).toEqual(['row-id-duplicate']);
+
+    map.sections[0].rows = [{ id: '1' }];
+    map.sections.push({ id: 'upper', rows: [{ id: '1' }], seats: [] });
+    expect(checkKerusiMap(map)).toEqual([]);
+  });
+});
+
+describe('§4.5 canvas and seat size', () => {
+  it('rejects a canvas without a positive width and height', () => {
+    const map = clone(BUS_MAP);
+    map.canvas = { width: 0, height: 56 };
+    expect(checkKerusiMap(map).map((v) => v.rule)).toEqual(['map-canvas-size']);
+  });
+
+  it('rejects a seat size that is not positive, on the map or a section', () => {
+    const map = clone(BUS_MAP);
+    map.seatSize = -1;
+    map.sections[0].seatSize = 0;
+    expect(checkKerusiMap(map).map((v) => v.rule)).toEqual(['map-seat-size', 'section-seat-size']);
+  });
+
+  it('rejects a rev 14 map, which has no canvas or seat size', () => {
+    const map = clone(BUS_MAP) as Partial<KerusiMap>;
+    delete map.canvas;
+    delete map.seatSize;
+    expect(errorsOf(checkKerusiMap(map)).map((v) => v.rule)).toEqual([
+      'map-canvas',
+      'map-seat-size',
+    ]);
+  });
+});
+
+describe('§4.3 seat position and adjacency', () => {
+  it('requires x and y on every seat (§4.3.1)', () => {
+    const map = clone(BUS_MAP);
+    delete (map.sections[0].seats[0] as Partial<Seat>).y;
+    const violations = checkKerusiMap(map);
+    expect(violations.map((v) => v.rule)).toEqual(['seat-position']);
+    expect(violations[0].id).toBe('1A');
+  });
+
+  it('accepts a seat on the very edge of the canvas', () => {
+    const map = clone(BUS_MAP);
+    Object.assign(map.sections[0].seats[0], { x: 0, y: 56 });
+    Object.assign(map.sections[0].seats[3], { x: 192, y: 0 });
+    expect(errorsOf(checkKerusiMap(map))).toEqual([]);
+  });
+
+  it('reports a seat past both edges of the canvas once per axis', () => {
+    const map = clone(BUS_MAP);
+    Object.assign(map.sections[0].seats[3], { x: 193, y: 60 });
+    expect(checkKerusiMap(map).map((v) => [v.rule, v.path])).toEqual([
+      ['seat-outside-canvas', 'sections[0].seats[3].x'],
+      ['seat-outside-canvas', 'sections[0].seats[3].y'],
+    ]);
+  });
+
+  it('accepts a seat with no row and no col: it simply has no neighbours', () => {
+    const map = clone(BUS_MAP);
+    delete map.sections[0].seats[0].row;
+    delete map.sections[0].seats[0].col;
+    expect(checkKerusiMap(map)).toEqual([]);
+  });
+
+  it('rejects a col without a row (§4.3.5)', () => {
+    const map = clone(BUS_MAP);
+    delete map.sections[0].seats[0].row;
+    expect(checkKerusiMap(map).map((v) => v.rule)).toEqual(['seat-col-without-row']);
+  });
+
+  it('rejects a col that is not a positive integer', () => {
+    const map = clone(BUS_MAP);
+    map.sections[0].seats[0].col = 0;
+    map.sections[0].seats[1].col = 1.5;
+    expect(checkKerusiMap(map).map((v) => v.rule)).toEqual([
+      'seat-col-invalid',
+      'seat-col-invalid',
+    ]);
+  });
+
+  it('rejects two seats sharing a row and col in one section, but not across sections', () => {
+    const map = clone(BUS_MAP);
+    map.sections[0].seats[1].col = 1;
+    const violations = checkKerusiMap(map);
+    expect(violations.map((v) => [v.rule, v.id])).toEqual([['seat-row-col-duplicate', '1B']]);
+
+    const separate = clone(BUS_MAP);
+    separate.sections.push({
+      id: 'upper',
+      seats: [{ id: 'U1', row: '1', col: 1, x: 28, y: 5, type: 'standard' }],
+    });
+    expect(errorsOf(checkKerusiMap(separate))).toEqual([]);
+  });
+});
+
+describe('§4.2.3 row shapes', () => {
+  const withShape = (shape: unknown): KerusiMap => {
+    const map = clone(BUS_MAP);
+    map.sections[0].rows = [{ id: '1', shape: shape as never }];
+    return map;
+  };
+
+  it('accepts a line, an arc and a circle, whether or not the seats lie on them', () => {
+    for (const shape of [
+      { line: { from: [28, 28], to: [164, 28], cols: [1, 5] } },
+      { arc: { center: [96, 300], radius: 270, start: -120, sweep: 60, cols: [1, 5] } },
+      { circle: { center: [96, 28], radius: 20, start: 0, cols: [1, 5] } },
+    ]) {
+      expect(checkKerusiMap(withShape(shape))).toEqual([]);
+    }
+  });
+
+  it('rejects a shape that is not exactly one known kind', () => {
+    const line = { from: [0, 0], to: [10, 0], cols: [1, 2] };
+    expect(checkKerusiMap(withShape({ line, circle: line })).map((v) => v.rule)).toEqual([
+      'row-shape-kind',
+    ]);
+    expect(checkKerusiMap(withShape({ spiral: line })).map((v) => v.rule)).toEqual([
+      'row-shape-kind',
+    ]);
+  });
+
+  it('rejects a malformed shape: missing sweep, zero radius, bad cols', () => {
+    for (const shape of [
+      { arc: { center: [0, 0], radius: 10, start: 0, cols: [1, 2] } },
+      { circle: { center: [0, 0], radius: 0, start: 0, cols: [1, 2] } },
+      { line: { from: [0, 0], to: [10, 0], cols: [0, 2] } },
+      { line: { from: [0], to: [10, 0], cols: [1, 2] } },
+    ]) {
+      expect(checkKerusiMap(withShape(shape)).map((v) => v.rule)).toEqual(['row-shape-invalid']);
+    }
+  });
+
+  it('rejects reversed cols', () => {
+    const violations = checkKerusiMap(
+      withShape({ line: { from: [0, 0], to: [10, 0], cols: [4, 1] } }),
+    );
+    expect(violations.map((v) => [v.rule, v.path])).toEqual([
+      ['row-shape-cols-reversed', 'sections[0].rows[0].shape.line.cols'],
+    ]);
   });
 });
 
@@ -133,77 +294,136 @@ describe('§4.4 element validation', () => {
   };
 
   it('requires id and kind', () => {
-    expect(checkKerusiMap(withElements([{ kind: 'exit', col: 3 }])).map((v) => v.rule)).toEqual([
-      'element-id',
-    ]);
-    expect(checkKerusiMap(withElements([{ id: 'e1', col: 3 }])).map((v) => v.rule)).toEqual([
+    expect(
+      checkKerusiMap(withElements([{ kind: 'exit', x: 96, y: 10 }])).map((v) => v.rule),
+    ).toEqual(['element-id']);
+    expect(checkKerusiMap(withElements([{ id: 'e1', x: 96, y: 10 }])).map((v) => v.rule)).toEqual([
       'element-kind',
     ]);
   });
 
-  it('rejects a duplicate element id within a section', () => {
-    const violations = checkKerusiMap(
-      withElements([
-        { id: 'e1', kind: 'exit', col: 3 },
-        { id: 'e1', kind: 'exit', col: 6 },
-      ]),
-    );
-    expect(violations.map((v) => v.rule)).toEqual(['element-id-duplicate']);
+  it('rejects a duplicate element id, across sections too (§4.6)', () => {
+    const map = withElements([{ id: 'e1', kind: 'exit', x: 96, y: 10 }]);
+    map.sections.push({
+      id: 'upper',
+      seats: [],
+      elements: [{ id: 'e1', kind: 'exit', x: 96, y: 50 }],
+    });
+    expect(checkKerusiMap(map).map((v) => v.rule)).toEqual(['element-id-duplicate']);
   });
 
-  it('warns, rather than rejects, an unpositioned element', () => {
+  it('rejects an element with no position (§4.4.1)', () => {
     const violations = checkKerusiMap(withElements([{ id: 'e1', kind: 'gap' }]));
     expect(violations.map((v) => v.rule)).toEqual(['element-position']);
-    expect(violations[0].severity).toBe('warning');
-  });
-
-  it('rejects an element addressed in the other mode from its section (§4.4.1)', () => {
-    const violations = checkKerusiMap(withElements([{ id: 'e1', kind: 'exit', x: 50, y: 50 }]));
-    expect(violations.map((v) => v.rule)).toEqual(['element-layout-mismatch']);
-    // Rev 12 binds an element to its section's mode exactly as §4.5 binds its
-    // seats, so this is a MUST — it was a warning up to 1.0.
     expect(violations[0].severity).toBe('error');
   });
 
-  it('accepts a row-only element in a grid section, which spans the full width', () => {
-    expect(checkKerusiMap(withElements([{ id: 'e1', kind: 'screen', row: '1' }]))).toEqual([]);
+  it('rejects an element off the canvas', () => {
+    const violations = checkKerusiMap(withElements([{ id: 'e1', kind: 'exit', x: 96, y: 57 }]));
+    expect(violations.map((v) => [v.rule, v.path])).toEqual([
+      ['element-outside-canvas', 'sections[0].elements[0].y'],
+    ]);
   });
 
-  it('rejects a grid span that is not a positive integer (§4.4.1)', () => {
-    const violations = checkKerusiMap(
-      withElements([{ id: 'e1', kind: 'screen', col: 1, width: 2.5, height: 0 }]),
-    );
-    expect(violations.map((v) => v.rule)).toEqual(['element-span-invalid', 'element-span-invalid']);
+  it('rejects a width or height that is not positive, and accepts any positive size', () => {
+    expect(
+      checkKerusiMap(
+        withElements([{ id: 'e1', kind: 'screen', x: 96, y: 5, width: 0, height: -2 }]),
+      ).map((v) => v.rule),
+    ).toEqual(['element-size-invalid', 'element-size-invalid']);
+    expect(
+      checkKerusiMap(
+        withElements([{ id: 'e1', kind: 'screen', x: 96, y: 5, width: 150.5, height: 4 }]),
+      ),
+    ).toEqual([]);
   });
 
-  it('leaves a freeform element\u2019s percentage width and height alone', () => {
-    const map = clone(BUS_MAP);
-    map.sections[0] = {
-      id: 'stalls',
-      layout: 'freeform',
-      seats: [{ id: 's1', x: 50, y: 50, type: map.legend[0].id }],
-      elements: [{ id: 'screen', kind: 'screen', x: 50, y: 5, width: 74.5, height: 5 }],
-    } as never;
-    expect(checkKerusiMap(map)).toEqual([]);
+  it('ignores a rev 14 row/col on an element, as members it does not recognize (§7)', () => {
+    expect(
+      checkKerusiMap(
+        withElements([{ id: 'e1', kind: 'gap', x: 96, y: 10, row: 'nowhere', col: 3 }]),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('warnings: seat overlap (§4.3.1) and section bounds (§4.1)', () => {
+  const looseMap = (seats: Partial<Seat>[], sectionSeatSize?: number): KerusiMap => ({
+    kerusi: '1.0',
+    id: 'case',
+    canvas: { width: 1000, height: 1000 },
+    seatSize: 40,
+    legend: [{ id: 'standard' }],
+    sections: [
+      {
+        id: 's',
+        ...(sectionSeatSize ? { seatSize: sectionSeatSize } : {}),
+        seats: seats.map((seat, i) => ({ id: `s${i}`, type: 'standard', x: 0, y: 0, ...seat })),
+      },
+    ],
   });
 
-  it('rejects a row span reaching past the section\u2019s last row (§4.2.1)', () => {
-    const map = clone(BUS_MAP);
-    map.sections[0].rows = [
-      { id: 'screen', index: 0 },
-      { id: '1', index: 1 },
+  it('warns once, at the later seat, and does not invalidate the map', () => {
+    const map = looseMap([
+      { x: 100, y: 100 },
+      { x: 120, y: 110 },
+    ]);
+    const violations = checkKerusiMap(map);
+    expect(violations.map((v) => [v.rule, v.severity, v.path])).toEqual([
+      ['seat-overlap', 'warning', 'sections[0].seats[1]'],
+    ]);
+    expect(() => validateKerusiMap(map)).not.toThrow();
+  });
+
+  it('does not warn for seats exactly one seat size apart, which only touch', () => {
+    expect(
+      checkKerusiMap(
+        looseMap([
+          { x: 100, y: 100 },
+          { x: 140, y: 100 },
+        ]),
+      ),
+    ).toEqual([]);
+  });
+
+  it('turns the footprint by its rotation: 45° seats 40 apart overlap, 57 apart do not', () => {
+    const pair = (dx: number) =>
+      checkKerusiMap(
+        looseMap([
+          { x: 100, y: 100, rotation: 45 },
+          { x: 100 + dx, y: 100, rotation: 45 },
+        ]),
+      ).map((v) => v.rule);
+    expect(pair(40)).toEqual(['seat-overlap']);
+    expect(pair(57)).toEqual([]);
+  });
+
+  it("uses a section's own seat size: 45 apart is clear at 40, overlapping at 50", () => {
+    const seats = [
+      { x: 100, y: 100 },
+      { x: 145, y: 100 },
     ];
-    map.sections[0].elements = [
-      { id: 'screen', kind: 'screen', row: 'screen', height: 3 },
-    ] as never;
-    expect(checkKerusiMap(map).map((v) => v.rule)).toEqual(['element-row-span-overrun']);
+    expect(checkKerusiMap(looseMap(seats))).toEqual([]);
+    expect(checkKerusiMap(looseMap(seats, 50)).map((v) => v.rule)).toEqual(['seat-overlap']);
   });
 
-  it('rejects an element row that the registry does not declare (§4.6)', () => {
-    const map = clone(BUS_MAP);
-    map.sections[0].rows = [{ id: '1', index: 0 }];
-    map.sections[0].elements = [{ id: 'e1', kind: 'exit', row: 'nowhere', col: 3 }] as never;
-    expect(checkKerusiMap(map).map((v) => v.rule)).toEqual(['element-row-unresolved']);
+  it('warns for seats in two sections, which share one canvas', () => {
+    const map = looseMap([{ x: 100, y: 100 }]);
+    map.sections.push({ id: 'balcony', seats: [{ id: 'b', type: 'standard', x: 110, y: 100 }] });
+    expect(checkKerusiMap(map).map((v) => [v.rule, v.path])).toEqual([
+      ['seat-overlap', 'sections[1].seats[0]'],
+    ]);
+  });
+
+  it("warns for a seat whose centre lies outside its section's bounds", () => {
+    const map = looseMap([
+      { x: 100, y: 100 },
+      { x: 300, y: 100 },
+    ]);
+    map.sections[0].bounds = { x: 0, y: 0, width: 200, height: 200 };
+    expect(checkKerusiMap(map).map((v) => [v.rule, v.severity, v.path])).toEqual([
+      ['seat-outside-section-bounds', 'warning', 'sections[0].seats[1]'],
+    ]);
   });
 });
 

@@ -7,7 +7,8 @@ import {
   SeatType,
   Section,
 } from '../kerusi/kerusi-map.model.js';
-import { SectionLayoutMode } from '../kerusi/kerusi-layout-mode.js';
+// rev 14 bridge: removed in phase 2.
+import { SectionLayoutMode } from './rev14-compat.js';
 import { SeatStatus } from '../kerusi/kerusi-state.model.js';
 
 /**

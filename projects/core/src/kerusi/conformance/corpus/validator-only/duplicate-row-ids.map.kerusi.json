@@ -1,6 +1,11 @@
 {
   "kerusi": "1.0",
-  "id": "grid-element-fractional-span",
+  "id": "duplicate-row-ids",
+  "canvas": {
+    "width": 100,
+    "height": 100
+  },
+  "seatSize": 10,
   "legend": [
     {
       "id": "standard"
@@ -9,10 +14,9 @@
   "sections": [
     {
       "id": "s",
-      "layout": "grid",
       "rows": [
         {
-          "id": "screen-1",
+          "id": "A",
           "index": 0
         },
         {
@@ -20,19 +24,13 @@
           "index": 1
         }
       ],
-      "elements": [
-        {
-          "id": "screen",
-          "kind": "screen",
-          "row": "screen-1",
-          "height": 1.5
-        }
-      ],
       "seats": [
         {
-          "id": "a",
+          "id": "A1",
           "row": "A",
           "col": 1,
+          "x": 10,
+          "y": 20,
           "type": "standard"
         }
       ]

@@ -41,7 +41,15 @@ describe('resolveLocalizedText', () => {
 });
 
 describe('resolveMapLocale', () => {
-  const map = { kerusi: '1.0', id: 'm', locale: 'ms-MY', legend: [], sections: [] } as KerusiMap;
+  const map: KerusiMap = {
+    kerusi: '1.0',
+    id: 'm',
+    locale: 'ms-MY',
+    canvas: { width: 100, height: 100 },
+    seatSize: 10,
+    legend: [],
+    sections: [],
+  };
 
   it('prefers an explicit override, then the map, then "en"', () => {
     expect(resolveMapLocale(map, 'ja')).toBe('ja');

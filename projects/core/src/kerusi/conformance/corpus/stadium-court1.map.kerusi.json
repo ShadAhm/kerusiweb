@@ -4,6 +4,11 @@
   "name": "Court 1",
   "domain": "stadium",
   "locale": "en",
+  "canvas": {
+    "width": 1600,
+    "height": 900
+  },
+  "seatSize": 40,
   "legend": [
     {
       "id": "standard",
@@ -22,8 +27,6 @@
         "ms": "Pentas Timur"
       },
       "index": 0,
-      "layout": "mixed",
-      "aspectRatio": "16:9",
       "rows": [
         {
           "id": "A",
@@ -61,15 +64,17 @@
           "id": "stairs-1",
           "kind": "gap",
           "label": "STAIRS",
-          "row": "walkway",
-          "col": 3
+          "x": 352,
+          "y": 504,
+          "width": 40,
+          "height": 60
         },
         {
           "id": "exit-e",
           "kind": "exit",
           "label": "Exit",
-          "x": 95,
-          "y": 50
+          "x": 1520,
+          "y": 450
         }
       ],
       "seats": [
@@ -78,8 +83,8 @@
           "label": "1",
           "row": "A",
           "col": 1,
-          "x": 10,
-          "y": 50,
+          "x": 160,
+          "y": 450,
           "type": "standard"
         },
         {
@@ -87,8 +92,8 @@
           "label": "2",
           "row": "A",
           "col": 2,
-          "x": 16,
-          "y": 49,
+          "x": 256,
+          "y": 441,
           "rotation": -4,
           "type": "standard"
         },
@@ -97,8 +102,8 @@
           "label": "1",
           "row": "B",
           "col": 1,
-          "x": 10,
-          "y": 62,
+          "x": 160,
+          "y": 558,
           "type": "standard"
         }
       ]

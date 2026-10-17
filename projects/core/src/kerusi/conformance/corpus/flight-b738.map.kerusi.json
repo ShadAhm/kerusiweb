@@ -3,6 +3,11 @@
   "id": "b738-2class-v1",
   "name": "Boeing 737-800, 2-class",
   "domain": "flight",
+  "canvas": {
+    "width": 300,
+    "height": 240
+  },
+  "seatSize": 40,
   "legend": [
     {
       "id": "economy",
@@ -35,11 +40,20 @@
     {
       "id": "business",
       "label": "Business",
+      "seatSize": 50,
+      "bounds": {
+        "x": 0,
+        "y": 20,
+        "width": 300,
+        "height": 80
+      },
       "seats": [
         {
           "id": "1A",
           "row": "1",
           "col": 1,
+          "x": 50,
+          "y": 60,
           "type": "business",
           "attributes": [
             "window"
@@ -49,6 +63,8 @@
           "id": "1C",
           "row": "1",
           "col": 2,
+          "x": 106,
+          "y": 60,
           "type": "business",
           "attributes": [
             "aisle"
@@ -58,6 +74,8 @@
           "id": "1D",
           "row": "1",
           "col": 4,
+          "x": 194,
+          "y": 60,
           "type": "business",
           "attributes": [
             "aisle"
@@ -67,6 +85,8 @@
           "id": "1F",
           "row": "1",
           "col": 5,
+          "x": 250,
+          "y": 60,
           "type": "business",
           "attributes": [
             "window"
@@ -77,11 +97,19 @@
     {
       "id": "economy",
       "label": "Economy",
+      "bounds": {
+        "x": 0,
+        "y": 140,
+        "width": 300,
+        "height": 80
+      },
       "seats": [
         {
           "id": "12A",
           "row": "12",
           "col": 1,
+          "x": 54,
+          "y": 180,
           "type": "economy",
           "attributes": [
             "window",
@@ -92,6 +120,8 @@
           "id": "12B",
           "row": "12",
           "col": 2,
+          "x": 98,
+          "y": 180,
           "type": "economy",
           "attributes": [
             "exit-row"
@@ -101,6 +131,8 @@
           "id": "12C",
           "row": "12",
           "col": 3,
+          "x": 142,
+          "y": 180,
           "type": "economy",
           "attributes": [
             "aisle",

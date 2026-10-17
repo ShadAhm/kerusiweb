@@ -290,3 +290,30 @@ describe('text element font size', () => {
     expect(withLabel('Balcony')[1].fontSize).toBe(Math.max(Math.min(25 * 0.5, 200 * 0.18), 4));
   });
 });
+
+describe('section label anchor (D5)', () => {
+  it('sits just above the top-left of the bounds, sized from the seat size', () => {
+    const [stalls, balcony] = layoutOf(TOWN_HALL).sections;
+    // Seat size 40: gap 10, font 20, so the text spans the 30 units above.
+    expect(stalls.labelAnchor).toEqual({ x: 280, y: 30, fontSize: 20 });
+    expect(balcony.labelAnchor).toEqual({ x: 440, y: 550, fontSize: 20 });
+  });
+
+  it('moves to the top-right corner when the canvas mirrors', () => {
+    const stalls = layoutOf(TOWN_HALL, { rtl: true }).sections[0];
+    // Bounds mirror to x 140..1320.
+    expect(stalls.labelAnchor).toEqual({ x: 1320, y: 30, fontSize: 20 });
+  });
+
+  it('goes inside the corner when the canvas has no room above', () => {
+    const flush = layoutOf(
+      mapWith({
+        id: 's',
+        bounds: { x: 0, y: 0, width: 200, height: 200 },
+        seats: [{ id: 'A1', x: 50, y: 50, type: 'standard' }],
+      }),
+    ).sections[0];
+    // Seat size 20: inset 5, font 10.
+    expect(flush.labelAnchor).toEqual({ x: 5, y: 5, fontSize: 10 });
+  });
+});

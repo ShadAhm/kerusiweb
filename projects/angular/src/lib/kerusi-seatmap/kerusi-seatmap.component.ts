@@ -17,9 +17,11 @@ import {
 import {
   buildNavigationGraph,
   buildRenderModel,
+  canvasRectToContent,
   clampViewport,
-  computeSectionLayout,
+  computeMapLayout,
   controlStyle,
+  cssVar,
   DEFAULT_MAX_ZOOM,
   DEFAULT_SEAT_ARIA_STRINGS,
   DisallowedReason,
@@ -43,6 +45,7 @@ import {
   KerusiValidationError,
   KerusiViewport,
   KerusiViolation,
+  MapLayout,
   Money,
   NavigationGraph,
   reduceGesture,
@@ -58,12 +61,13 @@ import {
   SeatRenderStatus,
   SeatStyleFn,
   SeatTypeStyles,
-  SectionLayout,
   stepViewport,
   summarizeSelection,
   toggleSeatSelection,
   validateDocumentSet,
+  viewportForRect,
   ViewportPoint,
+  ViewportRect,
   ViewportSize,
   viewportsEqual,
   viewportTouchAction,
@@ -88,11 +92,8 @@ export type ValidationMode =
 
 /** Per-section rendering overrides, keyed by `Section.id`. */
 export interface SectionRenderOptions {
+  /** Leaves the section out. Its space on the canvas stays empty (D4). */
   hidden?: boolean;
-  /** Overrides `Section.aspectRatio`. */
-  aspectRatio?: string;
-  /** Overrides the seat size for this section only. */
-  seatSize?: number;
   /** Overrides the localized `Section.label`. */
   label?: string;
 }
@@ -115,8 +116,10 @@ export interface SeatDisallowed {
  * Renders a Kerusi seat map.
  *
  * Takes a `KerusiMap` and its `KerusiState` directly — no adapter, no
- * intermediate row model. Each `Section` becomes its own `<svg>` with its own
- * layout mode and proportions, seats take their color from the map's legend,
+ * intermediate row model. The map is one `<svg>` whose `viewBox` is the
+ * document's canvas (§4.5), each `Section` is a group on it, every seat is
+ * drawn exactly where and as large as the document says, seats take their
+ * color from the map's legend,
  * every seat is keyboard-reachable and announced with its type, price, status
  * and §4.3.4 accessibility properties, and selection is an immutable set of
  * seat ids the caller can two-way bind.
@@ -182,17 +185,18 @@ export class KerusiSeatmapComponent {
    * of every seat in place of the stock glyph. See {@link KerusiSeatTemplateDirective}.
    */
   protected readonly seatTemplate = contentChild(KerusiSeatTemplateDirective);
-  /** Grid cell edge, in viewBox units. */
-  readonly seatSize = input<number>(28);
-  /** Gap between grid cells, in viewBox units. */
-  readonly seatGap = input<number>(6);
-  /** Freeform viewBox width; height follows the section's aspect ratio. */
-  readonly freeformBasis = input<number>(1000);
   /**
-   * CSS pixels per viewBox unit. Caps each section at its natural size so a
-   * narrow section and a wide one in the same map draw seats the same size.
+   * CSS pixels per canvas unit, at most: the map never draws wider than
+   * `canvas.width × unitScale`, and scales down to a narrower container. The
+   * document fixes every seat's size and position (§4.5); this is the only
+   * sizing control. Default `1`.
    */
   readonly unitScale = input<number>(1);
+  /**
+   * Draws each section's label inside the map, at the top-left of its `bounds`.
+   * Only sections that declare `bounds` get one; every section's label is its
+   * group's accessible name either way. Default `true`.
+   */
   readonly showSectionLabels = input<boolean>(true);
   readonly showLegend = input<boolean>(false);
   readonly showLegendPrices = input<boolean>(true);
@@ -484,25 +488,22 @@ export class KerusiSeatmapComponent {
   );
   protected readonly atFit = computed(() => this.viewportState().zoom <= 1 + 1e-4);
 
-  /** Placed geometry per section, keyed by section id. */
-  protected readonly layouts = computed<ReadonlyMap<string, SectionLayout>>(() => {
-    const overrides = this.sectionOverrides();
-    return new Map(
-      this.renderMap().sections.map((section) => {
-        const override = overrides[section.id] ?? {};
-        return [
-          section.id,
-          computeSectionLayout(section, {
-            seatSize: override.seatSize ?? this.seatSize(),
-            seatGap: this.seatGap(),
-            freeformBasis: this.freeformBasis(),
-            aspectRatio: override.aspectRatio,
-            rtl: this.isRtl(),
-          }),
-        ];
-      }),
-    );
-  });
+  /** Every seat and element placed on the canvas, mirrored as a whole in RTL (D3). */
+  protected readonly layout = computed<MapLayout>(() =>
+    computeMapLayout(this.renderMap(), { rtl: this.isRtl() }),
+  );
+
+  protected readonly viewBox = computed(() => `0 0 ${this.layout().width} ${this.layout().height}`);
+
+  /** `unitScale` CSS pixels per canvas unit, at most. */
+  protected readonly naturalWidth = computed(() => this.layout().width * this.unitScale());
+
+  /** The canvas's width over its height, so a maximized map can fit the whole canvas. */
+  protected readonly canvasAspect = computed(() =>
+    String(this.layout().width / this.layout().height),
+  );
+
+  protected readonly backdrop = computed(() => cssVar('backdrop', this.resolvedColors().backdrop));
 
   /** Navigation graphs per section — arrows move within, Tab moves between. */
   private readonly graphs = computed<ReadonlyMap<string, NavigationGraph>>(
@@ -538,16 +539,8 @@ export class KerusiSeatmapComponent {
 
   // --- template helpers -----------------------------------------------------
 
-  protected layoutFor(section: RenderSection): SectionLayout {
-    return this.layouts().get(section.id)!;
-  }
-
   protected labelFor(section: RenderSection): string | undefined {
     return this.sectionOverrides()[section.id]?.label ?? section.label;
-  }
-
-  protected labelId(section: RenderSection): string {
-    return `kerusi-section-${this.renderMap().id}-${section.id}`;
   }
 
   /** The seat holding this section's tab stop. */
@@ -599,9 +592,9 @@ export class KerusiSeatmapComponent {
   }
 
   /**
-   * Arrow keys walk the navigation graph, which orders seats by `col` in grid
-   * and mixed sections — §4.3.1's logical adjacency — so the aisle that is a
-   * skipped column is stepped across rather than into.
+   * Arrow keys walk the navigation graph, which follows §4.3.5 adjacency:
+   * along a row by `col`, across an aisle (a skipped `col`) rather than into
+   * it, and between rows to the seat nearest on the canvas (D6).
    */
   protected onKeydown(section: RenderSection, event: KeyboardEvent): void {
     const seatId = (event.target as HTMLElement)?.dataset?.['seatId'];
@@ -715,12 +708,47 @@ export class KerusiSeatmapComponent {
     this.stepZoom(-1);
   }
 
-  /** Back to fit-to-container: the map's original view. No-op unless `zoomable`. */
+  /** Back to fit-to-container: the whole canvas. No-op unless `zoomable`. */
   resetZoom(): void {
     const measured = this.measure();
     if (measured && this.zoomable()) {
       this.commit(fitViewport(measured.content, measured.container, this.limits()), true);
     }
+  }
+
+  /**
+   * Zooms to one section: its declared `bounds`, or the box around its seats
+   * and elements when it declares none. No-op unless `zoomable`, or for a
+   * section that is not rendered.
+   */
+  zoomToSection(sectionId: string): void {
+    const layout = this.layout();
+    const placed = layout.sections.find((s) => s.section.id === sectionId);
+    if (placed) {
+      this.zoomToCanvasRect(placed.bounds, layout);
+    }
+  }
+
+  private zoomToCanvasRect(rect: ViewportRect, canvas: ViewportSize): void {
+    const measured = this.measure();
+    if (!measured || !this.zoomable() || !(canvas.width > 0 && canvas.height > 0)) {
+      return;
+    }
+    // The map's <svg> is the content's only child and sets its height; its
+    // width can stop short of the content's (`unitScale` caps it), so the
+    // drawn width comes from the height and the canvas's proportions.
+    const drawn = {
+      width: (measured.content.height * canvas.width) / canvas.height,
+      height: measured.content.height,
+    };
+    const next = viewportForRect(
+      canvasRectToContent(rect, canvas, drawn),
+      measured.content,
+      measured.container,
+      undefined,
+      this.limits(),
+    );
+    this.commit(next, true);
   }
 
   private stepZoom(direction: 1 | -1): void {

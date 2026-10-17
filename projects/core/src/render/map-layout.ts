@@ -58,6 +58,22 @@ export interface PlacedSection {
    * a binding can zoom to it or put a label at its top-left as is.
    */
   bounds: Bounds;
+  /**
+   * Where a section label goes when one is drawn (D5), sized from the section's
+   * seat size: just above the leading top corner of `bounds`, clear of the
+   * seats that sit inside them, or inset inside that corner when the canvas
+   * has no room above. `y` is the top of the text. Draw it with
+   * `text-anchor="start"` and `dominant-baseline="hanging"`; in RTL the anchor
+   * is at the top-right, and the inherited `direction` runs the text leftward
+   * from it, so it stays readable.
+   */
+  labelAnchor: SectionLabelAnchor;
+}
+
+export interface SectionLabelAnchor {
+  x: number;
+  y: number;
+  fontSize: number;
 }
 
 export interface MapLayout {
@@ -87,16 +103,26 @@ export function computeMapLayout(map: RenderMap, options: MapLayoutOptions = {})
   const turn = (rotation: number | undefined) =>
     (options.rtl ? -(rotation ?? 0) : (rotation ?? 0)) + 0;
 
-  const sections = map.sections.map((section) => ({
-    section,
-    seats: section.seats.map((seat) =>
-      placeSeat(seat, mirror(seat.x), seat.y, turn(seat.rotation)),
-    ),
-    elements: section.elements.map((element) =>
-      placeElement(element, mirror(element.x), element.y, turn(element.rotation), section.seatSize),
-    ),
-    bounds: mirrorBounds(section.bounds, options.rtl ? width : undefined),
-  }));
+  const sections = map.sections.map((section) => {
+    const bounds = mirrorBounds(section.bounds, options.rtl ? width : undefined);
+    return {
+      section,
+      seats: section.seats.map((seat) =>
+        placeSeat(seat, mirror(seat.x), seat.y, turn(seat.rotation)),
+      ),
+      elements: section.elements.map((element) =>
+        placeElement(
+          element,
+          mirror(element.x),
+          element.y,
+          turn(element.rotation),
+          section.seatSize,
+        ),
+      ),
+      bounds,
+      labelAnchor: labelAnchorOf(bounds, section.seatSize, !!options.rtl),
+    };
+  });
 
   return { width, height, sections };
 }
@@ -139,6 +165,22 @@ function placeElement(
     centerY,
     fontSize: elementFontSize(element, width, height, seatSize),
     rotation,
+  };
+}
+
+/** The label's inset from the bounds' corner and its size, as fractions of the seat size. */
+const LABEL_INSET_RATIO = 0.25;
+const LABEL_FONT_RATIO = 0.5;
+
+function labelAnchorOf(bounds: Bounds, seatSize: number, rtl: boolean): SectionLabelAnchor {
+  const inset = seatSize * LABEL_INSET_RATIO;
+  const fontSize = seatSize * LABEL_FONT_RATIO;
+  const above = bounds.y - inset - fontSize;
+  const edge = above >= 0 ? 0 : inset;
+  return {
+    x: rtl ? bounds.x + bounds.width - edge : bounds.x + edge,
+    y: above >= 0 ? above : bounds.y + inset,
+    fontSize,
   };
 }
 

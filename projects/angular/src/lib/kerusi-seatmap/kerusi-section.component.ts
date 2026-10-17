@@ -8,7 +8,6 @@ import {
   TemplateRef,
 } from '@angular/core';
 import {
-  cssVar,
   DEFAULT_KERUSI_COLORS,
   elementFill,
   elementStyle,
@@ -16,37 +15,51 @@ import {
   KerusiSeatmapColors,
   PlacedElement,
   PlacedSeat,
-  RenderSection,
+  PlacedSection,
   resolveSeatGlyph,
   resolveSeatStyle,
   screenPath,
   SeatStyleFn,
   SeatTypeStyles,
-  SectionLayout,
 } from '@kerusiweb/core';
 import { SeatTemplateOutletContext } from './kerusi-seat-template.directive';
 
 /**
- * Draws one Kerusi `Section` as a single `<svg>`.
+ * Draws one Kerusi `Section` as a `<g>` on the map's shared canvas (D1).
  *
- * One SVG per section — rather than section groups inside a shared canvas — is
- * what makes per-section `aspectRatio` and mixed grid/freeform modes work: each
- * gets its own `viewBox` and its own intrinsic proportions, and CSS is free to
- * stack, wrap or column them. It also puts the section heading in real DOM,
- * where a screen reader can use it as a landmark.
+ * Sections are zones on one canvas in rev 15 (§4.1), and two may sit side by
+ * side, so a section is a group inside the map's single `<svg>` rather than an
+ * SVG of its own. Use it on a `<g>` inside an `<svg>` whose `viewBox` is the
+ * canvas: `<g kerusi-section [layout]="placed"></g>`. Its template prefixes
+ * every element with `svg:`, because Angular cannot tell from a component's
+ * own template that it will be stamped into SVG.
  *
  * This component holds no state. It takes a placed layout and emits intent.
  */
 @Component({
-  selector: 'kerusi-section',
+  selector: 'g[kerusi-section]',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgTemplateOutlet],
   templateUrl: './kerusi-section.component.html',
   styleUrl: './kerusi-section.component.css',
+  host: {
+    class: 'kerusi-section',
+    role: 'group',
+    '[attr.aria-label]': 'label() ?? layout().section.id',
+    '[attr.data-section-id]': 'layout().section.id',
+  },
 })
 export class KerusiSectionComponent {
-  readonly section = input.required<RenderSection>();
-  readonly layout = input.required<SectionLayout>();
+  /** The section with its seats and elements placed on the map's canvas. */
+  readonly layout = input.required<PlacedSection>();
+  /** The section's name: its accessible name, and its drawn label when one is shown. */
+  readonly label = input<string | undefined>(undefined);
+  /**
+   * Draw `label` inside the SVG, at the top-left of the section's bounds. Only
+   * a section that declares `bounds` gets one (D5); otherwise the label is the
+   * group's accessible name alone.
+   */
+  readonly showLabel = input<boolean>(true);
 
   /** Currently selected seat ids. */
   readonly selection = input<ReadonlySet<string>>(new Set());
@@ -66,25 +79,19 @@ export class KerusiSectionComponent {
   readonly seatTemplate = input<TemplateRef<SeatTemplateOutletContext> | undefined>(undefined);
   /** When false, seats render but do not respond to pointer or keyboard. */
   readonly interactive = input<boolean>(true);
-  /**
-   * CSS pixels per viewBox unit, at the section's natural size.
-   *
-   * Without a cap every section stretches to the full container width, so in a
-   * four-tier theatre the narrow box row would draw seats several times the
-   * size of the orchestra's. Capping each section at its own intrinsic width
-   * keeps a seat the same size everywhere; a section too wide to fit still
-   * scales down to the container.
-   */
-  readonly unitScale = input<number>(1);
 
   readonly seatActivate = output<string>();
   readonly seatFocused = output<string>();
   readonly seatKeydown = output<KeyboardEvent>();
 
-  protected readonly viewBox = computed(() => `0 0 ${this.layout().width} ${this.layout().height}`);
+  /** Whether the label is drawn: asked for, present, and with declared bounds to sit in. */
+  protected readonly drawsLabel = computed(
+    () => this.showLabel() && !!this.label() && this.layout().section.boundsDeclared,
+  );
 
-  /** The section's natural width in CSS pixels; it never draws wider. */
-  protected readonly naturalWidth = computed(() => this.layout().width * this.unitScale());
+  protected readonly labelFill = computed(() =>
+    elementTextFill(elementStyle('label').tone, this.colors()),
+  );
 
   /**
    * Every seat with its glyph resolved, once per change of layout, selection or
@@ -106,10 +113,6 @@ export class KerusiSectionComponent {
       };
     });
   });
-
-  protected backdrop(): string {
-    return cssVar('backdrop', this.colors().backdrop);
-  }
 
   /** The section's single tab stop; every other seat is reachable by arrow key. */
   protected tabIndex(placed: PlacedSeat): number {

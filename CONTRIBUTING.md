@@ -116,15 +116,17 @@ a new version after it is published.
 
 ### One-time setup
 
-The workflow publishes with a repository secret named `NPM_TOKEN`:
+The workflow publishes with npm
+[trusted publishing](https://docs.npmjs.com/trusted-publishers), so there is no
+npm token to create or rotate. For each of the three packages:
 
-1. On [npmjs.com](https://www.npmjs.com/), go to **Access Tokens → Generate New
-   Token → Granular Access Token**. Give it **Read and write** permission for the
-   `@kerusiweb` scope (or the three packages). If your npm account requires 2FA
-   to publish, also tick **Bypass two-factor authentication**, since a
-   workflow cannot answer a 2FA prompt.
-2. On GitHub, go to **Settings → Secrets and variables → Actions → New
-   repository secret**, name it `NPM_TOKEN`, and paste the token.
+1. On [npmjs.com](https://www.npmjs.com/), open the package's **Settings →
+   Trusted Publisher** and choose **GitHub Actions**. Set the organization or
+   user to `ShadAhm`, the repository to `kerusiweb`, and the workflow filename
+   to `publish.yml`. Leave the environment blank, and allow **publish**.
+2. Nothing else is needed on GitHub. Any `NPM_TOKEN` repository secret left over
+   from earlier can be deleted.
 
-Granular tokens expire. When the token runs out, the publish step fails with a
-401, and you need to generate a new one and update the secret.
+npm does not check this configuration when you save it, so a mismatch shows up
+as a failed publish step, usually an E404. If that happens, compare these three
+fields with the settings above.

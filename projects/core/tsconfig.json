@@ -17,5 +17,10 @@
   /* Test-only material: the vendored conformance corpus and the example
      documents the specs are written against. Type-checked by
      tsconfig.spec.json, never shipped. */
-  "exclude": ["**/*.spec.ts", "src/kerusi/conformance/**", "src/kerusi/kerusi-examples.fixture.ts"]
+  "exclude": [
+    "**/*.spec.ts",
+    "src/kerusi/conformance/**",
+    "src/kerusi/kerusi-examples.fixture.ts",
+    "src/render/rev14-examples.fixture.ts"
+  ]
 }

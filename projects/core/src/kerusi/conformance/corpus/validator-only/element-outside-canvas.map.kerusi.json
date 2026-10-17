@@ -1,6 +1,11 @@
 {
   "kerusi": "1.0",
-  "id": "grid-element-with-xy",
+  "id": "element-outside-canvas",
+  "canvas": {
+    "width": 100,
+    "height": 100
+  },
+  "seatSize": 10,
   "legend": [
     {
       "id": "standard"
@@ -9,20 +14,19 @@
   "sections": [
     {
       "id": "s",
-      "layout": "grid",
       "elements": [
         {
-          "id": "screen",
-          "kind": "screen",
+          "id": "exit",
+          "kind": "exit",
           "x": 50,
-          "y": 2
+          "y": 120
         }
       ],
       "seats": [
         {
           "id": "a",
-          "row": "A",
-          "col": 1,
+          "x": 10,
+          "y": 10,
           "type": "standard"
         }
       ]

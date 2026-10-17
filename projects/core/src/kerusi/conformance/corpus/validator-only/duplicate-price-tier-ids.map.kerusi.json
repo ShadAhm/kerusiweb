@@ -1,0 +1,44 @@
+{
+  "kerusi": "1.0",
+  "id": "duplicate-price-tier-ids",
+  "canvas": {
+    "width": 100,
+    "height": 100
+  },
+  "seatSize": 10,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "priceTiers": [
+    {
+      "id": "regular",
+      "price": {
+        "amount": 1500,
+        "currency": "MYR"
+      }
+    },
+    {
+      "id": "regular",
+      "price": {
+        "amount": 2000,
+        "currency": "MYR"
+      }
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "seats": [
+        {
+          "id": "A1",
+          "x": 10,
+          "y": 20,
+          "type": "standard",
+          "priceTier": "regular"
+        }
+      ]
+    }
+  ]
+}

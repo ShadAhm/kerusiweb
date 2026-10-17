@@ -2,6 +2,11 @@
   "kerusi": "1.0",
   "id": "bus-42-2026-08-17",
   "domain": "bus",
+  "canvas": {
+    "width": 252,
+    "height": 60
+  },
+  "seatSize": 40,
   "legend": [
     {
       "id": "standard",
@@ -16,24 +21,32 @@
           "id": "1A",
           "row": "1",
           "col": 1,
+          "x": 30,
+          "y": 30,
           "type": "standard"
         },
         {
           "id": "1B",
           "row": "1",
           "col": 2,
+          "x": 78,
+          "y": 30,
           "type": "standard"
         },
         {
           "id": "1C",
           "row": "1",
           "col": 4,
+          "x": 174,
+          "y": 30,
           "type": "standard"
         },
         {
           "id": "1D",
           "row": "1",
           "col": 5,
+          "x": 222,
+          "y": 30,
           "type": "standard"
         }
       ]

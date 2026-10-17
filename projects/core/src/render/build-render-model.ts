@@ -1,6 +1,5 @@
-import { KerusiMap, RowMeta, Seat, Section } from '../kerusi/kerusi-map.model.js';
+import { Element, KerusiMap, RowMeta, Seat, Section } from '../kerusi/kerusi-map.model.js';
 import { KerusiState } from '../kerusi/kerusi-state.model.js';
-import { resolveSectionLayoutMode, SectionLayoutMode } from '../kerusi/kerusi-layout-mode.js';
 import { resolveLocalizedText, resolveMapLocale } from '../kerusi/kerusi-locale.js';
 import { resolveSeatPrice, resolveTierPrice } from '../kerusi/kerusi-price.js';
 import { orderRowMeta } from '../kerusi/kerusi-rows.js';
@@ -14,6 +13,13 @@ import {
   RenderSection,
   SeatRenderStatus,
 } from './render-model.js';
+// rev 14 bridge: removed in phase 2.
+import {
+  resolveSectionLayoutMode,
+  rev14Element,
+  rev14Section,
+  SectionLayoutMode,
+} from './rev14-compat.js';
 
 /** The default section proportions when none is declared (§4.5). */
 const DEFAULT_ASPECT_RATIO = '1:1';
@@ -122,7 +128,7 @@ function buildSection(section: Section, ctx: BuildContext): RenderSection {
     id: section.id,
     label: resolveLocalizedText(section.label, ctx.locale),
     layoutMode,
-    aspectRatio: section.aspectRatio ?? DEFAULT_ASPECT_RATIO,
+    aspectRatio: rev14Section(section).aspectRatio ?? DEFAULT_ASPECT_RATIO,
     rows,
     seats: rows.flatMap((r) => r.seats),
     elements: buildElements(section, rows),
@@ -293,7 +299,7 @@ function buildSeat(
 function buildElements(section: Section, rows: readonly RenderRow[]): RenderElement[] {
   const rowIndexById = new Map(rows.map((r) => [r.id, r.index]));
 
-  return (section.elements ?? []).map((element) => ({
+  return (section.elements ?? []).map(rev14Element).map((element) => ({
     id: element.id,
     kind: element.kind,
     label: element.label,
@@ -305,7 +311,7 @@ function buildElements(section: Section, rows: readonly RenderRow[]): RenderElem
     width: element.width,
     height: element.height,
     rotation: element.rotation,
-    source: element,
+    source: element as Element,
   }));
 }
 

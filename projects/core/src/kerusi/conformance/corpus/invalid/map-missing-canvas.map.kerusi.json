@@ -1,0 +1,23 @@
+{
+  "kerusi": "1.0",
+  "id": "map-missing-canvas",
+  "seatSize": 10,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "seats": [
+        {
+          "id": "a",
+          "x": 10,
+          "y": 10,
+          "type": "standard"
+        }
+      ]
+    }
+  ]
+}

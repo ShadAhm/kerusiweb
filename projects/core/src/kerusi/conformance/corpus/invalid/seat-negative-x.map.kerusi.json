@@ -1,6 +1,11 @@
 {
   "kerusi": "1.0",
-  "id": "mixed-seat-missing-xy",
+  "id": "seat-negative-x",
+  "canvas": {
+    "width": 100,
+    "height": 100
+  },
+  "seatSize": 10,
   "legend": [
     {
       "id": "standard"
@@ -9,12 +14,11 @@
   "sections": [
     {
       "id": "s",
-      "layout": "mixed",
       "seats": [
         {
           "id": "a",
-          "col": 1,
-          "x": 10,
+          "x": -5,
+          "y": 10,
           "type": "standard"
         }
       ]

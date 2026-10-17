@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { KerusiMap } from '../kerusi/kerusi-map.model.js';
-import { BUS_MAP } from '../kerusi/kerusi-examples.fixture.js';
+import { BUS_MAP } from './rev14-examples.fixture.js'; // rev 14 bridge: removed in phase 2.
 import { buildRenderModel } from './build-render-model.js';
 import { buildNavigationGraph, NavigationOptions } from './navigation-order.js';
 

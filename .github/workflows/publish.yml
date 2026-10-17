@@ -30,6 +30,9 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      # Trusted publishing needs npm 11.5.1 or later; Node 22 ships an older one.
+      - run: npm install -g npm@11
+
       - name: Check the tag matches every package version
         run: |
           node -e '
@@ -58,10 +61,11 @@ jobs:
 
       # Core first: both bindings need this version of it on the registry.
       # A version that is already published is skipped, so re-running a
-      # workflow that failed part-way picks up where it stopped.
+      # workflow that failed part-way picks up where it stopped. No npm token
+      # is used: npm exchanges this run's OIDC token for publish rights, as
+      # configured on each package's "Trusted Publisher" settings.
       - name: Publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ github.ref_name }}
         run: |
           publish() {

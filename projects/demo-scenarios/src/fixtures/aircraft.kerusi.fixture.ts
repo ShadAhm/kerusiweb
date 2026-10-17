@@ -1,17 +1,40 @@
 import { KerusiMap, KerusiSession, KerusiState, Seat } from '@kerusiweb/core';
 
 /**
- * A narrow-body cabin in `grid` mode: two classes as separate sections, an
- * aisle expressed as a skipped column, exit rows, and lavatory and galley
- * elements placed in the cell grid.
+ * A narrow-body cabin: two classes as separate sections, one above the other on
+ * the canvas, an aisle expressed as a skipped `col`, exit rows, and lavatory
+ * and galley elements.
  *
- * Exercises: grid positioning, multiple sections, grid-addressed elements,
+ * Exercises: seats on a regular lattice, multiple sections, elements,
  * `attributes` (window / aisle / exit-row / extra-legroom), and — the reason
  * this fixture exists — the §4.3.4 `accessibility` object on real seats.
  */
 
+/**
+ * Each cabin is drawn on a lattice: seats 28 units square, 34 apart. The
+ * lattice is only how this file works out positions; the document carries
+ * each seat's centre as plain `x`/`y` (§4.5), and `col` says only which seats
+ * are neighbours.
+ */
+const SEAT = 28;
+const PITCH = 34;
+
+/** Where a cabin's lattice starts: the column drawn first, and the top of the cabin. */
+interface Cabin {
+  firstCol: number;
+  top: number;
+}
+
+const BUSINESS: Cabin = { firstCol: 1, top: 28 };
+const ECONOMY: Cabin = { firstCol: 0, top: 180 };
+
+/** The centre of the lattice cell at column `col` on line `line` of a cabin, in canvas units. */
+function cell(cabin: Cabin, col: number, line: number): { x: number; y: number } {
+  return { x: SEAT + (col - cabin.firstCol) * PITCH, y: cabin.top + SEAT + line * PITCH };
+}
+
 /** 2-2 business rows: columns 1,2 | aisle | 4,5. */
-function businessRow(row: string): Seat[] {
+function businessRow(row: string, line: number): Seat[] {
   const cols = [1, 2, 4, 5];
   const letters = ['A', 'C', 'D', 'F'];
   return cols.map((col, i) => ({
@@ -19,13 +42,14 @@ function businessRow(row: string): Seat[] {
     label: letters[i],
     row,
     col,
+    ...cell(BUSINESS, col, line),
     type: 'business',
     attributes: i === 0 || i === 3 ? ['window'] : ['aisle'],
   }));
 }
 
 /** 3-3 economy rows: columns 1,2,3 | aisle | 5,6,7. */
-function economyRow(row: string, options: { exitRow?: boolean } = {}): Seat[] {
+function economyRow(row: string, line: number, options: { exitRow?: boolean } = {}): Seat[] {
   const cols = [1, 2, 3, 5, 6, 7];
   const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
   return cols.map((col, i) => {
@@ -44,6 +68,7 @@ function economyRow(row: string, options: { exitRow?: boolean } = {}): Seat[] {
       label: letters[i],
       row,
       col,
+      ...cell(ECONOMY, col, line),
       type: options.exitRow ? 'economy-plus' : 'economy',
       attributes,
     };
@@ -56,6 +81,8 @@ export const AIRCRAFT_MAP: KerusiMap = {
   name: 'Boeing 737-800',
   domain: 'flight',
   locale: 'en',
+  canvas: { width: 328, height: 440 },
+  seatSize: SEAT,
   legend: [
     {
       id: 'business',
@@ -92,23 +119,38 @@ export const AIRCRAFT_MAP: KerusiMap = {
       id: 'business',
       index: 1,
       label: { en: 'Business cabin', ms: 'Kabin Perniagaan' },
-      layout: 'grid',
+      bounds: { x: 0, y: BUSINESS.top, width: 294, height: 124 },
       rows: [
         { id: '1', label: '1', index: 0 },
         { id: '2', label: '2', index: 1 },
         { id: '3', label: '3', index: 2 },
       ],
       elements: [
-        { id: 'galley-fwd', kind: 'galley', label: 'Galley', row: '1', col: 7, width: 2 },
-        { id: 'lav-fwd', kind: 'lavatory', label: 'WC', row: '3', col: 7, width: 2 },
+        // Two lattice columns wide, beside rows 1 and 3.
+        {
+          id: 'galley-fwd',
+          kind: 'galley',
+          label: 'Galley',
+          x: cell(BUSINESS, 7, 0).x + PITCH / 2,
+          y: cell(BUSINESS, 7, 0).y,
+          width: PITCH + SEAT,
+        },
+        {
+          id: 'lav-fwd',
+          kind: 'lavatory',
+          label: 'WC',
+          x: cell(BUSINESS, 7, 2).x + PITCH / 2,
+          y: cell(BUSINESS, 7, 2).y,
+          width: PITCH + SEAT,
+        },
       ],
-      seats: [...businessRow('1'), ...businessRow('2'), ...businessRow('3')],
+      seats: [...businessRow('1', 0), ...businessRow('2', 1), ...businessRow('3', 2)],
     },
     {
       id: 'economy',
       index: 2,
       label: { en: 'Economy cabin', ms: 'Kabin Ekonomi' },
-      layout: 'grid',
+      bounds: { x: 0, y: ECONOMY.top, width: 328, height: 260 },
       rows: [
         { id: '10', label: '10', index: 0 },
         { id: '11', label: '11', index: 1 },
@@ -119,18 +161,18 @@ export const AIRCRAFT_MAP: KerusiMap = {
         { id: '16', label: '16', index: 6 },
       ],
       elements: [
-        // The exit rows: doors either side of row 12.
-        { id: 'exit-l', kind: 'exit', label: 'EXIT', row: '12', col: 0 },
-        { id: 'exit-r', kind: 'exit', label: 'EXIT', row: '12', col: 8 },
-        { id: 'lav-aft-l', kind: 'lavatory', label: 'WC', row: '16', col: 0 },
-        { id: 'lav-aft-r', kind: 'lavatory', label: 'WC', row: '16', col: 8 },
+        // The exit rows: doors either side of row 12. Seat-sized, by default.
+        { id: 'exit-l', kind: 'exit', label: 'EXIT', ...cell(ECONOMY, 0, 2) },
+        { id: 'exit-r', kind: 'exit', label: 'EXIT', ...cell(ECONOMY, 8, 2) },
+        { id: 'lav-aft-l', kind: 'lavatory', label: 'WC', ...cell(ECONOMY, 0, 6) },
+        { id: 'lav-aft-r', kind: 'lavatory', label: 'WC', ...cell(ECONOMY, 8, 6) },
       ],
       seats: [
-        ...economyRow('10'),
-        ...economyRow('11'),
-        ...economyRow('12', { exitRow: true }),
-        ...economyRow('13', { exitRow: true }),
-        ...economyRow('14'),
+        ...economyRow('10', 0),
+        ...economyRow('11', 1),
+        ...economyRow('12', 2, { exitRow: true }),
+        ...economyRow('13', 3, { exitRow: true }),
+        ...economyRow('14', 4),
         // Row 15 carries the accessible pair: an aisle seat with a lifting
         // armrest and the companion seat it must be booked with (§4.3.4/§4.6).
         {
@@ -138,6 +180,7 @@ export const AIRCRAFT_MAP: KerusiMap = {
           label: 'A',
           row: '15',
           col: 1,
+          ...cell(ECONOMY, 1, 5),
           type: 'economy',
           attributes: ['window'],
         },
@@ -146,6 +189,7 @@ export const AIRCRAFT_MAP: KerusiMap = {
           label: 'B',
           row: '15',
           col: 2,
+          ...cell(ECONOMY, 2, 5),
           type: 'accessible',
           companions: ['15C'],
           accessibility: { companionRequired: true },
@@ -155,6 +199,7 @@ export const AIRCRAFT_MAP: KerusiMap = {
           label: 'C',
           row: '15',
           col: 3,
+          ...cell(ECONOMY, 3, 5),
           type: 'accessible',
           attributes: ['aisle'],
           companions: ['15B'],
@@ -170,6 +215,7 @@ export const AIRCRAFT_MAP: KerusiMap = {
           label: 'D',
           row: '15',
           col: 5,
+          ...cell(ECONOMY, 5, 5),
           type: 'accessible',
           attributes: ['aisle'],
           accessibility: {
@@ -178,9 +224,17 @@ export const AIRCRAFT_MAP: KerusiMap = {
             aisleChairCompatible: true,
           },
         },
-        { id: '15E', label: 'E', row: '15', col: 6, type: 'economy' },
-        { id: '15F', label: 'F', row: '15', col: 7, type: 'economy', attributes: ['window'] },
-        ...economyRow('16'),
+        { id: '15E', label: 'E', row: '15', col: 6, ...cell(ECONOMY, 6, 5), type: 'economy' },
+        {
+          id: '15F',
+          label: 'F',
+          row: '15',
+          col: 7,
+          ...cell(ECONOMY, 7, 5),
+          type: 'economy',
+          attributes: ['window'],
+        },
+        ...economyRow('16', 6),
       ],
     },
   ],

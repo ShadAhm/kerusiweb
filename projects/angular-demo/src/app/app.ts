@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import {
+  Bounds,
   buildRenderModel,
   formatMoney,
   KerusiViolation,
@@ -117,13 +118,19 @@ export class App {
     buildRenderModel(this.scenario().map, this.scenario().state).sections.map((section) => ({
       id: section.id,
       label: section.label ?? section.id,
-      mode: section.layoutMode,
-      declared: section.source.layout ?? 'inferred',
-      aspectRatio: section.aspectRatio,
+      seatSize: section.seatSize,
+      bounds: formatBounds(section.bounds),
+      boundsDeclared: section.boundsDeclared,
       seats: section.seats.length,
       elements: section.elements.length,
     })),
   );
+}
+
+/** A section's extent on the canvas, for the sections table: `x, y  w × h`. */
+function formatBounds(bounds: Bounds): string {
+  const n = (value: number) => String(Math.round(value * 10) / 10);
+  return `${n(bounds.x)}, ${n(bounds.y)}  ${n(bounds.width)} × ${n(bounds.height)}`;
 }
 
 function getInitialTheme(): Theme {

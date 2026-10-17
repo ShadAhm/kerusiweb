@@ -1,12 +1,26 @@
 import { KerusiMap, KerusiState, Seat } from '@kerusiweb/core';
 
 // An "everything" cinema expressed in the Kerusi Seat Map & Availability
-// Format. It exercises the capabilities the plain grid demo cannot show:
-// non-bookable elements (screen + exits), freeform x/y placement with per-seat
-// rotation (the fan curve), multiple seat types and price tiers, companion
+// Format. It exercises what a straight-rowed hall cannot show:
+// non-bookable elements (screen + exits), seats placed along a curve with
+// per-seat rotation (the fan), multiple seat types and price tiers, companion
 // (couple) seats, accessible seats, aisles as simple absences, and the full
 // availability vocabulary. The demo feeds it through `buildRenderModel` — the
 // same path any Kerusi document would take.
+//
+// The curve is worked out in percent of the hall, then scaled once onto its
+// 1600 × 900 canvas units by `px` and `py`.
+
+const WIDTH = 1600;
+const HEIGHT = 900;
+/** Room above the hall for its label. */
+const TOP = 45;
+const SEAT = 45;
+
+/** A percentage across the hall, in canvas units. */
+const px = (percent: number) => (percent * WIDTH) / 100;
+/** A percentage down the hall, in canvas units. */
+const py = (percent: number) => TOP + (percent * HEIGHT) / 100;
 
 const STANDARD_ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 const LOVE_ROW = 'H';
@@ -59,7 +73,7 @@ function round(value: number): number {
 function seatAt(id: string, label: string, row: string, slot: number, baseY: number) {
   const x = xOf(slot);
   const y = yOf(slot, baseY);
-  return { id, label, row, x, y, rotation: rotationOf(x, y) };
+  return { id, label, row, x: px(x), y: py(y), rotation: rotationOf(x, y) };
 }
 
 /** One arc of standard seats, with accessible spaces at the ends of row G. */
@@ -119,6 +133,8 @@ export const CINEMA_KERUSI_MAP: KerusiMap = {
   name: 'Hall A — curved auditorium',
   domain: 'cinema',
   locale: 'en',
+  canvas: { width: WIDTH, height: TOP + HEIGHT },
+  seatSize: SEAT,
   legend: [
     { id: 'standard', label: 'Standard', defaultPriceTier: 'regular' },
     { id: 'wheelchair', label: 'Accessible', defaultPriceTier: 'accessible' },
@@ -133,16 +149,39 @@ export const CINEMA_KERUSI_MAP: KerusiMap = {
     {
       id: 'main',
       label: 'Main floor',
-      layout: 'freeform',
-      aspectRatio: '16:9',
+      bounds: { x: 0, y: TOP, width: WIDTH, height: HEIGHT },
       rows: [
         ...STANDARD_ROWS.map((id, index) => ({ id, label: id, index })),
         { id: LOVE_ROW, label: 'H (Love Seats)', index: STANDARD_ROWS.length },
       ],
       elements: [
-        { id: 'screen', kind: 'screen', label: 'SCREEN', x: 50, y: 5, width: 74, height: 5 },
-        { id: 'exit-left', kind: 'exit', label: 'EXIT', x: 6, y: 95, width: 9, height: 4 },
-        { id: 'exit-right', kind: 'exit', label: 'EXIT', x: 94, y: 95, width: 9, height: 4 },
+        {
+          id: 'screen',
+          kind: 'screen',
+          label: 'SCREEN',
+          x: px(50),
+          y: py(5),
+          width: 1184,
+          height: 45,
+        },
+        {
+          id: 'exit-left',
+          kind: 'exit',
+          label: 'EXIT',
+          x: px(6),
+          y: py(95),
+          width: 144,
+          height: 36,
+        },
+        {
+          id: 'exit-right',
+          kind: 'exit',
+          label: 'EXIT',
+          x: px(94),
+          y: py(95),
+          width: 144,
+          height: 36,
+        },
       ],
       seats: [...STANDARD_ROWS.flatMap((row, index) => standardRow(row, index)), ...loveSeatRow()],
     },

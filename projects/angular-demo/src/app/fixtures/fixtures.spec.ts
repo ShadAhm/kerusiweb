@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  Bounds,
   checkKerusiMap,
   checkKerusiState,
   KerusiMap,
@@ -23,10 +24,15 @@ import {
 } from '@kerusi/demo-scenarios/fixtures/lecture-theatre.kerusi.fixture';
 import { STADIUM_MAP, STADIUM_STATE } from '@kerusi/demo-scenarios/fixtures/stadium.kerusi.fixture';
 import {
+  TOWN_HALL_MAP,
+  TOWN_HALL_STATE,
+} from '@kerusi/demo-scenarios/fixtures/town-hall.kerusi.fixture';
+import {
   TRAIN_MAP,
   TRAIN_SESSION,
   TRAIN_STATE,
 } from '@kerusi/demo-scenarios/fixtures/train.kerusi.fixture';
+import { CINEMA_KERUSI_MAP, CINEMA_KERUSI_STATE } from './cinema-kerusi.fixture';
 
 /**
  * The demo showcases these documents as examples of the standard, so they had
@@ -43,6 +49,8 @@ const SCENARIOS: {
   { name: 'train', map: TRAIN_MAP, state: TRAIN_STATE, session: TRAIN_SESSION },
   { name: 'stadium', map: STADIUM_MAP, state: STADIUM_STATE },
   { name: 'lecture-theatre', map: LECTURE_THEATRE_MAP, state: LECTURE_THEATRE_STATE },
+  { name: 'town-hall', map: TOWN_HALL_MAP, state: TOWN_HALL_STATE },
+  { name: 'curved cinema', map: CINEMA_KERUSI_MAP, state: CINEMA_KERUSI_STATE },
 ];
 
 describe.each(SCENARIOS)('$name fixture', ({ map, state, session }) => {
@@ -65,19 +73,32 @@ describe.each(SCENARIOS)('$name fixture', ({ map, state, session }) => {
   });
 });
 
-describe('the scenarios cover all three positioning modes (§4.5)', () => {
-  const modes = SCENARIOS.flatMap(({ map }) => map.sections.map((s) => s.layout));
+describe('the scenarios show what one canvas per map allows (§4.5)', () => {
+  const overlapsInHeight = (a: Bounds, b: Bounds) => a.y < b.y + b.height && b.y < a.y + a.height;
 
-  it('includes a declared freeform section', () => {
-    expect(modes).toContain('freeform');
+  it('includes sections side by side, overlapping in height', () => {
+    const sideBySide = SCENARIOS.some(({ map }) =>
+      map.sections.some((a, i) =>
+        map.sections
+          .slice(i + 1)
+          .some((b) => a.bounds && b.bounds && overlapsInHeight(a.bounds, b.bounds)),
+      ),
+    );
+    expect(sideBySide).toBe(true);
   });
 
-  it('includes a declared grid section', () => {
-    expect(modes).toContain('grid');
+  it('declares row shapes of every kind (§4.2.3)', () => {
+    const kinds = new Set(
+      SCENARIOS.flatMap(({ map }) =>
+        map.sections.flatMap((s) => (s.rows ?? []).flatMap((r) => Object.keys(r.shape ?? {}))),
+      ),
+    );
+    expect([...kinds].sort()).toEqual(['arc', 'circle', 'line']);
   });
 
-  it('includes a declared mixed section', () => {
-    expect(modes).toContain('mixed');
+  it('includes a seat with no row, and so no neighbours', () => {
+    const seats = SCENARIOS.flatMap(({ map }) => map.sections.flatMap((s) => s.seats));
+    expect(seats.some((s) => s.row === undefined)).toBe(true);
   });
 });
 

@@ -262,8 +262,8 @@ export function validateDocumentSet(docs: {
  *  - All resolved currencies across the map are identical (§4.9).
  *
  * Members this library does not recognize are ignored (§7), including the
- * rev 14 `layout` and `aspectRatio`; a rev 14 map is still rejected, for
- * lacking `canvas` and `seatSize`.
+ * members rev 15 removed from sections and elements; a rev 14 map is still
+ * rejected, for lacking `canvas` and `seatSize`.
  *
  * Advisory findings never throw: overlapping seats (§4.3.1), seats outside
  * their section's `bounds` (§4.1), an unknown `transferArmrest`. Use

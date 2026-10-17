@@ -10,6 +10,7 @@ import {
   LECTURE_THEATRE_STATE,
 } from './fixtures/lecture-theatre.kerusi.fixture.js';
 import { STADIUM_MAP, STADIUM_STATE } from './fixtures/stadium.kerusi.fixture.js';
+import { TOWN_HALL_MAP, TOWN_HALL_STATE } from './fixtures/town-hall.kerusi.fixture.js';
 import { TRAIN_MAP, TRAIN_SESSION, TRAIN_STATE } from './fixtures/train.kerusi.fixture.js';
 
 /** One showcased venue: its documents, and what about the standard it shows. */
@@ -26,8 +27,6 @@ export interface Scenario {
   map: KerusiMap;
   state: KerusiState;
   session?: KerusiSession;
-  /** Seat size in viewBox units — dense venues want smaller cells. */
-  seatSize?: number;
 }
 
 export const SCENARIOS: readonly Scenario[] = [
@@ -39,9 +38,9 @@ export const SCENARIOS: readonly Scenario[] = [
       'A straight grid split by two aisles into a left wing, a center block, and a ' +
       'right wing — the classic printed seating chart.',
     highlights: [
-      'layout: "grid" — every seat has col, no seat has x or y',
-      'Two aisles as skipped columns split each row into three blocks',
-      'Two empty rows (\u00a74.2.2) hold the screen and the throw in front of it',
+      'Seats on a regular lattice, each placed by its own x/y on the canvas',
+      'Two aisles as skipped cols split each row into three blocks (§4.3.5)',
+      'Open space in front of row A holds the screen and its throw',
       'Screen and exits are non-bookable Elements',
       'Love seats are symmetric companions — they book as a pair',
       'A wheelchair bay declares accessibility, not an attribute tag',
@@ -49,22 +48,20 @@ export const SCENARIOS: readonly Scenario[] = [
     map: CINEMA_MAP,
     state: CINEMA_STATE,
     session: CINEMA_SESSION,
-    seatSize: 32,
   },
   {
     id: 'aircraft',
     name: 'Aircraft',
     domain: 'flight',
     blurb:
-      'A narrow-body cabin. Two classes are two Sections; the aisle is a column no ' +
-      'seat occupies, not a filler object.',
+      'A narrow-body cabin. Two classes are two Sections on one canvas; the aisle is ' +
+      'a col no seat occupies, not a filler object.',
     highlights: [
-      'layout: "grid" — every seat has col, no seat has x or y',
-      'The aisle is a skipped column (§4.3.2, no filler objects)',
-      'Lavatories, galley and exit doors are grid-addressed Elements',
+      'Two sections, one above the other on one canvas',
+      'The aisle is a skipped col (§4.3.2, no filler objects)',
+      'Lavatories, galley and exit doors are Elements, seat-sized by default',
       'attributes: window, aisle, exit-row, extra-legroom',
       'Row 15 carries the full §4.3.4 accessibility object',
-      'Two sections, ordered by Section.index',
     ],
     map: AIRCRAFT_MAP,
     state: AIRCRAFT_STATE,
@@ -79,7 +76,7 @@ export const SCENARIOS: readonly Scenario[] = [
       'each other around a fixture that cannot be booked.',
     highlights: [
       'One Section per carriage',
-      'Tables are Elements spanning grid cells',
+      'Tables are Elements in the space the facing seats leave between them',
       'forward-facing / rear-facing as attributes',
       'An accessible bay with its required companion seat',
       'Its KerusiState is scoped by sessionId, not mapId',
@@ -96,15 +93,14 @@ export const SCENARIOS: readonly Scenario[] = [
       'Stands wrap the pitch. Coordinates place each seat on its arc; col still says ' +
       'which seat is next along.',
     highlights: [
-      'layout: "mixed" — every seat has col AND x and y',
-      'x/y is authoritative for placement (§4.3.1)',
-      'col remains the adjacency ordinal for keyboard order',
+      'Every seat has x/y to place it and row/col to say who its neighbours are',
+      'x/y alone decide where a seat is drawn (§4.5)',
+      'col is the adjacency ordinal for keyboard order (§4.3.5)',
       'Each stand rotated to face the pitch',
       'The pitch itself is an Element',
     ],
     map: STADIUM_MAP,
     state: STADIUM_STATE,
-    seatSize: 22,
   },
   {
     id: 'lecture-theatre',
@@ -114,15 +110,32 @@ export const SCENARIOS: readonly Scenario[] = [
       'Rows are concentric arcs around a point above the screen, each seat rotated to ' +
       'face it — the fan widens toward the back the way a real raked hall does.',
     highlights: [
-      'layout: "freeform" — every seat has x and y, no seat has col',
       'Per-seat rotation comes from real polar geometry, not a hand-tuned curve',
+      'Each curved row records its arc as a RowMeta.shape (§4.2.3), for editors',
       'A constant seat pitch, not seat count, is what a row holds constant',
-      'aspectRatio "16:9" fixes the section proportions',
+      'One scale on both axes (§4.5), so a circle is drawn as a circle',
       'An accessible pair sits at each end of the back row',
     ],
     map: LECTURE_THEATRE_MAP,
     state: LECTURE_THEATRE_STATE,
-    seatSize: 26,
+  },
+  {
+    id: 'town-hall',
+    name: 'Town Hall',
+    domain: 'event',
+    blurb:
+      'The standard\u2019s own example (§6.7): two sections sharing one canvas, a curved ' +
+      'balcony, and a round table. Only one canvas per map can draw it.',
+    highlights: [
+      'Stalls and balcony are zones on one canvas, overlapping in height',
+      'Declared Section.bounds, which zoom to a section uses',
+      'A round table: four seats around it, neighbours by col, booked as a party',
+      'Row shapes (line, arc, circle) record how an editor placed each row',
+      'A9 and L5 sit off their guides and still draw exactly where the document says',
+      'A seat with no row: the wheelchair space',
+    ],
+    map: TOWN_HALL_MAP,
+    state: TOWN_HALL_STATE,
   },
 ];
 

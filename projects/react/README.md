@@ -88,38 +88,35 @@ usually a mistake.
 
 **Appearance**
 
-| Prop                              | Type                                    | Default          |                                                                                                                                 |
-| --------------------------------- | --------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `colors`                          | `KerusiSeatmapColors`                   | theme defaults   | Per-status fills, element tones, focus ring, backdrop. See [Theming](#theming).                                                 |
-| `typeColors`                      | `boolean`                               | `true`           | Let an available seat take its `SeatType.color` (§4.7).                                                                         |
-| `seatTypeStyles`                  | `SeatTypeStyles`                        | —                | Styles for every seat of a type, keyed by `SeatType.id`. Also shown in the legend. See [From code](#from-code).                 |
-| `seatStyle`                       | `SeatStyleFn`                           | —                | A style for one seat, over its type's. Never recolours a selected or blocked seat. See [From code](#from-code).                 |
-| `renderSeat`                      | `(ctx: SeatRenderContext) => ReactNode` | —                | Draws the inside of every seat yourself. See [Custom seat content](#custom-seat-content).                                       |
-| `seatSize`                        | `number`                                | `28`             | Grid cell edge, in viewBox units.                                                                                               |
-| `seatGap`                         | `number`                                | `6`              | Gap between grid cells.                                                                                                         |
-| `freeformBasis`                   | `number`                                | `1000`           | Freeform viewBox width; height follows the aspect ratio.                                                                        |
-| `unitScale`                       | `number`                                | `1`              | CSS pixels per viewBox unit. Caps each section at its natural size so a narrow section and a wide one draw seats the same size. |
-| `showSectionLabels`               | `boolean`                               | `true`           |                                                                                                                                 |
-| `showLegend` / `showLegendPrices` | `boolean`                               | `false` / `true` |                                                                                                                                 |
-| `className` / `style`             | —                                       | —                | Applied to the root element, alongside `kerusi-seatmap`.                                                                        |
+| Prop                              | Type                                    | Default          |                                                                                                                                                                             |
+| --------------------------------- | --------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `colors`                          | `KerusiSeatmapColors`                   | theme defaults   | Per-status fills, element tones, focus ring, backdrop. See [Theming](#theming).                                                                                             |
+| `typeColors`                      | `boolean`                               | `true`           | Let an available seat take its `SeatType.color` (§4.7).                                                                                                                     |
+| `seatTypeStyles`                  | `SeatTypeStyles`                        | —                | Styles for every seat of a type, keyed by `SeatType.id`. Also shown in the legend. See [From code](#from-code).                                                             |
+| `seatStyle`                       | `SeatStyleFn`                           | —                | A style for one seat, over its type's. Never recolours a selected or blocked seat. See [From code](#from-code).                                                             |
+| `renderSeat`                      | `(ctx: SeatRenderContext) => ReactNode` | —                | Draws the inside of every seat yourself. See [Custom seat content](#custom-seat-content).                                                                                   |
+| `unitScale`                       | `number`                                | `1`              | CSS pixels per canvas unit, at most: the map never draws wider than `canvas.width × unitScale`. The only sizing control; the document fixes every seat's size and position. |
+| `showSectionLabels`               | `boolean`                               | `true`           | Draw each section's label just above its `bounds`. Only sections that declare `bounds` get one; every section's label is its group's accessible name either way.            |
+| `showLegend` / `showLegendPrices` | `boolean`                               | `false` / `true` |                                                                                                                                                                             |
+| `className` / `style`             | —                                       | —                | Applied to the root element, alongside `kerusi-seatmap`.                                                                                                                    |
 
 **Sections**
 
-| Prop               | Type                                   |                                                                     |
-| ------------------ | -------------------------------------- | ------------------------------------------------------------------- |
-| `sectionIds`       | `readonly string[]`                    | Render only these, in this order. Default: all, by `Section.index`. |
-| `sectionOverrides` | `Record<string, SectionRenderOptions>` | Per-section `hidden`, `aspectRatio`, `seatSize`, `label`.           |
+| Prop               | Type                                   |                                                                                          |
+| ------------------ | -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `sectionIds`       | `readonly string[]`                    | Render only these, in this order. Default: all, by `Section.index`.                      |
+| `sectionOverrides` | `Record<string, SectionRenderOptions>` | Per-section `hidden` and `label`. A hidden section leaves its space on the canvas empty. |
 
 **Localization, validation, lifecycle**
 
-| Prop               | Type                            | Default                      |                                                                        |
-| ------------------ | ------------------------------- | ---------------------------- | ---------------------------------------------------------------------- |
-| `locale`           | `string`                        | `KerusiMap.locale` ?? `'en'` | BCP-47. Resolves `Section.label` / `SeatType.label` locale maps.       |
-| `rtl`              | `boolean \| 'auto'`             | `'auto'`                     | Mirrors layout and arrow direction. `auto` derives it from the locale. |
-| `ariaStrings`      | `SeatAriaStrings`               | English                      | Every announced phrase, for translation.                               |
-| `validate`         | `'collect' \| 'throw' \| 'off'` | `'collect'`                  | `collect` reports through `onValidationIssues` and renders anyway.     |
-| `expireHolds`      | `boolean`                       | `false`                      | Revert a lapsed `holdExpires` to available on a ticker.                |
-| `expiryIntervalMs` | `number`                        | `1000`                       |                                                                        |
+| Prop               | Type                            | Default                      |                                                                                          |
+| ------------------ | ------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------- |
+| `locale`           | `string`                        | `KerusiMap.locale` ?? `'en'` | BCP-47. Resolves `Section.label` / `SeatType.label` locale maps.                         |
+| `rtl`              | `boolean \| 'auto'`             | `'auto'`                     | Mirrors the whole canvas, and the arrow keys with it. `auto` derives it from the locale. |
+| `ariaStrings`      | `SeatAriaStrings`               | English                      | Every announced phrase, for translation.                                                 |
+| `validate`         | `'collect' \| 'throw' \| 'off'` | `'collect'`                  | `collect` reports through `onValidationIssues` and renders anyway.                       |
+| `expireHolds`      | `boolean`                       | `false`                      | Revert a lapsed `holdExpires` to available on a ticker.                                  |
+| `expiryIntervalMs` | `number`                        | `1000`                       |                                                                                          |
 
 `validate="throw"` throws a `KerusiValidationError` **during render**, so an
 error boundary catches it. `collect` never throws.
@@ -154,6 +151,7 @@ const map = useRef<KerusiSeatmapHandle>(null);
 // map.current.focusSeat('A12')
 // map.current.viewport    -> { zoom, x, y }
 // map.current.zoomIn() / zoomOut() / resetZoom() / toggleMaximized()
+// map.current.zoomToSection('balcony')
 ```
 
 ### Memoizing props
@@ -366,7 +364,7 @@ sofa type drawn rounded, say) and in `seatStyle`; for every seat at once, use
 
 When the palette and the class hooks are not enough (an icon, a badge, a price
 tag, a different shape), draw the inside of each seat yourself with
-`renderSeat`. It returns SVG, in the section's viewBox units:
+`renderSeat`. It returns SVG, in canvas units:
 
 ```tsx
 import { KerusiSeatmap } from '@kerusiweb/react';
@@ -393,7 +391,7 @@ function drawSeat({ seat, glyph, defaultContent }: SeatRenderContext) {
 | ---------------- | ------------ | -------------------------------------------------------------------------------------------------- |
 | `seat`           | `RenderSeat` | Status, type, price, accessibility, and the document's own `source.metadata`.                      |
 | `selected`       | `boolean`    | Whether the seat is in the current selection.                                                      |
-| `placed`         | `PlacedSeat` | The seat's box, centre, font size and rotation, in viewBox units.                                  |
+| `placed`         | `PlacedSeat` | The seat's box, centre, font size and rotation, in canvas units.                                   |
 | `glyph`          | `SeatGlyph`  | The stock seat, resolved by `resolveSeatGlyph()` in core: every path, paint and position it draws. |
 | `defaultContent` | `ReactNode`  | The stock drawing, as a fragment. Return it to keep the stock seat, or place it beside your marks. |
 
@@ -408,7 +406,7 @@ it is yours. Keyboard navigation, selection, companions and announcements
 therefore behave exactly as they do for the stock seat, and the accessible name
 still comes from the library (and `ariaStrings`), whatever text you draw.
 
-**Coordinates.** Draw in the section's viewBox units, using `glyph.box` (or
+**Coordinates.** Draw in canvas units, using `glyph.box` (or
 `placed`) for the seat's position and size. The `<g>` already carries the seat's
 rotation, so draw it unrotated with the front at the top edge;
 `glyph.label.transform` counter-rotates text so it stays upright.
@@ -489,12 +487,18 @@ To put the controls somewhere else, turn the built-in ones off
 ```tsx
 const map = useRef<KerusiSeatmapHandle>(null);
 // map.current.zoomIn(); map.current.zoomOut(); map.current.resetZoom(); map.current.toggleMaximized();
+// map.current.zoomToSection('balcony');
 // map.current.viewport   -> { zoom, x, y }
 // map.current.maximized  -> boolean
 ```
 
 `onViewportChange` reports `{ zoom, x, y }` whenever the view changes, for a host that wants
 to display or persist it. (Restoring a saved view is not supported.)
+
+**Zoom to a section.** `zoomToSection(id)` zooms to a section's declared `bounds`, as
+large as the viewport allows and centred, or to the box around its seats and
+elements when it declares none. It does nothing unless the map is `zoomable`.
+Reset with `resetZoom()`, which shows the whole canvas again.
 
 **Maximize.** The button fills the screen with the map and its legend, freezes the
 page behind it, and swaps to an "Exit full screen" button. The layout is a fixed
@@ -504,28 +508,32 @@ map's maximized state too. `Escape` from the map also leaves, except that on a
 seat with a non-empty selection the first `Escape` still clears the selection, as
 it always has. The backdrop is `--kerusi-backdrop`, or the page's own canvas colour
 while that is transparent; `--kerusi-maximized-z-index` (default `1000`) sets the
-stacking. It is not a modal dialog: focus is not trapped, and an ancestor with a
+stacking. A maximized zoomable map fits the whole canvas to the screen at the
+canvas's own proportions. It is not a modal dialog: focus is not trapped, and an ancestor with a
 `transform` or `filter` would anchor the fixed layout to itself instead of the
 screen.
 
 ### Keyboard
 
 Tab moves between sections; each section keeps its own tab stop. Within a
-section, arrow keys follow the §4.3.1 `col` order, so an aisle, which is a
-column no seat occupies, is stepped across rather than into.
+section, arrow keys follow §4.3.5 adjacency: along a row in `col` order, and
+across an aisle (a `col` no seat occupies) rather than into it. Up and down move
+to the next row and pick the seat nearest on the canvas. The arrows follow the
+screen, so they swap along with a mirrored right-to-left map.
 
-| Key                      |                                    |
-| ------------------------ | ---------------------------------- |
-| `←` `→`                  | Previous / next seat in the row    |
-| `↑` `↓`                  | Nearest column in the adjacent row |
-| `Home` / `End`           | First / last seat of the row       |
-| `Ctrl+Home` / `Ctrl+End` | First / last seat of the section   |
-| `PageUp` / `PageDown`    | First / last seat of the section   |
-| `Enter` / `Space`        | Toggle                             |
-| `Escape`                 | Clear the selection                |
+| Key                      |                                  |
+| ------------------------ | -------------------------------- |
+| `←` `→`                  | Previous / next seat in the row  |
+| `↑` `↓`                  | Nearest seat in the adjacent row |
+| `Home` / `End`           | First / last seat of the row     |
+| `Ctrl+Home` / `Ctrl+End` | First / last seat of the section |
+| `PageUp` / `PageDown`    | First / last seat of the section |
+| `Enter` / `Space`        | Toggle                           |
+| `Escape`                 | Clear the selection              |
 
-Each seat is a `role="button"` announcing its position, type, price, status,
-every `Seat.accessibility` property and its attributes. A polite live region
+Each seat is a `role="button"` announcing its position, whether it is next to
+an aisle, its type, price and status, every `Seat.accessibility` property and its
+attributes. Each section is a `role="group"` named by its label. A polite live region
 reports the running selection and any disallowed reason.
 
 With `zoomable` on there are a few more keys: see [Zoom, pan and maximize](#zoom-pan-and-maximize).
@@ -599,10 +607,34 @@ import {
   resolveLocalizedText, // string | Record<string, string> -> string
   formatMoney, // minor units -> "RM 45.00", "¥1,200", "KD 12.500"
   summarizeSelection, // seats, total, unpriced count
-  computeSectionLayout, // placed geometry for one section
+  computeMapLayout, // every seat and element placed on the canvas
   buildNavigationGraph, // per-seat keyboard neighbours
 } from '@kerusiweb/core';
 ```
+
+## Migrating from 2.x
+
+3.0.0 follows Kerusi rev 15, where a map has **one canvas** and every seat its
+own position on it. The full list of changes is in the
+[CHANGELOG](https://github.com/ShadAhm/kerusiweb/blob/master/CHANGELOG.md#migrating-from-2x);
+for this package:
+
+- **Documents.** Give the map a `canvas` and a `seatSize`, and every seat and
+  element an `x`/`y` in canvas units. Remove `Section.layout`,
+  `Section.aspectRatio`, and an element's `row`/`col`. `row`/`col` on a seat now
+  mean adjacency only.
+- **Removed props.** `seatSize`, `seatGap` and `freeformBasis`, and
+  `aspectRatio` and `seatSize` in `sectionOverrides`. The document fixes seat
+  size and position now; `unitScale` is the one sizing control left.
+- **Markup.** The map is one `<svg class="kerusi-seatmap__svg">`, and each section
+  a `<g class="kerusi-section" data-section-id>` inside it. The per-section
+  `<section class="kerusi-seatmap__section kerusi-seatmap__section--{mode}">`
+  wrapper, its `<h3>` heading and the per-section `svg.kerusi-section-svg` are
+  gone. A section label is drawn inside the SVG instead, only for a section
+  that declares `bounds`.
+- **New.** `zoomToSection(id)`, and a "next to an aisle" phrase in each seat's
+  accessible name (`besideAisle` in `ariaStrings`, which you must add if you
+  supply your own strings).
 
 ---
 

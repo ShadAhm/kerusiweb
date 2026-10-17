@@ -28,11 +28,8 @@ export type ValidationMode =
 
 /** Per-section rendering overrides, keyed by `Section.id`. */
 export interface SectionRenderOptions {
+  /** Leaves the section out. Its space on the canvas stays empty (D4). */
   hidden?: boolean;
-  /** Overrides `Section.aspectRatio`. */
-  aspectRatio?: string;
-  /** Overrides the seat size for this section only. */
-  seatSize?: number;
   /** Overrides the localized `Section.label`. */
   label?: string;
 }
@@ -75,8 +72,14 @@ export interface KerusiSeatmapHandle {
   zoomIn(): void;
   /** Zooms out one step about the centre. No-op unless `zoomable`. */
   zoomOut(): void;
-  /** Back to fit-to-container: the map's original view. No-op unless `zoomable`. */
+  /** Back to fit-to-container: the whole canvas. No-op unless `zoomable`. */
   resetZoom(): void;
+  /**
+   * Zooms to one section: its declared `bounds`, or the box around its seats
+   * and elements when it declares none. No-op unless `zoomable`, or for a
+   * section that is not rendered.
+   */
+  zoomToSection(sectionId: string): void;
   /** Whether the map is currently maximized. */
   readonly maximized: boolean;
   /** Maximizes or restores the map. Maximizing needs `maximizable`. */
@@ -131,23 +134,24 @@ export interface KerusiSeatmapProps {
   /**
    * Draws the inside of every seat yourself. The library keeps the seat's
    * `<g>`, with its role, ARIA state, tab stop, rotation and event handlers, and
-   * renders whatever this returns inside it, in viewBox units. Return
+   * renders whatever this returns inside it, in canvas units. Return
    * `ctx.defaultContent` for the stock seat, or add to it. While this is set the
    * library also draws a focus outline over your content, so keyboard focus
    * stays visible whatever you draw.
    */
   renderSeat?: (ctx: SeatRenderContext) => ReactNode;
-  /** Grid cell edge, in viewBox units. */
-  seatSize?: number;
-  /** Gap between grid cells, in viewBox units. */
-  seatGap?: number;
-  /** Freeform viewBox width; height follows the section's aspect ratio. */
-  freeformBasis?: number;
   /**
-   * CSS pixels per viewBox unit. Caps each section at its natural size so a
-   * narrow section and a wide one in the same map draw seats the same size.
+   * CSS pixels per canvas unit, at most: the map never draws wider than
+   * `canvas.width × unitScale`, and scales down to a narrower container. The
+   * document fixes every seat's size and position (§4.5); this is the only
+   * sizing control. Default `1`.
    */
   unitScale?: number;
+  /**
+   * Draws each section's label inside the map, at the top-left of its `bounds`.
+   * Only sections that declare `bounds` get one; every section's label is its
+   * group's accessible name either way. Default `true`.
+   */
   showSectionLabels?: boolean;
   showLegend?: boolean;
   showLegendPrices?: boolean;
@@ -223,6 +227,6 @@ export interface KerusiSeatmapProps {
 
   className?: string;
   style?: CSSProperties;
-  /** Rendered inside the map's root element, after the sections and legend. */
+  /** Rendered inside the map's root element, after the map and legend. */
   children?: ReactNode;
 }

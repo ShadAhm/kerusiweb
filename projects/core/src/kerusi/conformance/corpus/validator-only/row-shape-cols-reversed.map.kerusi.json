@@ -1,0 +1,50 @@
+{
+  "kerusi": "1.0",
+  "id": "row-shape-cols-reversed",
+  "canvas": {
+    "width": 100,
+    "height": 100
+  },
+  "seatSize": 10,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "rows": [
+        {
+          "id": "A",
+          "shape": {
+            "line": {
+              "from": [
+                10,
+                10
+              ],
+              "to": [
+                40,
+                10
+              ],
+              "cols": [
+                4,
+                1
+              ]
+            }
+          }
+        }
+      ],
+      "seats": [
+        {
+          "id": "a",
+          "row": "A",
+          "col": 1,
+          "x": 10,
+          "y": 10,
+          "type": "standard"
+        }
+      ]
+    }
+  ]
+}

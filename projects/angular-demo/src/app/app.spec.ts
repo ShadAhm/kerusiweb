@@ -92,8 +92,11 @@ describe('App', () => {
     expect(d.split(' A ').length - 1).toBe(2);
   });
 
-  it('renders one svg per section of the selected scenario', () => {
+  it('renders the map as one svg, with a group per section of the selected scenario', () => {
     const sectionCount = SCENARIOS[0].map.sections.length;
-    expect(el.querySelectorAll('kerusi-section svg')).toHaveLength(sectionCount);
+    expect(el.querySelectorAll('svg.kerusi-seatmap__svg')).toHaveLength(1);
+    expect(el.querySelectorAll('svg.kerusi-seatmap__svg g.kerusi-section')).toHaveLength(
+      sectionCount,
+    );
   });
 });

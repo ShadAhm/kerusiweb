@@ -3,6 +3,11 @@
   "id": "cinema3-hallB",
   "name": "Hall B",
   "domain": "cinema",
+  "canvas": {
+    "width": 264,
+    "height": 340
+  },
+  "seatSize": 40,
   "legend": [
     {
       "id": "standard",
@@ -22,38 +27,66 @@
   "sections": [
     {
       "id": "stalls",
-      "layout": "grid",
       "rows": [
-        {
-          "id": "screen-1",
-          "index": 0
-        },
-        {
-          "id": "screen-2",
-          "index": 1
-        },
-        {
-          "id": "throw",
-          "index": 2
-        },
         {
           "id": "A",
           "label": "A",
-          "index": 3
+          "shape": {
+            "line": {
+              "from": [
+                60,
+                150
+              ],
+              "to": [
+                204,
+                150
+              ],
+              "cols": [
+                1,
+                4
+              ]
+            }
+          }
         },
         {
           "id": "B",
           "label": "B",
-          "index": 4
-        },
-        {
-          "id": "cross-aisle",
-          "index": 5
+          "shape": {
+            "line": {
+              "from": [
+                60,
+                198
+              ],
+              "to": [
+                204,
+                198
+              ],
+              "cols": [
+                1,
+                4
+              ]
+            }
+          }
         },
         {
           "id": "C",
           "label": "C",
-          "index": 6
+          "shape": {
+            "line": {
+              "from": [
+                60,
+                294
+              ],
+              "to": [
+                204,
+                294
+              ],
+              "cols": [
+                1,
+                4
+              ]
+            }
+          }
         }
       ],
       "elements": [
@@ -61,8 +94,10 @@
           "id": "screen",
           "kind": "screen",
           "label": "SCREEN",
-          "row": "screen-1",
-          "height": 2
+          "x": 132,
+          "y": 30,
+          "width": 224,
+          "height": 20
         }
       ],
       "seats": [
@@ -71,6 +106,8 @@
           "label": "1",
           "row": "A",
           "col": 1,
+          "x": 60,
+          "y": 150,
           "type": "standard"
         },
         {
@@ -78,6 +115,8 @@
           "label": "2",
           "row": "A",
           "col": 2,
+          "x": 108,
+          "y": 150,
           "type": "standard"
         },
         {
@@ -85,6 +124,8 @@
           "label": "3",
           "row": "A",
           "col": 4,
+          "x": 204,
+          "y": 150,
           "type": "standard"
         },
         {
@@ -92,6 +133,8 @@
           "label": "1",
           "row": "B",
           "col": 1,
+          "x": 60,
+          "y": 198,
           "type": "standard"
         },
         {
@@ -99,6 +142,8 @@
           "label": "2",
           "row": "B",
           "col": 2,
+          "x": 108,
+          "y": 198,
           "type": "standard"
         },
         {
@@ -106,6 +151,8 @@
           "label": "3",
           "row": "B",
           "col": 4,
+          "x": 204,
+          "y": 198,
           "type": "standard"
         },
         {
@@ -113,6 +160,8 @@
           "label": "1",
           "row": "C",
           "col": 1,
+          "x": 60,
+          "y": 294,
           "type": "standard"
         }
       ]

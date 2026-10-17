@@ -1,10 +1,10 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { KerusiControlStrings, KerusiMap, KerusiViewport } from '@kerusiweb/core';
+import { KerusiControlStrings, KerusiMap, KerusiViewport, viewportForRect } from '@kerusiweb/core';
 import { KerusiSeatmapComponent } from './kerusi-seatmap.component';
 
-/** A 10 x 30 grid: 300 seats, the size the issue calls out. */
+/** A 10 x 30 lattice: 300 seats, the size the issue calls out. */
 function bigMap(rows = 10, cols = 30): KerusiMap {
   const rowDefs = Array.from({ length: rows }, (_, r) => ({
     id: `R${r}`,
@@ -16,20 +16,23 @@ function bigMap(rows = 10, cols = 30): KerusiMap {
     id: 'big',
     name: 'Big hall',
     locale: 'en',
+    canvas: { width: 40 + (cols - 1) * 34, height: 40 + (rows - 1) * 34 },
+    seatSize: 28,
     legend: [{ id: 'standard', label: { en: 'Standard' }, color: '#3a8f63' }],
     sections: [
       {
         id: 'main',
         index: 1,
         label: { en: 'Main' },
-        layout: 'grid',
         rows: rowDefs,
-        seats: rowDefs.flatMap((row) =>
+        seats: rowDefs.flatMap((row, r) =>
           Array.from({ length: cols }, (_, c) => ({
             id: `${row.label}${c + 1}`,
             label: String(c + 1),
             row: row.id,
             col: c + 1,
+            x: 20 + c * 34,
+            y: 20 + r * 34,
             type: 'standard',
           })),
         ),
@@ -190,8 +193,8 @@ describe('KerusiSeatmapComponent: zoom, pan and maximize', () => {
       expect(root().classList.contains('kerusi-seatmap--maximized')).toBe(false);
       expect(root().getAttribute('style')).toBeNull();
       expect(el.innerHTML).not.toContain('touch-action');
-      // The section is still a direct child of the map, with no wrapper between.
-      expect(root().querySelector(':scope > section.kerusi-seatmap__section')).not.toBeNull();
+      // The map's svg is still a direct child of the root, with no wrapper between.
+      expect(root().querySelector(':scope > svg.kerusi-seatmap__svg')).not.toBeNull();
     });
 
     it('ignores the zoom keys and the zoom methods', () => {
@@ -221,7 +224,14 @@ describe('KerusiSeatmapComponent: zoom, pan and maximize', () => {
       expect(view.getAttribute('role')).toBe('group');
       expect(view.getAttribute('aria-label')).toMatch(/zoomable/i);
       expect(transform()).toBe('translate(0px, 0px) scale(1)');
-      expect(el.querySelectorAll('.kerusi-viewport__content section')).toHaveLength(1);
+      expect(el.querySelectorAll('.kerusi-viewport__content > svg')).toHaveLength(1);
+    });
+
+    it('publishes the canvas proportions, so a maximized map can fit the whole canvas', () => {
+      const canvas = host.map().canvas;
+      expect(viewport()!.style.getPropertyValue('--kerusi-canvas-aspect')).toBe(
+        String(canvas.width / canvas.height),
+      );
     });
 
     it('sets touch-action so a pinch does not scroll the page, and takes every gesture once zoomed', () => {
@@ -590,6 +600,64 @@ describe('KerusiSeatmapComponent: zoom, pan and maximize', () => {
       settle();
       expect(viewport()).toBeNull();
       expect(el.querySelector('button')).toBeNull();
+      expect(current()).toEqual({ zoom: 1, x: 0, y: 0 });
+    });
+  });
+
+  describe('zoom to a section', () => {
+    // A canvas with the stubbed content's own proportions, so a canvas unit is
+    // exactly one content pixel and the expected viewports read directly.
+    const TWO: KerusiMap = {
+      kerusi: '1.0',
+      id: 'two',
+      canvas: { width: 375, height: 600 },
+      seatSize: 28,
+      legend: [{ id: 'standard' }],
+      sections: [
+        {
+          id: 'left',
+          bounds: { x: 0, y: 0, width: 150, height: 200 },
+          seats: [{ id: 'P1', x: 75, y: 100, type: 'standard' }],
+        },
+        {
+          id: 'right',
+          seats: [
+            { id: 'Q1', x: 250, y: 450, type: 'standard' },
+            { id: 'Q2', x: 330, y: 550, type: 'standard' },
+          ],
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      host.map.set(TWO);
+      host.zoomable.set(true);
+      settle();
+    });
+
+    it('zooms to a section’s declared bounds', () => {
+      host.seatmap().zoomToSection('left');
+      expect(current()).toEqual(
+        viewportForRect({ x: 0, y: 0, width: 150, height: 200 }, SIZE, SIZE),
+      );
+      expect(current().zoom).toBeGreaterThan(1);
+    });
+
+    it('zooms to the box around its seats when it declares none', () => {
+      host.seatmap().zoomToSection('right');
+      // Q1 and Q2 with their 28-unit footprints: x 236..344, y 436..564.
+      expect(current()).toEqual(
+        viewportForRect({ x: 236, y: 436, width: 108, height: 128 }, SIZE, SIZE),
+      );
+    });
+
+    it('does nothing for an unknown section, or when the map is not zoomable', () => {
+      host.seatmap().zoomToSection('nowhere');
+      expect(host.viewports).toHaveLength(0);
+
+      host.zoomable.set(false);
+      settle();
+      host.seatmap().zoomToSection('left');
       expect(current()).toEqual({ zoom: 1, x: 0, y: 0 });
     });
   });

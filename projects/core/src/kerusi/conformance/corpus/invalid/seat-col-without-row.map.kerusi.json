@@ -1,6 +1,11 @@
 {
   "kerusi": "1.0",
-  "id": "inferred-layout-inconsistent",
+  "id": "seat-col-without-row",
+  "canvas": {
+    "width": 100,
+    "height": 100
+  },
+  "seatSize": 10,
   "legend": [
     {
       "id": "standard"
@@ -13,12 +18,8 @@
         {
           "id": "a",
           "col": 1,
-          "type": "standard"
-        },
-        {
-          "id": "b",
-          "x": 30,
-          "y": 40,
+          "x": 10,
+          "y": 10,
           "type": "standard"
         }
       ]

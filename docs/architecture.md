@@ -25,8 +25,11 @@ npm install @kerusiweb/core @kerusiweb/react     # React
 
 The second binding is what makes the split below tested rather than just
 claimed: `projects/react/src/kerusi-seatmap.spec.tsx` is the Angular
-component spec's assertions run against React-rendered DOM, and for the same
-documents the two emit byte-identical SVG.
+component spec's assertions run against React-rendered DOM. Both specs also
+render the §6.7 town hall from a shared fixture,
+`projects/core/src/testing/parity.fixture.ts`, and compare a normalized form of
+the SVG with one expected signature, so the two bindings are held to drawing
+identical SVG.
 
 ## What belongs in core
 
@@ -36,8 +39,8 @@ pipeline, stopping just short of markup.
 
 | Folder        | Holds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/kerusi/` | The Kerusi document types (`KerusiMap`, `KerusiState`, `KerusiSession`), the conformance validator, and the price, locale, row-order, layout-mode and live-delta resolution built on them.                                                                                                                                                                                                                                                                                                                                          |
-| `src/render/` | `buildRenderModel()` (a map + state resolved into a `RenderMap`), plus `computeSectionLayout()` geometry, `buildNavigationGraph()` keyboard order, and the `seat-shapes` / `element-shapes` functions that return SVG path `d` strings.                                                                                                                                                                                                                                                                                             |
+| `src/kerusi/` | The Kerusi document types (`KerusiMap`, `KerusiState`, `KerusiSession`), the conformance validator, and the price, locale, row-order and live-delta resolution built on them, and the canvas geometry the standard defines (`kerusi-geometry`: seat size, adjacency, row-shape guides, footprints).                                                                                                                                                                                                                                 |
+| `src/render/` | `buildRenderModel()` (a map + state resolved into a `RenderMap`), plus `computeMapLayout()` placement on the canvas, `buildNavigationGraph()` keyboard order, and the `seat-shapes` / `element-shapes` functions that return SVG path `d` strings.                                                                                                                                                                                                                                                                                  |
 | `src/view/`   | Presentation _policy_ that still knows nothing about markup: the colour system (`kerusi-seatmap-colors`), the resolved seat glyph every binding draws and a custom seat template reuses (`seat-glyph`), the per-seat styles laid over it (`kerusi-seat-style`), the announcement strings (`seat-aria`), the rules deciding whether a seat may be toggled (`selection`), and the zoom, pan and gesture arithmetic behind a `zoomable` map (`viewport`, `viewport-gesture`) with the control strings and colours (`control-strings`). |
 
 Rules for core:
@@ -52,7 +55,7 @@ Rules for core:
 
 Only what the framework itself supplies:
 
-- **Components, decorators, templates**: the three components in `lib/kerusi-seatmap/` and their `.html`/`.css`. Their job is to bind data core already computed: `resolveSeatGlyph()` hands each seat its paths, paints and label position, so a template binds `[attr.d]="glyph.body.d"` inside an `@for` over the layout's seats.
+- **Components, decorators, templates**: the three components in `lib/kerusi-seatmap/` and their `.html`/`.css`. Their job is to bind data core already computed: `computeMapLayout()` places every seat and element on the canvas, and `resolveSeatGlyph()` hands each seat its paths, paints and label position, so a template binds `[attr.d]="glyph.body.d"` inside an `@for` over a section's placed seats.
 - **Reactivity primitives**: `signal`, `computed`, `effect`, `input`, `model`, `output`. `KerusiStateStore` (`lib/kerusi-state-store.ts`) is _only_ a signal wrapper; the delta-ordering and hold-expiry logic it calls (`applyStateDeltaOrdered`, `expireHolds`) lives in core.
 - **Dependency injection**: `inject(ElementRef)`.
 - **Direct DOM access.** Two sites are about seats: reading `dataset['seatId']` off a key event's target, and locating a `<g>` to focus. Angular does the second with a `querySelectorAll` scan in `kerusi-seatmap.component.ts`; React registers each seat node in a ref map (`use-roving-focus.ts`). Same job, framework-native means, and neither belongs in core. The opt-in `zoomable` and `maximizable` features add a third kind: listeners (pointer, wheel, click-capture, Safari gesture events) and size measurements on the viewport element, and the maximize side effects (the Fullscreen API, locking `body` scroll). Only the _wiring_ is in the bindings (`use-viewport.ts` and `use-maximized.ts` in React, the constructor effects in Angular). What a gesture, wheel tick or key _means_ is `viewport.ts` and `viewport-gesture.ts` in core, so a binding turns DOM events into `reduceGesture()` calls and applies what comes back.
@@ -63,14 +66,14 @@ Only what the framework itself supplies:
 
 > If a React binding would need to write this code again, it belongs in core.
 
-A new colour rule, a new layout mode, a new validator check, a new seat shape:
+A new colour rule, a new geometry rule, a new validator check, a new seat shape:
 core. A new `@Input`, a new template branch, a new `effect`: binding.
 
 ## Adding a new binding
 
 A binding needs to supply, and nothing more:
 
-1. A component that renders `computeSectionLayout()` output as SVG. The shapes are already path strings.
+1. A component that renders `computeMapLayout()` output as one SVG on the canvas, a group per section. The shapes are already path strings. Render the parity fixture and compare its signature, as both existing bindings do.
 2. Reactive plumbing from its framework to `buildRenderModel()`.
 3. Event handling that calls `toggleSeatSelection()` and surfaces `DisallowedReason`.
 4. Focus management and an `aria-live` region fed by `seatAriaLabel()` / `disallowedAnnouncement()`.
@@ -83,7 +86,8 @@ or `defaultSelection`). Three things needed more than a direct
 translation:
 
 - **The roving tab stop.** Held per section in both, because arrow keys never
-  cross a section boundary. React moves DOM focus from an effect keyed on the
+  cross a section boundary (seats in different sections are never neighbours,
+  §4.3.5). React moves DOM focus from an effect keyed on the
   tab stop, so the target's `tabindex` is already committed when `.focus()` runs.
 - **Re-announcing an identical message.** A live region that sees no text change
   stays silent. Angular clears the region and refills it a microtask later: two

@@ -1,13 +1,13 @@
-:host {
-  display: block;
-}
-
-/* The viewBox carries the proportions; CSS only decides how wide it gets. */
-.kerusi-section-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-width: 100%;
+/* A section's label, drawn inside the map at the top-left of its bounds (D5).
+   Its size comes from the section's seat size, so it scales with the map. */
+.kerusi-section-label {
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  pointer-events: none;
+  user-select: none;
 }
 
 .kerusi-seat {

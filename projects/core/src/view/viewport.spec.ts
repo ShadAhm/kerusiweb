@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canvasRectToContent,
   clampViewport,
+  contentRectToContainer,
   DEFAULT_MAX_ZOOM,
   FIT_VIEWPORT,
   fitViewport,
@@ -8,8 +10,10 @@ import {
   KEYBOARD_PAN_STEP,
   keyboardViewport,
   panViewportBy,
+  revealContentRect,
   revealRect,
   stepViewport,
+  viewportForRect,
   viewportsEqual,
   viewportTouchAction,
   viewportTransform,
@@ -163,6 +167,77 @@ describe('revealRect', () => {
       CONTAINER,
     );
     expect(next.x).toBe(0);
+  });
+});
+
+describe('canvas and content coordinates', () => {
+  it('scales a canvas rect into content pixels', () => {
+    const canvas = { width: 1600, height: 900 };
+    const content = { width: 800, height: 450 };
+    expect(
+      canvasRectToContent({ x: 280, y: 60, width: 1180, height: 680 }, canvas, content),
+    ).toEqual({ x: 140, y: 30, width: 590, height: 340 });
+  });
+
+  it('projects a content rect through the viewport', () => {
+    const viewport = { zoom: 2, x: -100, y: -50 };
+    expect(contentRectToContainer(viewport, { x: 100, y: 100, width: 10, height: 20 })).toEqual({
+      x: 100,
+      y: 150,
+      width: 20,
+      height: 40,
+    });
+  });
+});
+
+describe('viewportForRect', () => {
+  // A wide canvas fitted into a desktop container: 800 x 450 content.
+  const content = { width: 800, height: 450 };
+  const container = { width: 800, height: 450 };
+
+  it('zooms so the rect fills the container, less the margin, and centres it', () => {
+    const rect = { x: 100, y: 100, width: 200, height: 100 };
+    const next = viewportForRect(rect, content, container, 0, LIMITS);
+    // Width-bound would be 4, height-bound 4.5: the smaller wins.
+    expect(next.zoom).toBe(4);
+    const onScreen = contentRectToContainer(next, rect);
+    expect(onScreen.x + onScreen.width / 2).toBeCloseTo(400);
+    expect(onScreen.y + onScreen.height / 2).toBeCloseTo(225);
+  });
+
+  it('keeps the margin around the rect', () => {
+    const rect = { x: 300, y: 150, width: 200, height: 150 };
+    const next = viewportForRect(rect, content, container, 16, LIMITS);
+    expect(next.zoom).toBeCloseTo((450 - 32) / 150);
+  });
+
+  it('never zooms past the ceiling, even for a tiny rect', () => {
+    const next = viewportForRect({ x: 400, y: 200, width: 1, height: 1 }, content, container);
+    expect(next.zoom).toBe(DEFAULT_MAX_ZOOM);
+  });
+
+  it('gives fit for a rect as big as the map', () => {
+    const next = viewportForRect({ x: 0, y: 0, ...content }, content, container, 16, LIMITS);
+    expect(next).toEqual(FIT_VIEWPORT);
+  });
+
+  it('holds the pan inside the map for a rect at its edge', () => {
+    const next = viewportForRect({ x: 0, y: 0, width: 200, height: 100 }, content, container, 0);
+    expect(next.x).toBe(0);
+    expect(next.y).toBe(0);
+  });
+});
+
+describe('revealContentRect', () => {
+  it('reveals a seat from its position on the canvas, as revealRect does on screen', () => {
+    const zoomed = { zoom: 2, x: 0, y: 0 };
+    const seat = { x: 300, y: 100, width: 20, height: 20 };
+    expect(revealContentRect(zoomed, seat, CONTENT, CONTAINER, 16)).toEqual(
+      revealRect(zoomed, contentRectToContainer(zoomed, seat), CONTENT, CONTAINER, 16),
+    );
+    const next = revealContentRect(zoomed, seat, CONTENT, CONTAINER, 16);
+    const onScreen = contentRectToContainer(next, seat);
+    expect(onScreen.x + onScreen.width).toBeLessThanOrEqual(CONTAINER.width - 16 + 1e-9);
   });
 });
 

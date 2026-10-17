@@ -1,14 +1,7 @@
-import { Element, KerusiMap, Seat, Section } from './kerusi-map.model.js';
+import { Element, KerusiMap, RowMeta, Seat, Section } from './kerusi-map.model.js';
 import { KerusiSession, KerusiState, KerusiStateDelta, SeatStatus } from './kerusi-state.model.js';
 import { resolveSeatPrice } from './kerusi-price.js';
-import {
-  checkSectionLayout,
-  hasAnyCoordinate,
-  hasCol,
-  hasXY,
-  resolveSectionLayoutMode,
-} from './kerusi-layout-mode.js';
-import { rowOrderIndexes } from './kerusi-rows.js';
+import { Footprint, footprintOf, footprintsOverlap, seatSizeOf } from './kerusi-geometry.js';
 import { error, errorsOf, KerusiViolation, warning } from './kerusi-violation.js';
 
 export { errorsOf } from './kerusi-violation.js';
@@ -249,23 +242,32 @@ export function validateDocumentSet(docs: {
  * unchanged when valid, so it can be used inline.
  *
  * Enforced rules:
- *  - Required members present: `kerusi`, `id`, `legend`, `sections` (§4), and
- *    `kerusi` declares a supported major version.
- *  - Every seat has `col`, or `x`+`y`, or both — never neither (§4.3.1) — and
- *    conforms to its section's declared or inferred `layout` mode (§4.5).
- *  - Section, seat and element ids are unique (§4.1, §4.3, §4.4).
+ *  - Required members present: `kerusi`, `id`, `canvas`, `seatSize`, `legend`,
+ *    `sections` (§4), and `kerusi` declares a supported major version.
+ *  - The canvas and every seat size are positive (§4.5).
+ *  - Every seat and element has `x` and `y` on the canvas (§4.3.1, §4.4.1), and
+ *    an element's `width`/`height`, when given, are positive.
+ *  - A seat's `col` is a positive integer, only with a `row`, and no two seats
+ *    in a section share a row and col (§4.3.5).
+ *  - Section, seat, element, seat type and price tier ids are unique across the
+ *    map, and row ids within their section (§4.3, §4.6).
  *  - Every `Seat.type` resolves to a `SeatType.id` in `legend` (§4.6).
  *  - Every `Seat.priceTier` resolves to a `PriceTier.id` (§4.6).
  *  - Every `Seat.row` resolves to a `RowMeta.id` when the section declares
  *    `rows`; opaque free-text otherwise (§4.6).
  *  - Every `Seat.companions[]` entry resolves to another seat in the SAME
  *    section, and the relationship is symmetric (§4.6).
- *  - Every `Element` has the required `id` and `kind` (§4.4), is positioned in
- *    its section's own layout mode, and — in a grid section — carries integer
- *    column and row spans that stay inside the section's rows (§4.4.1, §4.6).
+ *  - Every row shape is exactly one well-formed line, arc or circle (§4.2.3).
+ *  - Every `Element` has the required `id` and `kind` (§4.4).
  *  - All resolved currencies across the map are identical (§4.9).
  *
- * Advisory findings never throw; use {@link checkKerusiMap} to see them.
+ * Members this library does not recognize are ignored (§7), including the
+ * members rev 15 removed from sections and elements; a rev 14 map is still
+ * rejected, for lacking `canvas` and `seatSize`.
+ *
+ * Advisory findings never throw: overlapping seats (§4.3.1), seats outside
+ * their section's `bounds` (§4.1), an unknown `transferArmrest`. Use
+ * {@link checkKerusiMap} to see them.
  */
 export function validateKerusiMap(map: KerusiMap): KerusiMap {
   throwFirstError(collectMapViolations(map));
@@ -310,9 +312,10 @@ function throwFirstError(violations: readonly KerusiViolation[]): void {
 // --- Collectors -------------------------------------------------------------
 
 /**
- * Walks a map and returns every violation in document order. The order matters:
- * `validateKerusiMap` throws the first error, so it must report the same rule
- * the pre-1.0 short-circuiting validator did for any given document.
+ * Walks a map and returns every violation in document order, errors first and
+ * the §4.1/§4.3.1 warnings after them. The order matters: `validateKerusiMap`
+ * throws the first error, so the same document must always report the same
+ * rule first.
  */
 function collectMapViolations(map: KerusiMap): KerusiViolation[] {
   if (!map || typeof map !== 'object') {
@@ -331,6 +334,7 @@ function collectMapViolations(map: KerusiMap): KerusiViolation[] {
   if (!map.id) {
     violations.push(error('map-id', 'KerusiMap is missing the required "id" member.'));
   }
+  violations.push(...collectCanvasViolations(map));
   if (!Array.isArray(map.legend)) {
     violations.push(
       error('map-legend', 'KerusiMap is missing the required "legend" array.', { id: map.id }),
@@ -348,80 +352,124 @@ function collectMapViolations(map: KerusiMap): KerusiViolation[] {
     return violations;
   }
 
-  const seatTypeIds = new Set(map.legend.map((t) => t.id));
-  const priceTierIds = new Set((map.priceTiers ?? []).map((t) => t.id));
-  const currencies = new Set<string>();
+  const ctx: MapContext = {
+    map,
+    canvas:
+      isPositive(map.canvas?.width) && isPositive(map.canvas?.height) ? map.canvas : undefined,
+    seatTypeIds: new Set(map.legend.map((t) => t.id)),
+    priceTierIds: new Set((map.priceTiers ?? []).map((t) => t.id)),
+    currencies: new Set<string>(),
+  };
 
   // Tier-level currencies count toward the single-currency rule regardless of
   // whether a seat references the tier.
   for (const tier of map.priceTiers ?? []) {
     if (tier.price?.currency) {
-      currencies.add(tier.price.currency);
+      ctx.currencies.add(tier.price.currency);
     }
   }
-
-  const seenSectionIds = new Set<string>();
-  const seenSeatIds = new Set<string>();
-  const duplicateSections: string[] = [];
-  const duplicateSeats: string[] = [];
 
   map.sections.forEach((section, sectionIndex) => {
-    const path = `sections[${sectionIndex}]`;
-    violations.push(
-      ...collectSectionViolations(section, map, seatTypeIds, priceTierIds, currencies, path),
-    );
-
-    if (seenSectionIds.has(section?.id)) {
-      duplicateSections.push(section.id);
-    }
-    seenSectionIds.add(section?.id);
-
-    for (const seat of section?.seats ?? []) {
-      if (seenSeatIds.has(seat.id)) {
-        duplicateSeats.push(seat.id);
-      }
-      seenSeatIds.add(seat.id);
-    }
+    violations.push(...collectSectionViolations(section, ctx, `sections[${sectionIndex}]`));
   });
 
-  for (const id of duplicateSections) {
-    violations.push(
-      error('section-id-duplicate', `Section id "${id}" is declared more than once (§4.1).`, {
-        id,
-      }),
-    );
-  }
-  for (const id of duplicateSeats) {
-    violations.push(
-      error(
-        'seat-id-duplicate',
+  // §4.6 identifier uniqueness. Seats, sections and elements are unique across
+  // the whole map; rows only within their section, checked there.
+  const sections = map.sections.filter((s): s is Section => isObject(s));
+  violations.push(
+    ...duplicateIds(
+      sections,
+      'section-id-duplicate',
+      (id) => `Section id "${id}" is declared more than once (§4.1).`,
+    ),
+    ...duplicateIds(
+      sections.flatMap((s) => (Array.isArray(s.seats) ? s.seats : [])),
+      'seat-id-duplicate',
+      (id) =>
         `Seat id "${id}" is declared more than once; seat ids must be globally unique ` +
-          'within a KerusiMap (§4.3).',
-        { id },
-      ),
-    );
-  }
+        'within a KerusiMap (§4.3).',
+    ),
+    ...duplicateIds(
+      sections.flatMap((s) => (Array.isArray(s.elements) ? s.elements : [])),
+      'element-id-duplicate',
+      (id) =>
+        `Element id "${id}" is declared more than once; element ids must be unique ` +
+        'across the whole KerusiMap (§4.6).',
+    ),
+    ...duplicateIds(
+      map.legend,
+      'seat-type-id-duplicate',
+      (id) => `Seat type id "${id}" is declared more than once in the legend (§4.6).`,
+    ),
+    ...duplicateIds(
+      map.priceTiers ?? [],
+      'price-tier-id-duplicate',
+      (id) => `Price tier id "${id}" is declared more than once (§4.6).`,
+    ),
+  );
 
-  if (currencies.size > 1) {
+  if (ctx.currencies.size > 1) {
     violations.push(
       error(
         'single-currency',
-        `KerusiMap mixes currencies (${[...currencies].sort().join(', ')}); ` +
+        `KerusiMap mixes currencies (${[...ctx.currencies].sort().join(', ')}); ` +
           'exactly one currency must apply to the whole map (§4.9).',
         { id: map.id },
       ),
     );
   }
 
+  violations.push(...collectSeatOverlapWarnings(map), ...collectSectionBoundsWarnings(map));
+
+  return violations;
+}
+
+interface MapContext {
+  map: KerusiMap;
+  /** The canvas, when it is usable to check coordinates against. */
+  canvas?: KerusiMap['canvas'];
+  seatTypeIds: Set<string>;
+  priceTierIds: Set<string>;
+  currencies: Set<string>;
+}
+
+/** §4.5: the canvas and the map's seat size, both required and positive. */
+function collectCanvasViolations(map: KerusiMap): KerusiViolation[] {
+  const violations: KerusiViolation[] = [];
+  const canvas: unknown = map.canvas;
+  if (!isObject(canvas)) {
+    violations.push(
+      error('map-canvas', 'KerusiMap is missing the required "canvas" object (§4.5).', {
+        id: map.id,
+      }),
+    );
+  } else if (!isPositive(canvas['width']) || !isPositive(canvas['height'])) {
+    violations.push(
+      error(
+        'map-canvas-size',
+        `KerusiMap canvas is ${canvas['width']} × ${canvas['height']}; both dimensions ` +
+          'must be positive numbers (§4.5).',
+        { id: map.id, path: 'canvas' },
+      ),
+    );
+  }
+  if (!isPositive(map.seatSize)) {
+    violations.push(
+      error(
+        'map-seat-size',
+        map.seatSize === undefined
+          ? 'KerusiMap is missing the required "seatSize" (§4.5).'
+          : `KerusiMap "seatSize" is ${map.seatSize}; it must be a positive number (§4.5).`,
+        { id: map.id, path: 'seatSize' },
+      ),
+    );
+  }
   return violations;
 }
 
 function collectSectionViolations(
   section: Section,
-  map: KerusiMap,
-  seatTypeIds: Set<string>,
-  priceTierIds: Set<string>,
-  currencies: Set<string>,
+  ctx: MapContext,
   path: string,
 ): KerusiViolation[] {
   if (!section || typeof section !== 'object') {
@@ -433,6 +481,16 @@ function collectSectionViolations(
   if (!section.id) {
     violations.push(error('section-id', 'A section is missing the required "id".', { path }));
   }
+  if (section.seatSize !== undefined && !isPositive(section.seatSize)) {
+    violations.push(
+      error(
+        'section-seat-size',
+        `Section "${section.id}" has "seatSize": ${section.seatSize}; it must be a ` +
+          'positive number (§4.5).',
+        { id: section.id, path: `${path}.seatSize` },
+      ),
+    );
+  }
   if (!Array.isArray(section.seats)) {
     violations.push(
       error('section-seats', `Section "${section.id}" is missing the required "seats" array.`, {
@@ -443,28 +501,59 @@ function collectSectionViolations(
     return violations;
   }
 
+  violations.push(...collectRowViolations(section, path));
+
   const rowIds = section.rows ? new Set(section.rows.map((r) => r.id)) : null;
   const seatIds = new Set(section.seats.map((s) => s.id));
   const companionsBySeat = new Map<string, Set<string>>();
+  const seatAtRowCol = new Map<string, string>();
 
   section.seats.forEach((seat, seatIndex) => {
     const seatPath = `${path}.seats[${seatIndex}]`;
 
-    // §4.3.1 positioning. Checked before the §4.5 mode rules so a seat with no
-    // position at all gets the clearer message rather than a mode complaint.
-    if (!hasCol(seat) && !hasXY(seat)) {
-      violations.push(
-        error(
-          'seat-position',
-          `Seat "${seat.id}" has neither "col" nor "x"+"y"; a seat must specify ` +
-            'at least one positioning method (§4.3.1).',
-          { id: seat.id, path: seatPath },
-        ),
-      );
+    // §4.3.1 position: required canvas coordinates, on the canvas.
+    violations.push(...collectPositionViolations(seat, 'seat', ctx, seatPath));
+
+    // §4.3.5 adjacency: `col` is a positive integer ordinal within `row`.
+    if (seat.col !== undefined) {
+      if (seat.row === undefined) {
+        violations.push(
+          error(
+            'seat-col-without-row',
+            `Seat "${seat.id}" has "col" but no "row"; a col is an ordinal within a row ` +
+              'and means nothing without one (§4.3.5).',
+            { id: seat.id, path: seatPath },
+          ),
+        );
+      }
+      if (!Number.isInteger(seat.col) || seat.col < 1) {
+        violations.push(
+          error(
+            'seat-col-invalid',
+            `Seat "${seat.id}" has "col": ${seat.col}; a col is a positive integer (§4.3.5).`,
+            { id: seat.id, path: seatPath },
+          ),
+        );
+      } else if (seat.row !== undefined) {
+        const key = JSON.stringify([seat.row, seat.col]);
+        const holder = seatAtRowCol.get(key);
+        if (holder !== undefined) {
+          violations.push(
+            error(
+              'seat-row-col-duplicate',
+              `Seat "${seat.id}" is at row "${seat.row}", col ${seat.col}, which seat ` +
+                `"${holder}" already holds in section "${section.id}" (§4.3.5).`,
+              { id: seat.id, path: seatPath },
+            ),
+          );
+        } else {
+          seatAtRowCol.set(key, seat.id);
+        }
+      }
     }
 
     // §4.6 type reference.
-    if (!seatTypeIds.has(seat.type)) {
+    if (!ctx.seatTypeIds.has(seat.type)) {
       violations.push(
         error(
           'seat-type-reference',
@@ -476,7 +565,7 @@ function collectSectionViolations(
     }
 
     // §4.6 priceTier reference.
-    if (seat.priceTier !== undefined && !priceTierIds.has(seat.priceTier)) {
+    if (seat.priceTier !== undefined && !ctx.priceTierIds.has(seat.priceTier)) {
       violations.push(
         error(
           'seat-pricetier-reference',
@@ -513,9 +602,9 @@ function collectSectionViolations(
     }
 
     // Collect the resolved currency for the single-currency rule (§4.9).
-    const price = resolveSeatPrice(seat, map);
+    const price = resolveSeatPrice(seat, ctx.map);
     if (price?.currency) {
-      currencies.add(price.currency);
+      ctx.currencies.add(price.currency);
     }
 
     companionsBySeat.set(seat.id, new Set(seat.companions ?? []));
@@ -549,21 +638,156 @@ function collectSectionViolations(
     }
   }
 
-  // §4.5 layout modes — a strict, validated constraint at v1.0.
-  violations.push(...checkSectionLayout(section, path));
-
   // §4.4 elements.
-  violations.push(...collectElementViolations(section, path));
+  violations.push(...collectElementViolations(section, ctx, path));
 
   return violations;
 }
 
-function collectElementViolations(section: Section, path: string): KerusiViolation[] {
+/**
+ * §4.3.1 and §4.4.1: a seat or element carries `x` and `y` in canvas units, on
+ * the canvas — 0 to `canvas.width` and 0 to `canvas.height`, edges included.
+ */
+function collectPositionViolations(
+  item: { id: string; x: number; y: number },
+  kind: 'seat' | 'element',
+  ctx: MapContext,
+  path: string,
+): KerusiViolation[] {
+  const label = kind === 'seat' ? 'Seat' : 'Element';
+  const section = kind === 'seat' ? '§4.3.1' : '§4.4.1';
+  if (!isNum(item.x) || !isNum(item.y)) {
+    return [
+      error(
+        `${kind}-position`,
+        `${label} "${item.id}" is missing "x" or "y"; every ${kind} is placed on the ` +
+          `canvas by its centre (${section}).`,
+        { id: item.id, path },
+      ),
+    ];
+  }
+  if (!ctx.canvas) {
+    return [];
+  }
   const violations: KerusiViolation[] = [];
-  const mode = resolveSectionLayoutMode(section);
-  const rowIndexes = rowOrderIndexes(section);
-  const declaresRows = Boolean(section.rows);
-  const seen = new Set<string>();
+  for (const [axis, value, limit] of [
+    ['x', item.x, ctx.canvas.width],
+    ['y', item.y, ctx.canvas.height],
+  ] as const) {
+    if (value < 0 || value > limit) {
+      violations.push(
+        error(
+          `${kind}-outside-canvas`,
+          `${label} "${item.id}" has ${axis} ${value}, outside the canvas (0 to ${limit}, ` +
+            `the canvas ${axis === 'x' ? 'width' : 'height'}) (${section}).`,
+          { id: item.id, path: `${path}.${axis}` },
+        ),
+      );
+    }
+  }
+  return violations;
+}
+
+/** §4.2: row ids unique within the section, and every row shape well formed. */
+function collectRowViolations(section: Section, path: string): KerusiViolation[] {
+  if (!Array.isArray(section.rows)) {
+    return [];
+  }
+  const violations: KerusiViolation[] = duplicateIds(
+    section.rows,
+    'row-id-duplicate',
+    (id) => `Row id "${id}" is declared more than once in section "${section.id}" (§4.6).`,
+  );
+  section.rows.forEach((row, i) => {
+    if (row?.shape !== undefined) {
+      violations.push(...collectRowShapeViolations(row, `${path}.rows[${i}].shape`));
+    }
+  });
+  return violations;
+}
+
+const ROW_SHAPE_KINDS = ['line', 'arc', 'circle'] as const;
+
+/**
+ * §4.2.3: exactly one of `line`, `arc` or `circle`, with its points, a positive
+ * radius, `arc.sweep`, and `cols` as two positive integers `[first, last]`
+ * with first not exceeding last. Nothing here moves or reads a seat: a shape
+ * is a guide for editors, and a renderer ignores it.
+ */
+function collectRowShapeViolations(row: RowMeta, path: string): KerusiViolation[] {
+  const shape: unknown = row.shape;
+  const kinds = isObject(shape) ? ROW_SHAPE_KINDS.filter((k) => k in shape) : [];
+  if (!isObject(shape) || kinds.length !== 1) {
+    return [
+      error(
+        'row-shape-kind',
+        `Row "${row.id}" has a shape that is not exactly one of line, arc or circle ` +
+          `(found ${kinds.length ? kinds.join(' and ') : 'none'}) (§4.2.3).`,
+        { id: row.id, path },
+      ),
+    ];
+  }
+
+  const kind = kinds[0];
+  const g: unknown = shape[kind];
+  const problems: string[] = [];
+  if (!isObject(g)) {
+    problems.push(`"${kind}" is not an object`);
+  } else {
+    const points = kind === 'line' ? ['from', 'to'] : ['center'];
+    for (const member of points) {
+      if (!isPoint(g[member])) {
+        problems.push(`"${member}" is not an [x, y] point`);
+      }
+    }
+    if (kind !== 'line') {
+      if (!isPositive(g['radius'])) {
+        problems.push('"radius" is not a positive number');
+      }
+      if (!isNum(g['start'])) {
+        problems.push('"start" is not a number');
+      }
+    }
+    if (kind === 'arc' && !isNum(g['sweep'])) {
+      problems.push('"sweep" is missing');
+    }
+    const cols = g['cols'];
+    if (
+      !Array.isArray(cols) ||
+      cols.length !== 2 ||
+      !cols.every((c) => Number.isInteger(c) && c >= 1)
+    ) {
+      problems.push('"cols" is not two positive integers');
+    } else if (cols[0] > cols[1]) {
+      return [
+        error(
+          'row-shape-cols-reversed',
+          `Row "${row.id}" has a ${kind} shape spanning cols [${cols[0]}, ${cols[1]}]; ` +
+            'the first column must not exceed the last (§4.2.3).',
+          { id: row.id, path: `${path}.${kind}.cols` },
+        ),
+      ];
+    }
+  }
+
+  if (problems.length === 0) {
+    return [];
+  }
+  return [
+    error(
+      'row-shape-invalid',
+      `Row "${row.id}" has a malformed ${kind} shape: ${problems.join('; ')} (§4.2.3).`,
+      { id: row.id, path: `${path}.${kind}` },
+    ),
+  ];
+}
+
+function collectElementViolations(
+  section: Section,
+  ctx: MapContext,
+  path: string,
+): KerusiViolation[] {
+  const violations: KerusiViolation[] = [];
 
   (section.elements ?? []).forEach((element: Element, i) => {
     const elementPath = `${path}.elements[${i}]`;
@@ -574,20 +798,7 @@ function collectElementViolations(section: Section, path: string): KerusiViolati
           path: elementPath,
         }),
       );
-    } else {
-      if (seen.has(element.id)) {
-        violations.push(
-          error(
-            'element-id-duplicate',
-            `Element id "${element.id}" is declared more than once in section ` +
-              `"${section.id}" (§4.4).`,
-            { id: element.id, path: elementPath },
-          ),
-        );
-      }
-      seen.add(element.id);
     }
-
     if (!element.kind) {
       violations.push(
         error('element-kind', `Element "${element.id}" has no "kind" (§4.4).`, {
@@ -597,126 +808,156 @@ function collectElementViolations(section: Section, path: string): KerusiViolati
       );
     }
 
-    // §4.6: an element's row resolves against the registry exactly as a seat's
-    // does, and for the same reason — a row that does not exist places nothing.
-    if (declaresRows && element.row !== undefined && !rowIndexes.has(element.row)) {
-      violations.push(
-        error(
-          'element-row-unresolved',
-          `Element "${element.id}" references unknown row "${element.row}" in ` +
-            `section "${section.id}" rows (§4.6).`,
-          { id: element.id, path: elementPath },
-        ),
-      );
+    violations.push(...collectPositionViolations(element, 'element', ctx, elementPath));
+
+    for (const axis of ['width', 'height'] as const) {
+      const size = element[axis];
+      if (size !== undefined && !isPositive(size)) {
+        violations.push(
+          error(
+            'element-size-invalid',
+            `Element "${element.id}" has "${axis}": ${size}; an element's size is a ` +
+              'positive number of canvas units (§4.4.1).',
+            { id: element.id, path: `${elementPath}.${axis}` },
+          ),
+        );
+      }
     }
-
-    const usesGrid = hasCol(element) || element.row !== undefined;
-    const usesFreeform = hasAnyCoordinate(element);
-
-    if (!usesGrid && !usesFreeform) {
-      violations.push(
-        warning(
-          'element-position',
-          `Element "${element.id}" has neither "row"/"col" nor "x"/"y"; it cannot be ` +
-            'placed within the seating area (§4.4).',
-          { id: element.id, path: elementPath },
-        ),
-      );
-      return;
-    }
-
-    // §4.4.1 binds an element to its section's positioning mode exactly as §4.5
-    // binds its seats: a section whose elements are addressed differently from
-    // its seats cannot be laid out deterministically by two renderers. `mixed`
-    // permits either, and a freeform element may still carry `row` as a label.
-    if (mode === 'grid' && usesFreeform) {
-      violations.push(
-        error(
-          'element-layout-mismatch',
-          `Element "${element.id}" carries "x"/"y" in grid section "${section.id}"; ` +
-            'a grid element is positioned by "row" and/or "col" (§4.4.1).',
-          { id: element.id, path: elementPath },
-        ),
-      );
-    } else if (mode === 'freeform' && hasCol(element)) {
-      violations.push(
-        error(
-          'element-layout-mismatch',
-          `Element "${element.id}" carries "col" in freeform section ` +
-            `"${section.id}", which has no column grid to place it in (§4.4.1).`,
-          { id: element.id, path: elementPath },
-        ),
-      );
-    }
-
-    violations.push(
-      ...collectElementSpanViolations(element, section, mode, rowIndexes, elementPath),
-    );
   });
 
   return violations;
 }
 
 /**
- * §4.4.1 spans. For a grid-addressed element `width` and `height` are
- * dimensionless cell counts — positive integers, defaulting to 1 — so a
- * fractional or zero span leaves two renderers to disagree about how much space
- * it occupies. They are percentages once `x`/`y` governs placement, where any
- * positive number is meaningful, so nothing is checked there. A mixed section
- * can hold both kinds, one element at a time.
- *
- * A row span is also bounded, and only in a grid section as §4.6 scopes it: an
- * element reaching past the last row in the §4.2.1 order occupies rows that do
- * not exist.
+ * Every repeat of an id among `items`, reported at the repeat in the order the
+ * items are given. Items without a usable id are skipped; a missing id is its
+ * own rule.
  */
-function collectElementSpanViolations(
-  element: Element,
-  section: Section,
-  mode: ReturnType<typeof resolveSectionLayoutMode>,
-  rowIndexes: Map<string, number>,
-  elementPath: string,
+function duplicateIds(
+  items: readonly { id?: string }[],
+  rule: string,
+  message: (id: string) => string,
 ): KerusiViolation[] {
-  const gridAddressed = mode === 'grid' || (mode === 'mixed' && !hasAnyCoordinate(element));
-  if (!gridAddressed) {
-    return [];
-  }
-
+  const seen = new Set<string>();
   const violations: KerusiViolation[] = [];
-
-  for (const [axis, span] of [
-    ['width', element.width],
-    ['height', element.height],
-  ] as const) {
-    if (span !== undefined && (!Number.isInteger(span) || span < 1)) {
-      violations.push(
-        error(
-          'element-span-invalid',
-          `Element "${element.id}" has "${axis}": ${span} in grid section ` +
-            `"${section.id}"; a grid span is a positive integer count of cells (§4.4.1).`,
-          { id: element.id, path: elementPath },
-        ),
-      );
+  for (const item of items) {
+    const id = item?.id;
+    if (id === undefined || id === null) {
+      continue;
     }
-  }
-
-  const start =
-    mode === 'grid' && element.row !== undefined ? rowIndexes.get(element.row) : undefined;
-  const span = element.height ?? 1;
-  if (start !== undefined && Number.isInteger(span) && span >= 1) {
-    const last = start + span - 1;
-    if (last > rowIndexes.size - 1) {
-      violations.push(
-        error(
-          'element-row-span-overrun',
-          `Element "${element.id}" spans ${span} rows from "${element.row}", ` +
-            `reaching past the last row of section "${section.id}" (§4.2.1, §4.6).`,
-          { id: element.id, path: elementPath },
-        ),
-      );
+    if (seen.has(id)) {
+      violations.push(error(rule, message(id), { id }));
     }
+    seen.add(id);
   }
-
   return violations;
+}
+
+// --- Warnings ---------------------------------------------------------------
+
+/**
+ * §4.3.1: a validator SHOULD report seats whose footprints overlap. Every
+ * section shares the one canvas, so seats in different sections can overlap
+ * too. Each overlapping pair is reported once, at whichever seat comes later
+ * in the document.
+ */
+function collectSeatOverlapWarnings(map: KerusiMap): KerusiViolation[] {
+  const placed: { seat: Seat; path: string; f: Footprint; order: number }[] = [];
+  map.sections.forEach((section, s) => {
+    const size = seatSizeOf(map, section);
+    if (!isObject(section) || !Array.isArray(section.seats) || !isPositive(size)) {
+      return;
+    }
+    section.seats.forEach((seat, i) => {
+      if (isNum(seat?.x) && isNum(seat?.y)) {
+        placed.push({
+          seat,
+          path: `sections[${s}].seats[${i}]`,
+          f: footprintOf(seat, size),
+          order: placed.length,
+        });
+      }
+    });
+  });
+
+  // Sweep along x: two footprints can only overlap when their centres are
+  // closer than the sum of their circumradii.
+  const byX = [...placed].sort((a, b) => a.f.x - b.f.x);
+  const reported: { order: number; violation: KerusiViolation }[] = [];
+  for (let j = 0; j < byX.length; j++) {
+    const q = byX[j];
+    for (let k = j - 1; k >= 0; k--) {
+      const p = byX[k];
+      const reach = (p.f.size + q.f.size) * Math.SQRT1_2;
+      if (q.f.x - p.f.x > reach) {
+        break;
+      }
+      if (Math.abs(q.f.y - p.f.y) > reach || !footprintsOverlap(p.f, q.f)) {
+        continue;
+      }
+      const [first, second] = p.order < q.order ? [p, q] : [q, p];
+      reported.push({
+        order: second.order,
+        violation: warning(
+          'seat-overlap',
+          `Seat "${second.seat.id}" overlaps seat "${first.seat.id}" (${first.path}) (§4.3.1).`,
+          { id: second.seat.id, path: second.path },
+        ),
+      });
+    }
+  }
+  return reported.sort((a, b) => a.order - b.order).map((r) => r.violation);
+}
+
+/**
+ * §4.1: a section's seats SHOULD lie inside its `bounds`. Only the seat's
+ * centre is checked, as it is against the canvas.
+ */
+function collectSectionBoundsWarnings(map: KerusiMap): KerusiViolation[] {
+  const violations: KerusiViolation[] = [];
+  map.sections.forEach((section, s) => {
+    const b = section?.bounds;
+    if (
+      !isObject(b) ||
+      ![b.x, b.y, b.width, b.height].every(isNum) ||
+      !Array.isArray(section.seats)
+    ) {
+      return;
+    }
+    section.seats.forEach((seat, i) => {
+      if (!isNum(seat?.x) || !isNum(seat?.y)) {
+        return;
+      }
+      if (seat.x >= b.x && seat.x <= b.x + b.width && seat.y >= b.y && seat.y <= b.y + b.height) {
+        return;
+      }
+      violations.push(
+        warning(
+          'seat-outside-section-bounds',
+          `Seat "${seat.id}" at (${seat.x}, ${seat.y}) lies outside the bounds of section ` +
+            `"${section.id}" (${b.x}, ${b.y}, ${b.width} × ${b.height}) (§4.1).`,
+          { id: seat.id, path: `sections[${s}].seats[${i}]` },
+        ),
+      );
+    });
+  });
+  return violations;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isNum(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isPositive(value: unknown): value is number {
+  return isNum(value) && value > 0;
+}
+
+function isPoint(value: unknown): boolean {
+  return Array.isArray(value) && value.length === 2 && value.every(isNum);
 }
 
 function collectStateEnvelope(

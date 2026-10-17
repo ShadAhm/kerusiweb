@@ -1,4 +1,5 @@
 import {
+  canvasRectToContent,
   clampViewport,
   FIT_VIEWPORT,
   fitViewport,
@@ -7,6 +8,7 @@ import {
   reduceGesture,
   revealRect,
   stepViewport,
+  viewportForRect,
   viewportsEqual,
   wheelZoomFactor,
   zoomLimits,
@@ -19,6 +21,7 @@ import type {
   KerusiViewport,
   ViewportLimits,
   ViewportPoint,
+  ViewportRect,
   ViewportSize,
 } from '@kerusiweb/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -52,6 +55,8 @@ export interface ViewportControls {
   zoomIn(): void;
   zoomOut(): void;
   resetZoom(): void;
+  /** Zooms to a rect in canvas units — a section's bounds — on a canvas of the given size. */
+  zoomToCanvasRect(rect: ViewportRect, canvas: ViewportSize): void;
   /** Pans a keyboard-focused seat into view. */
   revealSeat(node: Element | null): void;
   /** Applies `+` `-` `0` and, when the viewport has focus, the arrows. True if it acted. */
@@ -139,6 +144,33 @@ export function useViewport({
       commit(fitViewport(measured.content, measured.container, settings.current.limits), true);
     }
   }, [commit, measure]);
+
+  const zoomToCanvasRect = useCallback(
+    (rect: ViewportRect, canvas: ViewportSize) => {
+      const measured = measure();
+      if (!measured || !settings.current.enabled || !(canvas.width > 0 && canvas.height > 0)) {
+        return;
+      }
+      // The map's <svg> is the content's only child and sets its height; its
+      // width can stop short of the content's (`unitScale` caps it), so the
+      // drawn width comes from the height and the canvas's proportions.
+      const drawn = {
+        width: (measured.content.height * canvas.width) / canvas.height,
+        height: measured.content.height,
+      };
+      commit(
+        viewportForRect(
+          canvasRectToContent(rect, canvas, drawn),
+          measured.content,
+          measured.container,
+          undefined,
+          settings.current.limits,
+        ),
+        true,
+      );
+    },
+    [commit, measure],
+  );
 
   const reclamp = useCallback(() => {
     const measured = measure();
@@ -404,6 +436,7 @@ export function useViewport({
     zoomIn,
     zoomOut,
     resetZoom,
+    zoomToCanvasRect,
     revealSeat,
     handleKeyDown,
   };

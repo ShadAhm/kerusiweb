@@ -14,8 +14,8 @@ import { RowMeta, Section } from './kerusi-map.model.js';
  *  3. rows sharing an `index` in declaration order relative to one another.
  *
  * `index` is an ordering key, not a position: rows at 0 and 11 with nothing
- * between them are adjacent. Vertical space comes from declaring a row
- * (§4.2.2), never from a numeric hole here.
+ * between them are adjacent. Rows give order and adjacency, never space; an
+ * empty row (§4.2.2) still takes its place in the order and reserves nothing.
  */
 export function orderRowMeta(rows: readonly RowMeta[]): RowMeta[] {
   return [...rows]

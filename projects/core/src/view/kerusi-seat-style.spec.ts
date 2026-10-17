@@ -17,14 +17,15 @@ import {
 const MAP: KerusiMap = {
   kerusi: '1.0',
   id: 'm',
+  canvas: { width: 200, height: 200 },
+  seatSize: 28,
   legend: [{ id: 'standard', color: '#3a8f63' }, { id: 'vip' }],
   sections: [
     {
       id: 'main',
-      layout: 'grid',
       seats: [
-        { id: 'A1', row: 'A', col: 1, type: 'standard' },
-        { id: 'A2', row: 'A', col: 2, type: 'vip' },
+        { id: 'A1', row: 'A', col: 1, x: 50, y: 50, type: 'standard' },
+        { id: 'A2', row: 'A', col: 2, x: 80, y: 50, type: 'vip' },
       ],
     },
   ],

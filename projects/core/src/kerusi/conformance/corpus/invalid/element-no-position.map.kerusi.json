@@ -1,0 +1,33 @@
+{
+  "kerusi": "1.0",
+  "id": "element-no-position",
+  "canvas": {
+    "width": 100,
+    "height": 100
+  },
+  "seatSize": 10,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "elements": [
+        {
+          "id": "screen",
+          "kind": "screen"
+        }
+      ],
+      "seats": [
+        {
+          "id": "a",
+          "x": 10,
+          "y": 10,
+          "type": "standard"
+        }
+      ]
+    }
+  ]
+}

@@ -3,8 +3,9 @@
     <h1>@kerusiweb/angular</h1>
     <p>
       An Angular seat map that renders
-      <a href="https://github.com/ShadAhm/kerusi">Kerusi</a> documents directly — every positioning
-      mode, sections as real render units, and a keyboard-navigable, screen-reader-friendly SVG.
+      <a href="https://github.com/ShadAhm/kerusi">Kerusi</a> documents directly — one canvas per
+      map, every seat exactly where the document puts it, and a keyboard-navigable,
+      screen-reader-friendly SVG.
     </p>
   </div>
 
@@ -119,13 +120,13 @@
     <div class="scenario-body">
       <div class="stage" [class.demo-aisles]="aisleCss()">
         <kerusi-seatmap
+          #seatmap
           [map]="scenario().map"
           [state]="scenario().state"
           [session]="scenario().session"
           [selection]="selection()"
           (selectionChange)="onSelectionChange($event)"
           [locale]="locale()"
-          [seatSize]="scenario().seatSize ?? 28"
           [typeColors]="typeColors()"
           [showLegend]="showLegend()"
           [zoomable]="zoomable()"
@@ -250,23 +251,34 @@
             <thead>
               <tr>
                 <th scope="col">Section</th>
-                <th scope="col">Mode</th>
-                <th scope="col">Ratio</th>
+                <th scope="col">Seat size</th>
+                <th scope="col">Bounds</th>
                 <th scope="col">Seats</th>
+                <th scope="col"><span class="visually-hidden">Zoom</span></th>
               </tr>
             </thead>
             <tbody>
               @for (section of sectionSummary(); track section.id) {
                 <tr>
                   <td>{{ section.label }}</td>
+                  <td>{{ section.seatSize }}</td>
                   <td>
-                    <code>{{ section.mode }}</code>
-                    @if (section.declared === 'inferred') {
-                      <span class="muted"> (inferred)</span>
+                    <code>{{ section.bounds }}</code>
+                    @if (!section.boundsDeclared) {
+                      <span class="muted"> (from its seats)</span>
                     }
                   </td>
-                  <td>{{ section.aspectRatio }}</td>
                   <td>{{ section.seats }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="zoom-section"
+                      [disabled]="!zoomable()"
+                      (click)="seatmap.zoomToSection(section.id)"
+                    >
+                      Zoom
+                    </button>
+                  </td>
                 </tr>
               }
             </tbody>

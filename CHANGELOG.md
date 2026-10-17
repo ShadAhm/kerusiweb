@@ -6,6 +6,175 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-17
+
+**3.0.0, a breaking release** of `@kerusiweb/core`, `@kerusiweb/angular` and
+`@kerusiweb/react`, for Kerusi
+[rev 15](https://github.com/ShadAhm/kerusi/commit/918afdc)
+(ShadAhm/kerusi#10): **one canvas per map** in place of the `grid`, `freeform`
+and `mixed` positioning modes. No rev 14 map is valid under rev 15, and 2.x
+rejects every rev 15 map, so documents and code both change; see
+[Migrating from 2.x](#migrating-from-2x). Planned in #32.
+
+### Changed (breaking)
+
+1. **Documents follow rev 15.** `KerusiMap.canvas` (`{ width, height }`, in
+   abstract units with one scale on both axes) and `KerusiMap.seatSize` are
+   required. `Seat.x`/`y` and `Element.x`/`y` are required: an item's centre in
+   canvas units, no longer a percentage. A seat is a `seatSize` square centred
+   there; an element is a `width` × `height` rectangle, defaulting to the seat
+   size. `Section.seatSize` overrides the map's for one section. `row`/`col` on a
+   seat mean adjacency only (§4.3.5): `col` needs a `row`, is a positive integer,
+   and is unique within its row.
+
+2. **The map is one SVG** (D1). `<svg class="kerusi-seatmap__svg">`, whose
+   `viewBox` is the canvas, holds every section as a
+   `<g class="kerusi-section" data-section-id role="group">` named by its label.
+   The per-section `<section class="kerusi-seatmap__section">` wrapper, its
+   `<h3 class="kerusi-section-label">` heading and each section's own
+   `svg.kerusi-section-svg` are gone. `KerusiSection` (React) and
+   `KerusiSectionComponent` (Angular, now selector `g[kerusi-section]`) render a
+   `<g>` and take the placed section as `layout`, plus `label` and `showLabel`.
+   Both bindings draw identical SVG, held to it by a shared parity test.
+
+3. **Nothing is laid out any more.** Every seat is drawn at its `x`/`y`, at its
+   seat size and rotation (§4.5): no cell sizes, no row pitch, no percentages,
+   and no position ever derived from `row`, `col`, a row's `index`, or a row
+   shape. An empty row (§4.2.2) still reaches the render model with
+   `empty: true`, but reserves no space.
+
+4. **Right-to-left mirrors the whole canvas** (D3): `x' = canvas.width − x`,
+   rotation negated, text kept readable. Sections and rows are no longer
+   mirrored one by one.
+
+5. **A hidden section leaves its space empty** (D4). Hiding it, or leaving it
+   out of `sectionIds`, removes its group; the canvas keeps its size.
+
+6. **Section labels are drawn inside the map**, just above a section's
+   `bounds` (or inside their top-left corner when the canvas has no room above),
+   and only for a section that declares `bounds` (D5). Every section's label is
+   its group's accessible name; the drawn text is `aria-hidden`.
+   `showSectionLabels` keeps its meaning.
+
+7. **Keyboard navigation follows adjacency** (D6). Left and right move along a
+   row in `col` order and jump across an aisle (a skipped `col`) rather than
+   stopping at it. Up and down move to the next row in §4.2.1 order and pick the
+   seat nearest on the canvas. The arrows follow the screen: a row whose cols run
+   right to left, a mirrored map, or rows ordered up the screen swap them. Seats
+   with no `row` keep the old heuristic, banded by `y` and ordered by `x`.
+
+8. **Render model** (`@kerusiweb/core`). `RenderMap` gains `canvas` and
+   `seatSize`. `RenderSection` loses `layoutMode` and `aspectRatio`, and gains
+   `seatSize`, `bounds` (declared, or the box around its content) and
+   `boundsDeclared`. `RenderSeat.x`/`y` are required canvas units, and it gains
+   `size` and `besideAisle`. `RenderElement` loses `row`, `rowIndex` and `col`,
+   and its `width`/`height` are always set. Seats within a row are ordered by
+   `col`, then `x`.
+
+9. **`computeSectionLayout()` is replaced by `computeMapLayout(renderMap, { rtl })`**,
+   returning `{ width, height, sections: [{ section, seats, elements, bounds, labelAnchor }] }`.
+   `PlacedSeat` and `PlacedElement` keep their shape. An element's smallest font
+   is now a fifth of the seat size rather than a fixed 6 units.
+
+10. **Validator rules.** Removed with the positioning modes:
+    `section-layout-inconsistent`, `section-layout-grid`,
+    `section-layout-freeform`, `section-layout-mixed`,
+    `element-layout-mismatch`, `element-span-invalid`,
+    `element-row-span-overrun` and `element-row-unresolved`. Added: `map-canvas`,
+    `map-canvas-size`, `map-seat-size`, `section-seat-size`,
+    `seat-outside-canvas`, `element-outside-canvas`, `element-size-invalid`,
+    `seat-col-without-row`, `seat-col-invalid`, `seat-row-col-duplicate`,
+    `row-shape-kind`, `row-shape-invalid`, `row-shape-cols-reversed`,
+    `row-id-duplicate`, `seat-type-id-duplicate` and `price-tier-id-duplicate`.
+    `seat-position` and `element-position` are now errors for a missing `x` or
+    `y`. Two findings are warnings: `seat-overlap` (§4.3.1; footprints that only
+    touch don't overlap) and `seat-outside-section-bounds`. The rule ids match
+    the reference validator's (D7).
+
+11. **`SeatAriaStrings.besideAisle` is required**: a seat next to an aisle says
+    so ("next to an aisle"), worked out from adjacency. Add it if you supply
+    your own strings.
+
+### Removed
+
+- **Inputs and props**: `seatSize`, `seatGap` and `freeformBasis`, and
+  `aspectRatio` and `seatSize` in `SectionRenderOptions` (D2). The document fixes
+  seat size and position now; `unitScale` (CSS pixels per canvas unit, at most)
+  is the one sizing control left.
+- **Core exports**: `SectionLayoutMode`, `checkSectionLayout`,
+  `resolveSectionLayoutMode`, `inferSectionLayoutMode`, `hasXY`, `hasCol`,
+  `hasAnyCoordinate`, `Positioned`, `computeSectionLayout`, `SectionLayout` and
+  `SectionLayoutOptions`.
+- **Document members**: `Section.layout`, `Section.aspectRatio`, and
+  `Element.row`/`col`. Following §7, a consumer ignores them as unknown members
+  rather than rejecting a map that still carries them; a rev 14 map is rejected
+  anyway, because it has no `canvas` or `seatSize`.
+- No rev 14 → 15 upgrader ships (D8).
+
+### Added
+
+1. **`Section.bounds`, `Section.seatSize` and `RowMeta.shape`** in the document
+   model, with `Canvas`, `Bounds`, `Point` and `RowShape` types.
+
+2. **Canvas geometry in core** (`kerusi-geometry`), with the reference
+   validator's semantics: `seatSizeOf`, `areNeighbours`, `guidePoint` and
+   `isOnGuide` (for editors; renderers never read a row shape), `footprintOf`
+   and `footprintsOverlap`.
+
+3. **`zoomToSection(sectionId)`** on the React handle and the Angular
+   component: zooms a `zoomable` map to a section's `bounds`, or to the box
+   around its content. Core adds `viewportForRect`, `canvasRectToContent`,
+   `contentRectToContainer` and `revealContentRect`.
+
+4. **A maximized zoomable map fits the whole canvas** to the screen at the
+   canvas's own proportions, through a `--kerusi-canvas-aspect` property.
+
+5. **A Town Hall demo**, the standard's §6.7: two sections side by side, a
+   curved balcony and a round table. Both demos' sections tables show each
+   section's seat size and bounds, with a zoom-to-section button.
+
+6. **The conformance corpus** is re-vendored at rev 15 (`spec-1.0.0-draft.15`,
+   `d16fd99`). Every valid example renders with no error and no warning, and
+   every seat is asserted to be drawn at its document position, size and
+   rotation.
+
+### Migrating from 2.x
+
+**Documents.** Give each map a `canvas` and a `seatSize`, and every seat and
+element an `x`/`y`: its centre, in canvas units. Then drop `Section.layout`,
+`Section.aspectRatio` and any element's `row`/`col`. The rev 15 changelog in the
+standard (§11) has the migration notes for each mode; in short:
+
+- **A `grid` section**: choose a seat size and a pitch (the old defaults were 28
+  and 34), and put each seat at `x = seatSize + (col − firstCol) × pitch`,
+  `y = top + seatSize + rowIndex × pitch`, which is where 2.x drew it. Keep `row`
+  and `col` for adjacency. An element spanning cells becomes one rectangle
+  centred over them. Space an empty row used to reserve is now simply space
+  the seats' own `y` leave.
+- **A `freeform` section**: multiply each percentage by the section's width (or,
+  for `y`, its height) to get canvas units. 2.x drew a freeform section 1000
+  units wide and `1000 / aspectRatio` tall.
+- **A `mixed` section**: as freeform; its `col`s stay as they are.
+- **Several sections**: they now share one canvas, so give each its own region
+  of it, and declare `bounds` where you want a drawn label or zoom to section.
+
+The demo fixtures were migrated this way, with a throwaway script that ran
+2.x's layout code and checked every seat and element lands where 2.x drew it.
+
+**Code.**
+
+- Remove `seatSize`, `seatGap` and `freeformBasis` from `<kerusi-seatmap>` /
+  `<KerusiSeatmap>`, and `aspectRatio` and `seatSize` from `sectionOverrides`.
+  Use `unitScale` to set how large the map draws.
+- If you style or query the markup, replace `.kerusi-seatmap__section`,
+  `.kerusi-seatmap__section--grid` (and `--freeform`, `--mixed`),
+  `.kerusi-section-svg` and the section `<h3>` with `svg.kerusi-seatmap__svg`
+  and `g.kerusi-section[data-section-id]`.
+- If you render sections yourself, use `computeMapLayout(renderMap, { rtl })`
+  for one canvas instead of `computeSectionLayout()` per section, and read
+  `RenderSeat.x`/`y`/`size` instead of `col`, `rowIndex` or the layout mode.
+- If you pass your own `ariaStrings`, add `besideAisle`.
+
 ## [2.3.0] - 2026-10-16
 
 ### Added
@@ -532,6 +701,7 @@ Carried over from the legacy directive:
 - Rendering is per-instance (no global element id lookup), so multiple pickers
   can coexist on one page.
 
+[3.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v3.0.0
 [2.3.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.3.0
 [2.2.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.2.0
 [2.1.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.1.0

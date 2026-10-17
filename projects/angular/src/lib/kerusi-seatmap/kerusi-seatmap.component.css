@@ -8,19 +8,13 @@
   gap: 1.25rem;
 }
 
-.kerusi-seatmap__section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.kerusi-section-label {
-  margin: 0;
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  opacity: 0.75;
+/* The viewBox is the document's canvas and carries its proportions; CSS only
+   decides how wide it gets. */
+.kerusi-seatmap__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
 }
 
 /* Visually hidden, still announced. */
@@ -42,7 +36,7 @@
    map renders none of these elements. Colours are bound inline from the
    `--kerusi-*` tokens, so this file owns layout, motion and the focus ring. */
 
-/* Same column the sections sit in without the wrapper, so turning a feature on
+/* Same column the map sits in without the wrapper, so turning a feature on
    does not move anything. */
 .kerusi-seatmap__stage {
   display: flex;
@@ -108,7 +102,7 @@
   -webkit-user-select: none;
 }
 
-/* The same column the sections sit in outside a viewport. */
+/* The same column the map sits in outside a viewport. */
 .kerusi-viewport__content {
   display: flex;
   flex-direction: column;
@@ -153,4 +147,12 @@
 .kerusi-seatmap--maximized .kerusi-viewport {
   flex: 1 1 auto;
   min-height: 0;
+  container-type: size;
+}
+
+/* Fit the whole canvas to the screen: as wide as the viewport allows, or as
+   wide as its height allows at the canvas's proportions, whichever is less.
+   `--kerusi-canvas-aspect` is the canvas's width over its height, set inline. */
+.kerusi-seatmap--maximized .kerusi-viewport__content {
+  width: min(100cqw, 100cqh * var(--kerusi-canvas-aspect, 1));
 }

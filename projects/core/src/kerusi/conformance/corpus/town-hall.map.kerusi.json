@@ -1,0 +1,309 @@
+{
+  "kerusi": "1.0",
+  "id": "town-hall",
+  "name": "Town Hall",
+  "canvas": {
+    "width": 1600,
+    "height": 900
+  },
+  "seatSize": 40,
+  "legend": [
+    {
+      "id": "std",
+      "label": "Standard",
+      "defaultPriceTier": "regular"
+    },
+    {
+      "id": "wheelchair",
+      "label": "Wheelchair space",
+      "defaultPriceTier": "regular"
+    }
+  ],
+  "priceTiers": [
+    {
+      "id": "regular",
+      "price": {
+        "amount": 2500,
+        "currency": "MYR"
+      }
+    }
+  ],
+  "sections": [
+    {
+      "id": "stalls",
+      "label": "Stalls",
+      "index": 0,
+      "bounds": {
+        "x": 280,
+        "y": 60,
+        "width": 1180,
+        "height": 680
+      },
+      "rows": [
+        {
+          "id": "A",
+          "label": "A",
+          "shape": {
+            "line": {
+              "from": [
+                320,
+                400
+              ],
+              "to": [
+                1088,
+                400
+              ],
+              "cols": [
+                1,
+                9
+              ]
+            }
+          }
+        },
+        {
+          "id": "T1",
+          "label": "Table 1",
+          "shape": {
+            "circle": {
+              "center": [
+                1300,
+                300
+              ],
+              "radius": 70,
+              "start": -90,
+              "cols": [
+                1,
+                4
+              ]
+            }
+          }
+        }
+      ],
+      "elements": [
+        {
+          "id": "stage",
+          "kind": "stage",
+          "label": "Stage",
+          "x": 800,
+          "y": 126,
+          "width": 800,
+          "height": 90
+        }
+      ],
+      "seats": [
+        {
+          "id": "A1",
+          "row": "A",
+          "col": 1,
+          "x": 320,
+          "y": 400,
+          "type": "std"
+        },
+        {
+          "id": "A2",
+          "row": "A",
+          "col": 2,
+          "x": 416,
+          "y": 400,
+          "type": "std"
+        },
+        {
+          "id": "A3",
+          "row": "A",
+          "col": 3,
+          "x": 512,
+          "y": 400,
+          "type": "std"
+        },
+        {
+          "id": "A4",
+          "row": "A",
+          "col": 4,
+          "x": 608,
+          "y": 400,
+          "type": "std"
+        },
+        {
+          "id": "A6",
+          "row": "A",
+          "col": 6,
+          "x": 800,
+          "y": 400,
+          "type": "std"
+        },
+        {
+          "id": "A7",
+          "row": "A",
+          "col": 7,
+          "x": 896,
+          "y": 400,
+          "type": "std"
+        },
+        {
+          "id": "A8",
+          "row": "A",
+          "col": 8,
+          "x": 992,
+          "y": 400,
+          "type": "std"
+        },
+        {
+          "id": "A9",
+          "row": "A",
+          "col": 9,
+          "x": 1100,
+          "y": 440,
+          "type": "std"
+        },
+        {
+          "id": "T1-1",
+          "row": "T1",
+          "col": 1,
+          "x": 1300,
+          "y": 230,
+          "type": "std",
+          "companions": [
+            "T1-2",
+            "T1-3",
+            "T1-4"
+          ]
+        },
+        {
+          "id": "T1-2",
+          "row": "T1",
+          "col": 2,
+          "x": 1370,
+          "y": 300,
+          "type": "std",
+          "companions": [
+            "T1-1",
+            "T1-3",
+            "T1-4"
+          ]
+        },
+        {
+          "id": "T1-3",
+          "row": "T1",
+          "col": 3,
+          "x": 1300,
+          "y": 370,
+          "type": "std",
+          "companions": [
+            "T1-1",
+            "T1-2",
+            "T1-4"
+          ]
+        },
+        {
+          "id": "T1-4",
+          "row": "T1",
+          "col": 4,
+          "x": 1230,
+          "y": 300,
+          "type": "std",
+          "companions": [
+            "T1-1",
+            "T1-2",
+            "T1-3"
+          ]
+        },
+        {
+          "id": "S1",
+          "x": 1408,
+          "y": 702,
+          "type": "wheelchair"
+        }
+      ]
+    },
+    {
+      "id": "balcony",
+      "label": "Balcony",
+      "index": 1,
+      "bounds": {
+        "x": 440,
+        "y": 580,
+        "width": 720,
+        "height": 220
+      },
+      "rows": [
+        {
+          "id": "L",
+          "label": "L",
+          "shape": {
+            "arc": {
+              "center": [
+                800,
+                60
+              ],
+              "radius": 640,
+              "start": 120,
+              "sweep": -60,
+              "cols": [
+                1,
+                7
+              ]
+            }
+          }
+        }
+      ],
+      "seats": [
+        {
+          "id": "L1",
+          "row": "L",
+          "col": 1,
+          "x": 480,
+          "y": 614,
+          "type": "std"
+        },
+        {
+          "id": "L2",
+          "row": "L",
+          "col": 2,
+          "x": 581,
+          "y": 661,
+          "type": "std"
+        },
+        {
+          "id": "L3",
+          "row": "L",
+          "col": 3,
+          "x": 689,
+          "y": 690,
+          "type": "std"
+        },
+        {
+          "id": "L4",
+          "row": "L",
+          "col": 4,
+          "x": 800,
+          "y": 700,
+          "type": "std"
+        },
+        {
+          "id": "L5",
+          "row": "L",
+          "col": 5,
+          "x": 930,
+          "y": 760,
+          "type": "std"
+        },
+        {
+          "id": "L6",
+          "row": "L",
+          "col": 6,
+          "x": 1019,
+          "y": 661,
+          "type": "std"
+        },
+        {
+          "id": "L7",
+          "row": "L",
+          "col": 7,
+          "x": 1120,
+          "y": 614,
+          "type": "std"
+        }
+      ]
+    }
+  ]
+}

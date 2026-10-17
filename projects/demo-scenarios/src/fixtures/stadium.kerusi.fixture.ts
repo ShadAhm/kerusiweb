@@ -1,20 +1,32 @@
 import { KerusiMap, KerusiState, Seat } from '@kerusiweb/core';
 
 /**
- * A stadium bowl in `mixed` mode — the only mode in which a seat may carry both
- * addressing methods (§4.5).
- *
- * The stands wrap the pitch, so each seat needs `x`/`y` to sit on its arc and
- * an angle to face inward. But "the next seat along" still has to mean
- * something for a keyboard or a screen reader, and that is exactly what `col`
- * is for (§4.3.1): coordinates place the seat, `col` orders it.
+ * A stadium bowl. The stands wrap the pitch, so each seat sits where its stand
+ * puts it and turns to face inward. But "the next seat along" still has to
+ * mean something for a keyboard or a screen reader, and that is exactly what
+ * `row` and `col` are for (§4.3.5): `x`/`y` place the seat, `col` orders it.
  */
+
+/**
+ * The bowl is 1500 × 1000 canvas units, with room above it for its label. The
+ * stands are worked out in percent of the bowl and scaled onto the canvas once,
+ * by {@link px} and {@link py}.
+ */
+const WIDTH = 1500;
+const HEIGHT = 1000;
+const TOP = 33;
+const SEAT = 33;
+
+/** A percentage across the bowl, in canvas units. */
+const px = (percent: number) => (percent * WIDTH) / 100;
+/** A percentage down the bowl, in canvas units. */
+const py = (percent: number) => TOP + (percent * HEIGHT) / 100;
 
 /**
  * A block of seats along a straight or angled stand.
  *
  * @param angle Degrees the stand is rotated about the pitch center.
- * @param radius Distance from the center, 0–50 (percent of the section).
+ * @param radius Distance from the center, 0–50 (percent of the bowl).
  */
 function stand(
   prefix: string,
@@ -41,8 +53,8 @@ function stand(
         row: `${prefix}-${r + 1}`,
         // `col` is the adjacency ordinal, not a screen position.
         col: c + 1,
-        x: 50 + along.x * offset + out.x * depth,
-        y: 50 + along.y * offset + out.y * depth,
+        x: px(50 + along.x * offset + out.x * depth),
+        y: py(50 + along.y * offset + out.y * depth),
         rotation: angle + 180,
         type,
       });
@@ -57,6 +69,8 @@ export const STADIUM_MAP: KerusiMap = {
   name: 'Stadium Nasional Bukit Jalil',
   domain: 'stadium',
   locale: 'en',
+  canvas: { width: WIDTH, height: TOP + HEIGHT },
+  seatSize: SEAT,
   legend: [
     {
       id: 'main',
@@ -87,33 +101,72 @@ export const STADIUM_MAP: KerusiMap = {
       id: 'bowl',
       index: 1,
       label: { en: 'Bowl', ms: 'Mangkuk' },
-      layout: 'mixed',
-      aspectRatio: '3:2',
+      bounds: { x: 0, y: TOP, width: WIDTH, height: HEIGHT },
       elements: [
-        { id: 'pitch', kind: 'pitch', label: 'PITCH', x: 50, y: 50, width: 34, height: 40 },
-        { id: 'gate-n', kind: 'exit', label: 'Gate N', x: 50, y: 3, width: 9, height: 4 },
-        { id: 'gate-s', kind: 'exit', label: 'Gate S', x: 50, y: 97, width: 9, height: 4 },
+        {
+          id: 'pitch',
+          kind: 'pitch',
+          label: 'PITCH',
+          x: px(50),
+          y: py(50),
+          width: 510,
+          height: 400,
+        },
+        {
+          id: 'gate-n',
+          kind: 'exit',
+          label: 'Gate N',
+          x: px(50),
+          y: py(3),
+          width: 135,
+          height: 40,
+        },
+        {
+          id: 'gate-s',
+          kind: 'exit',
+          label: 'Gate S',
+          x: px(50),
+          y: py(97),
+          width: 135,
+          height: 40,
+        },
         // Free text: drawn as bare text, no box (kind 'label').
-        { id: 'name-n', kind: 'label', label: 'North Stand', x: 50, y: 36, width: 24, height: 5 },
-        { id: 'name-s', kind: 'label', label: 'South Stand', x: 50, y: 64, width: 24, height: 5 },
+        {
+          id: 'name-n',
+          kind: 'label',
+          label: 'North Stand',
+          x: px(50),
+          y: py(36),
+          width: 360,
+          height: 50,
+        },
+        {
+          id: 'name-s',
+          kind: 'label',
+          label: 'South Stand',
+          x: px(50),
+          y: py(64),
+          width: 360,
+          height: 50,
+        },
         {
           id: 'name-w',
           kind: 'label',
           label: 'West Stand',
-          x: 36,
-          y: 50,
-          width: 18,
-          height: 5,
+          x: px(36),
+          y: py(50),
+          width: 270,
+          height: 50,
           rotation: -90,
         },
         {
           id: 'name-e',
           kind: 'label',
           label: 'East Stand',
-          x: 64,
-          y: 50,
-          width: 18,
-          height: 5,
+          x: px(64),
+          y: py(50),
+          width: 270,
+          height: 50,
           rotation: 90,
         },
       ],

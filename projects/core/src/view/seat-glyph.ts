@@ -7,7 +7,7 @@ import {
   seatSelectedFrame,
   seatShapePath,
 } from '../render/seat-shapes.js';
-import { PlacedSeat } from '../render/section-layout.js';
+import { PlacedSeat } from '../render/map-layout.js';
 import { classList, KerusiSeatStyle } from './kerusi-seat-style.js';
 import {
   KerusiSeatmapColors,

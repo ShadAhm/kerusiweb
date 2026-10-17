@@ -1,6 +1,6 @@
-import { KerusiMap, RowMeta, Seat, Section } from '../kerusi/kerusi-map.model.js';
+import { Bounds, Canvas, KerusiMap, RowMeta, Seat, Section } from '../kerusi/kerusi-map.model.js';
 import { KerusiState } from '../kerusi/kerusi-state.model.js';
-import { resolveSectionLayoutMode, SectionLayoutMode } from '../kerusi/kerusi-layout-mode.js';
+import { areNeighbours, seatSizeOf } from '../kerusi/kerusi-geometry.js';
 import { resolveLocalizedText, resolveMapLocale } from '../kerusi/kerusi-locale.js';
 import { resolveSeatPrice, resolveTierPrice } from '../kerusi/kerusi-price.js';
 import { orderRowMeta } from '../kerusi/kerusi-rows.js';
@@ -15,8 +15,11 @@ import {
   SeatRenderStatus,
 } from './render-model.js';
 
-/** The default section proportions when none is declared (§4.5). */
-const DEFAULT_ASPECT_RATIO = '1:1';
+/**
+ * The seat size used when a document gives none at all. Only an invalid
+ * document lacks `KerusiMap.seatSize`; this lets it draw something anyway.
+ */
+const FALLBACK_SEAT_SIZE = 28;
 
 /** Which statuses a seat may be picked in, unless the caller says otherwise. */
 export const DEFAULT_SELECTABLE_STATUSES: readonly SeatRenderStatus[] = ['available'];
@@ -36,16 +39,20 @@ export interface BuildRenderModelOptions {
  * Builds the renderer's view of a `KerusiMap` with its `KerusiState` merged in.
  *
  * Everything the standard makes a consumer resolve happens here, once:
- *  - sections ordered by `Section.index`, and each given its own layout mode
- *    per §4.5 — this is what lets a grid balcony and a freeform orchestra
- *    coexist in one map;
+ *  - sections ordered by `Section.index`, each with its seat size (§4.5) and
+ *    its extent on the canvas resolved;
  *  - every row a section declares materialized, empty rows included, in the
  *    §4.2.1 order, with seats grouped into them by `Seat.row` and ordered by
- *    `col` (grid, mixed) or `x` (freeform);
+ *    `col`, then `x`;
+ *  - each element's missing `width`/`height` defaulted to the seat size
+ *    (§4.4.1);
  *  - availability merged by `Seat.id`, honoring §5.1's sparse rule that an
  *    absent seat is available;
  *  - price resolved through the §4.9 precedence order;
  *  - `Section.label` and `SeatType.label` localized against the map's locale.
+ *
+ * Positions are copied, never computed: every seat and element keeps the
+ * document's `x`/`y` in canvas units (§4.5).
  *
  * It does NOT validate — call `validateKerusiMap` or `checkKerusiMap` first.
  * Given an invalid document it builds the best model it can rather than
@@ -62,10 +69,14 @@ export function buildRenderModel(
   const seatsById = new Map<string, RenderSeat>();
   const typeCounts = new Map<string, number>();
   const currencies = new Set<string>();
+  const seatSize = seatSizeOf(map) ?? FALLBACK_SEAT_SIZE;
+  const canvas = resolveCanvas(map, seatSize);
 
   const sections = selectSections(map, options.sectionIds).map((section) =>
     buildSection(section, {
       map,
+      canvas,
+      seatSize,
       state,
       locale,
       selectableStatuses,
@@ -94,6 +105,8 @@ export function buildRenderModel(
     name: map.name,
     locale,
     domain: map.domain,
+    canvas,
+    seatSize,
     sections,
     legend,
     // §4.9 forbids mixing currencies, so the first is the map's.
@@ -104,6 +117,10 @@ export function buildRenderModel(
 
 interface BuildContext {
   map: KerusiMap;
+  /** The map's canvas, already resolved. */
+  canvas: Canvas;
+  /** The map-wide seat size, already defaulted. */
+  seatSize: number;
   state?: KerusiState;
   locale: string;
   selectableStatuses: ReadonlySet<SeatRenderStatus>;
@@ -115,17 +132,23 @@ interface BuildContext {
 }
 
 function buildSection(section: Section, ctx: BuildContext): RenderSection {
-  const layoutMode = resolveSectionLayoutMode(section);
-  const rows = buildRows(section, layoutMode, ctx);
+  const seatSize = seatSizeOf({ seatSize: ctx.seatSize }, section) ?? ctx.seatSize;
+  const rows = buildRows(section, seatSize, ctx);
+  const seats = rows.flatMap((r) => r.seats);
+  const elements = buildElements(section, seatSize);
+  const declared = isBounds(section.bounds) ? section.bounds : undefined;
 
   return {
     id: section.id,
     label: resolveLocalizedText(section.label, ctx.locale),
-    layoutMode,
-    aspectRatio: section.aspectRatio ?? DEFAULT_ASPECT_RATIO,
+    seatSize,
+    // A section with nothing in it and no declared bounds has no extent of its
+    // own; the whole canvas is the least surprising thing to zoom to.
+    bounds: declared ?? contentBounds(seats, elements) ?? { x: 0, y: 0, ...ctx.canvas },
+    boundsDeclared: declared !== undefined,
     rows,
-    seats: rows.flatMap((r) => r.seats),
-    elements: buildElements(section, rows),
+    seats,
+    elements,
     directions: buildDirections(section, ctx.locale),
     source: section,
   };
@@ -156,20 +179,15 @@ function buildDirections(section: Section, locale: string): RenderDirection[] | 
  * `Section.rows` is not a container (§4.2) — seats never live inside a row — but
  * where it is present it *is* the section's complete row registry (§4.2.2), so
  * the rows come from it rather than from the seats that happen to reference
- * one. That is what makes an **empty row** real: a `RowMeta` no seat mentions
- * still takes a slot, and the grid layout reserves a row of vertical space for
- * it. Without that, a document could not open the throw between a cinema screen
- * and row A, because rows would exist only where seats did.
+ * one. An **empty row**, a `RowMeta` no seat mentions, still takes its place in
+ * the order. It reserves no space: where seats are drawn is up to their own
+ * `x`/`y`.
  *
  * With no registry, a seat's `row` is opaque free text (§4.6) and the rows are
  * exactly those the seats name, in first-appearance order — a document that
  * declares no row metadata still renders in the order its author wrote it.
  */
-function buildRows(
-  section: Section,
-  layoutMode: SectionLayoutMode,
-  ctx: BuildContext,
-): RenderRow[] {
+function buildRows(section: Section, seatSize: number, ctx: BuildContext): RenderRow[] {
   const byRowKey = new Map<string, Seat[]>();
   const firstSeen = new Map<string, number>();
 
@@ -202,14 +220,15 @@ function buildRows(
   }
 
   return ordered.map(({ key, meta }, rowIndex) => {
-    const seats = byRowKey.get(key) ?? [];
+    const seats = sortSeats(byRowKey.get(key) ?? []);
     const label = meta?.label ?? (key || undefined);
+    const aisles = aisleSeats(seats);
     const row: RenderRow = {
       id: key,
       label,
       index: rowIndex,
-      seats: sortSeats(seats, layoutMode).map((seat) =>
-        buildSeat(seat, section, { rowIndex, rowLabel: label }, ctx),
+      seats: seats.map((seat) =>
+        buildSeat(seat, section, { rowIndex, rowLabel: label, seatSize }, aisles.has(seat), ctx),
       ),
       empty: seats.length === 0,
     };
@@ -218,30 +237,55 @@ function buildRows(
 }
 
 /**
- * Orders seats within a row. `col` is the adjacency ordinal in grid and mixed
- * sections — including mixed, where `x`/`y` places the seat but `col` is what
- * "the seat to the right" means (§4.3.1). Freeform rows have no columns, so
- * they order by `x`.
+ * Orders seats within a row: by `col`, the adjacency ordinal that says what
+ * "the next seat" means (§4.3.5), then by `x`. Seats with no `col` follow the
+ * ones that have one, ordered by `x` alone. Declaration order breaks any tie
+ * left.
  */
-function sortSeats(seats: readonly Seat[], layoutMode: SectionLayoutMode): Seat[] {
-  const byCol = layoutMode !== 'freeform';
+function sortSeats(seats: readonly Seat[]): Seat[] {
+  const colKey = (seat: Seat) => (isFiniteNumber(seat.col) ? seat.col : Number.POSITIVE_INFINITY);
   return [...seats]
     .map((seat, order) => ({ seat, order }))
     .sort((a, b) => {
-      const left = byCol ? a.seat.col : a.seat.x;
-      const right = byCol ? b.seat.col : b.seat.x;
-      if (left === undefined || right === undefined || left === right) {
-        return (a.seat.y ?? 0) - (b.seat.y ?? 0) || a.order - b.order;
+      const left = colKey(a.seat);
+      const right = colKey(b.seat);
+      if (left !== right) {
+        return left < right ? -1 : 1;
       }
-      return left - right;
+      return coord(a.seat.x) - coord(b.seat.x) || a.order - b.order;
     })
     .map((entry) => entry.seat);
+}
+
+/**
+ * The seats of one ordered row that sit beside an aisle: two seats next to
+ * each other in the row's order that are not neighbours (§4.3.5), because the
+ * `col` between them is skipped. Both sides of the gap are beside it. A row's
+ * ends are not aisles, and a seat without a `col` says nothing about adjacency.
+ */
+function aisleSeats(seats: readonly Seat[]): Set<Seat> {
+  const beside = new Set<Seat>();
+  for (let i = 1; i < seats.length; i++) {
+    const a = seats[i - 1];
+    const b = seats[i];
+    if (
+      Number.isInteger(a.col) &&
+      Number.isInteger(b.col) &&
+      a.col !== b.col &&
+      !areNeighbours(a, b)
+    ) {
+      beside.add(a);
+      beside.add(b);
+    }
+  }
+  return beside;
 }
 
 function buildSeat(
   seat: Seat,
   section: Section,
-  row: { rowIndex: number; rowLabel?: string },
+  row: { rowIndex: number; rowLabel?: string; seatSize: number },
+  besideAisle: boolean,
   ctx: BuildContext,
 ): RenderSeat {
   const type = ctx.legendById.get(seat.type) ?? { id: seat.type };
@@ -262,9 +306,11 @@ function buildSeat(
     rowLabel: row.rowLabel,
     rowIndex: row.rowIndex,
     col: seat.col,
-    x: seat.x,
-    y: seat.y,
+    x: coord(seat.x),
+    y: coord(seat.y),
+    size: row.seatSize,
     rotation: seat.rotation,
+    besideAisle,
     type,
     typeLabel: resolveLocalizedText(type.label, ctx.locale) ?? type.id,
     typeColor: type.color,
@@ -287,26 +333,99 @@ function buildSeat(
 
 /**
  * Carries elements through with their `id` intact — the pre-1.0 adapter dropped
- * it, leaving the render model with no element identity. A grid-addressed
- * element gets its row's index so the layout can place it in the cell grid.
+ * it, leaving the render model with no element identity. A missing `width` or
+ * `height` becomes the section's seat size (§4.4.1).
  */
-function buildElements(section: Section, rows: readonly RenderRow[]): RenderElement[] {
-  const rowIndexById = new Map(rows.map((r) => [r.id, r.index]));
-
+function buildElements(section: Section, seatSize: number): RenderElement[] {
   return (section.elements ?? []).map((element) => ({
     id: element.id,
     kind: element.kind,
     label: element.label,
-    row: element.row,
-    rowIndex: element.row !== undefined ? rowIndexById.get(element.row) : undefined,
-    col: element.col,
-    x: element.x,
-    y: element.y,
-    width: element.width,
-    height: element.height,
+    x: coord(element.x),
+    y: coord(element.y),
+    width: positiveOr(element.width, seatSize),
+    height: positiveOr(element.height, seatSize),
     rotation: element.rotation,
     source: element,
   }));
+}
+
+/**
+ * The box around a section's seat and element footprints, each turned by its
+ * rotation. `undefined` for a section with nothing in it.
+ */
+function contentBounds(
+  seats: readonly RenderSeat[],
+  elements: readonly RenderElement[],
+): Bounds | undefined {
+  const boxes = [
+    ...seats.map((s) => rotatedBox(s.x, s.y, s.size, s.size, s.rotation)),
+    ...elements.map((e) => rotatedBox(e.x, e.y, e.width, e.height, e.rotation)),
+  ];
+  if (boxes.length === 0) {
+    return undefined;
+  }
+  const left = Math.min(...boxes.map((b) => b.left));
+  const top = Math.min(...boxes.map((b) => b.top));
+  const right = Math.max(...boxes.map((b) => b.right));
+  const bottom = Math.max(...boxes.map((b) => b.bottom));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/** The axis-aligned box around a `width` × `height` rectangle centred on `x`/`y` and turned. */
+function rotatedBox(x: number, y: number, width: number, height: number, rotation?: number) {
+  const theta = ((isFiniteNumber(rotation) ? rotation : 0) * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(theta));
+  const sin = Math.abs(Math.sin(theta));
+  const halfWidth = (width * cos + height * sin) / 2;
+  const halfHeight = (width * sin + height * cos) / 2;
+  return { left: x - halfWidth, top: y - halfHeight, right: x + halfWidth, bottom: y + halfHeight };
+}
+
+/**
+ * `KerusiMap.canvas`, or — for an invalid document missing it — the smallest
+ * canvas from the origin that holds every seat, so it still draws.
+ */
+function resolveCanvas(map: KerusiMap, seatSize: number): Canvas {
+  const canvas = map.canvas;
+  if (canvas && isPositive(canvas.width) && isPositive(canvas.height)) {
+    return { width: canvas.width, height: canvas.height };
+  }
+  const seats = (map.sections ?? []).flatMap((s) => s.seats ?? []);
+  const extent = (axis: 'x' | 'y') =>
+    Math.max(seatSize, ...seats.map((seat) => coord(seat[axis]) + seatSize / 2));
+  return { width: extent('x'), height: extent('y') };
+}
+
+function isBounds(bounds: Bounds | undefined): bounds is Bounds {
+  return (
+    !!bounds &&
+    isFiniteNumber(bounds.x) &&
+    isFiniteNumber(bounds.y) &&
+    isPositive(bounds.width) &&
+    isPositive(bounds.height)
+  );
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isPositive(value: unknown): value is number {
+  return isFiniteNumber(value) && value > 0;
+}
+
+function positiveOr(value: number | undefined, fallback: number): number {
+  return isPositive(value) ? value : fallback;
+}
+
+/**
+ * A coordinate, or the canvas origin when an invalid document omits it. `x`
+ * and `y` are required (§4.3.1, §4.4.1); this only keeps such a document
+ * drawable while the validator reports it.
+ */
+function coord(value: number | undefined): number {
+  return isFiniteNumber(value) ? value : 0;
 }
 
 /** Sections in `Section.index` order, optionally filtered to an explicit set. */

@@ -23,16 +23,18 @@ const map: KerusiMap = {
   kerusi: '1.0',
   id: 'bus-42',
   domain: 'bus',
+  canvas: { width: 192, height: 56 },
+  seatSize: 28,
   legend: [{ id: 'standard', label: 'Standard' }],
   sections: [
     {
       id: 'main',
       seats: [
-        { id: '1A', row: '1', col: 1, type: 'standard' },
-        { id: '1B', row: '1', col: 2, type: 'standard' },
+        { id: '1A', row: '1', col: 1, x: 28, y: 28, type: 'standard' },
+        { id: '1B', row: '1', col: 2, x: 62, y: 28, type: 'standard' },
         // col 3 is omitted; that gap is the aisle (no filler seat, §4.3.2)
-        { id: '1C', row: '1', col: 4, type: 'standard' },
-        { id: '1D', row: '1', col: 5, type: 'standard' },
+        { id: '1C', row: '1', col: 4, x: 130, y: 28, type: 'standard' },
+        { id: '1D', row: '1', col: 5, x: 164, y: 28, type: 'standard' },
       ],
     },
   ],
@@ -56,158 +58,139 @@ export class BusComponent {
 }
 ```
 
-That section declares no `layout`. Every seat has `col` and none has `x`/`y`, so
-§4.5 infers `grid`.
+Every seat says where it is (`x`/`y`, its centre on the canvas) and who its
+neighbours are (`row`/`col`). The two are independent: moving a seat never
+changes its neighbours, and renumbering a `col` never moves a seat.
 
-## Positioning modes (§4.5)
+## The canvas (§4.5)
 
-`Section.layout` is a **strict, validated constraint**, not a hint. A section
-that breaks it is invalid, and the library rejects it.
+A map has **one canvas**, `KerusiMap.canvas`, in abstract units with the same
+scale on both axes, the origin at the top-left and `y` growing downwards. Every
+seat, element and section of the map is placed on it.
 
-### `grid`
+- A seat is a square of `seatSize` canvas units centred on its `x`/`y`, turned
+  clockwise by `rotation` degrees. `KerusiMap.seatSize` is required, and a
+  section may override it for its own seats, so business-class seats can be
+  larger than economy ones. Within one section every seat is the same size.
+- An element is a `width` × `height` rectangle centred on its `x`/`y`. A
+  missing `width` or `height` is the seat size (§4.4.1).
 
-Every seat has `col`; no seat has `x` or `y`. `col` is required explicitly on
-every seat. It is never inferred from array order, because `Section.seats` is
-an unordered list.
-
-```ts
-{ id: 'cabin', layout: 'grid', seats: [
-  { id: '12A', row: '12', col: 1, type: 'economy', attributes: ['window'] },
-  { id: '12B', row: '12', col: 2, type: 'economy' },
-  { id: '12C', row: '12', col: 3, type: 'economy', attributes: ['aisle'] },
-  // col 4 is the aisle
-  { id: '12D', row: '12', col: 5, type: 'economy', attributes: ['aisle'] },
-]}
-```
-
-### `freeform`
-
-Every seat has both `x` and `y`, as percentages of the section canvas; no seat
-has `col`. `rotation` tilts a seat to follow a curve, and `aspectRatio` fixes
-the canvas proportions so those percentages mean the same thing at any size.
+The renderer draws exactly that. The map is one `<svg>` whose `viewBox` is the
+canvas, and the library does **no layout arithmetic**: no cell sizes, no row
+spacing, no percentages. It picks the scale (`unitScale` CSS pixels per canvas
+unit, at most, shrinking to fit a narrower container) and may zoom, pan, or
+mirror the whole drawing for a right-to-left locale. It never otherwise moves,
+resizes, or reflows anything.
 
 ```ts
-{ id: 'house', layout: 'freeform', aspectRatio: '16:9', seats: [
-  { id: 'A1', row: 'A', x: 20, y: 30, rotation: -8, type: 'standard' },
-  { id: 'A2', row: 'A', x: 27, y: 28, rotation: -5, type: 'standard' },
-]}
+// A seat 40 units square, centred at (320, 400), tilted to follow a curve.
+{ id: 'A1', row: 'A', col: 1, x: 320, y: 400, rotation: -8, type: 'standard' }
 ```
 
-A `row` is still allowed here, purely as a label. It carries no positional
-information, so it does not break the constraint, and the renderer uses it for
-grouping and keyboard order.
-
-### `mixed`
-
-Every seat has `col` **and** both `x` and `y`. This is the only mode where a
-seat may combine both. `x`/`y` places the seat; `col` remains its logical
-adjacency ordinal, which is what arrow keys and screen readers follow (§4.3.1).
-
-```ts
-{ id: 'north-stand', layout: 'mixed', aspectRatio: '3:2', seats: [
-  { id: 'N-1-1', row: 'N-1', col: 1, x: 34, y: 22, rotation: 0, type: 'main' },
-  { id: 'N-1-2', row: 'N-1', col: 2, x: 38, y: 22, rotation: 0, type: 'main' },
-]}
-```
-
-### Inference and rejection
-
-Omit `layout` and it is inferred: all-`col`-no-coordinates is `grid`,
-all-`x`-and-`y`-no-`col` is `freeform`. Anything else is rejected. There is no
-inference for `mixed`, so a seat carrying all three must say so.
+The validator holds a document to that canvas:
 
 ```ts
 import { checkKerusiMap } from '@kerusiweb/core';
 
 checkKerusiMap(map);
-// [{ rule: 'section-layout-grid', severity: 'error',
-//    path: 'sections[0].seats[3]',
-//    message: 'Seat "A4" is in grid section "main" but carries "x"/"y" ...' }]
+// [{ rule: 'seat-outside-canvas', severity: 'error',
+//    path: 'sections[0].seats[3].x',
+//    message: 'Seat "1D" has x 900, outside the canvas (0 to 192, the canvas width) ...' }]
 ```
 
-## Sections are render units
+Two findings are warnings rather than errors: seats whose footprints overlap
+(`seat-overlap`, §4.3.1; footprints that only touch don't overlap) and seats
+outside their section's declared `bounds` (`seat-outside-section-bounds`).
 
-Each `Section` gets its own `<svg>`, its own layout mode, its own aspect ratio
-and its own heading. A venue can mix them freely:
+## Neighbours (§4.3.5)
+
+Two seats are neighbours when they share a `row` and their `col`s differ by
+exactly one. Nothing else makes seats neighbours: not distance on the canvas,
+not labels, not array order. A skipped `col` is an aisle.
+
+That is what keyboard navigation follows. Left and right move along the row in
+`col` order and jump across an aisle rather than stopping at it; up and down
+move to the next row in §4.2.1 order and pick the seat nearest on the canvas.
+A seat next to an aisle says so in its accessible name. Seats with no `row`
+have no neighbours, and the library orders them by position instead: in bands
+by `y`, then by `x`.
+
+## Sections are zones
+
+A `Section` is a named zone on the map's one canvas, not a canvas of its own.
+Two sections can sit side by side or overlap in height, and every section is
+drawn at the same scale. Each is a `<g role="group">` inside the map's `<svg>`,
+named by its label.
 
 ```ts
 sections: [
-  { id: 'orchestra', index: 1, label: { en: 'Orchestra', ms: 'Orkestra' },
-    layout: 'freeform', aspectRatio: '5:2', seats: [...] },
-  { id: 'balcony', index: 2, label: { en: 'Balcony', ms: 'Balkoni' },
-    layout: 'grid', seats: [...] },
+  { id: 'stalls', index: 0, label: { en: 'Stalls', ms: 'Tempat Duduk Bawah' },
+    bounds: { x: 280, y: 60, width: 1180, height: 680 }, seats: [...] },
+  { id: 'balcony', index: 1, label: { en: 'Balcony', ms: 'Balkoni' },
+    bounds: { x: 440, y: 580, width: 720, height: 220 }, seats: [...] },
 ]
 ```
 
+`Section.bounds` is optional and never changes the drawing. When a section
+declares it, the library draws the section's label just above it (with
+`showSectionLabels`, the default) and zooms to it for `zoomToSection`. A
+section without `bounds` is zoomed to the box around its seats and elements,
+and its label is only its group's accessible name.
+
 Sections render in `Section.index` order. Restrict or reorder them with
-`sectionIds`, and tune individual ones with `sectionOverrides`.
+`sectionIds`, and hide or rename individual ones with `sectionOverrides`. A
+hidden section's space stays empty: the canvas never shrinks, because closing
+the gap would move the sections around it.
 
-## Rows and vertical space (§4.2)
+## Rows (§4.2)
 
-`Section.rows` is not a container; seats never live inside a row. But where a
-section declares it, it is that section's **complete row registry**: the rows
-come from it rather than from the seats that happen to reference one.
-
-That is what makes an **empty row** work. A `RowMeta` no seat references is
-still a row, occupies a slot, and reserves the vertical space one row of seats
-would (§4.2.2). It is the row-axis counterpart to a skipped column: a grid
-section opens the throw between a cinema screen and row A, or a cross-aisle
-mid-section, by declaring rows for them.
+Rows give **order and adjacency, never space**. `Section.rows` is not a
+container; seats never live inside a row. But where a section declares it, it
+is that section's **complete row registry**: the rows come from it rather than
+from the seats that happen to reference one.
 
 ```ts
-{ id: 'stalls', layout: 'grid',
+{ id: 'stalls',
   rows: [
-    { id: 'screen', index: 0 },       // no seats: the screen sits here
-    { id: 'throw', index: 1 },        // no seats: the gap in front of row A
-    { id: 'A', label: 'A', index: 2 },
-    { id: 'B', label: 'B', index: 3 },
-    { id: 'cross-aisle', index: 4 },  // no seats: a walkway
-    { id: 'C', label: 'C', index: 5 },
+    { id: 'A', label: 'A', index: 0 },
+    { id: 'B', label: 'B', index: 1 },
+    { id: 'L', label: 'L (Love Seats)', index: 11 },
   ],
-  elements: [{ id: 'screen', kind: 'screen', label: 'SCREEN', row: 'screen' }],
-  seats: [ /* rows A, B and C */ ],
+  seats: [ /* rows A, B and L */ ],
 }
 ```
 
 `index` is an **ordering key, not a position**: rows numbered 0 and 11 with
-nothing between them are adjacent, two rows and not twelve, so renumbering a
-section reserves nothing. Rows without an `index` sort after those that have
-one, in declaration order (§4.2.1). Every declared row reaches the render model
-as a `RenderRow`, with `empty: true` on the seatless ones; keyboard navigation
-steps over them.
+nothing between them are adjacent, so renumbering a section moves nothing. Rows
+without an `index` sort after those that have one, in declaration order
+(§4.2.1). A row no seat references (an **empty row**, §4.2.2) still takes its
+place in the order and reaches the render model as a `RenderRow` with
+`empty: true`, but it reserves nothing on the canvas. The space in front of a
+cinema screen is there because the seats' own `y` leave it.
 
 With no `rows` at all, a seat's `row` is opaque free text and the section's rows
 are exactly the ones its seats name, in first-appearance order.
 
+A row may record the line, arc or circle an editor placed its seats along, as
+`RowMeta.shape` (§4.2.3). Renderers ignore it: each seat is drawn at its own
+`x`/`y`, on the guide or not. Core exports `guidePoint` and `isOnGuide` for
+editors that need it.
+
 ## Elements (§4.4)
 
 Non-bookable fixtures: screens, stages, exits, lavatories, gaps, tables. An
-element is bound to its section's positioning mode exactly as a seat is
-(§4.4.1), and `id` and `kind` are required.
+element is placed on the canvas exactly as a seat is, by its centre (§4.4.1),
+and `id` and `kind` are required. It has no `row` and no `col`, and no
+neighbours.
 
 ```ts
 elements: [
-  // Freeform: x/y/width/height are percentages of the section canvas.
-  { id: 'screen', kind: 'screen', label: 'SCREEN', x: 50, y: 7, width: 66, height: 4 },
-  // Grid: row and col place it in the cell grid; width and height are cell
-  // spans: positive integers, defaulting to 1.
-  { id: 'lav', kind: 'lavatory', label: 'WC', row: '16', col: 7, width: 2 },
-  // Omitting col spans the section's full column extent, the usual form for a
-  // screen or a stage. height: 2 reaches into the row after this one.
-  { id: 'stage', kind: 'stage', label: 'STAGE', row: 'stage-1', height: 2 },
+  // An 800 × 90 stage centred at (800, 126).
+  { id: 'stage', kind: 'stage', label: 'Stage', x: 800, y: 126, width: 800, height: 90 },
+  // No width or height: the section's seat size.
+  { id: 'exit', kind: 'exit', label: 'EXIT', x: 32, y: 330 },
 ];
 ```
-
-A grid element carrying `x`/`y`, a freeform one carrying `col`, a fractional
-span, or a row span reaching past the section's last row are all rejected
-(`element-layout-mismatch`, `element-span-invalid`, `element-row-span-overrun`).
-
-`kind` drives the shape: a `screen` draws as an arc, a `stage` as a raised
-platform, an `exit` in the accent colour, an `aisle` or `gap` as a dashed
-outline. A `label` draws only its text, with no box: sized from the element's
-height, shrunk to fit its width, and turned by `rotation`. An element of this
-kind with no `label` draws nothing. An unrecognized kind draws as a labelled
-rectangle.
 
 ## Direction labels (§4.10)
 
@@ -221,8 +204,7 @@ directions: [{ axis: 'row', low: 'front of train', high: 'back of train' }];
 
 Both ends may be a locale map, and both arrive localized on
 `RenderSection.directions`. It is purely informational: no document is rejected
-over it, and nothing here reads it to decide layout or which edge of the screen
-an axis is drawn on. That stays a rendering decision.
+over it, and nothing here reads it to decide where anything is drawn.
 
 ## Seat types, pricing and the legend
 
@@ -253,8 +235,8 @@ both, `maxSelection` counts the pair, and a pair whose other half is sold is
 refused with `reason: 'companion-unavailable'` rather than half-taken.
 
 ```ts
-{ id: 'L1', row: 'L', x: 28, y: 90, type: 'sofa', companions: ['L2'] },
-{ id: 'L2', row: 'L', x: 36, y: 89, type: 'sofa', companions: ['L1'] },
+{ id: 'L1', row: 'L', col: 1, x: 600, y: 700, type: 'sofa', companions: ['L2'] },
+{ id: 'L2', row: 'L', col: 2, x: 660, y: 700, type: 'sofa', companions: ['L1'] },
 ```
 
 Set `companionMode` to `'independent'` to handle the pairing yourself.
@@ -266,7 +248,7 @@ announced:
 
 ```ts
 {
-  id: '15C', row: '15', col: 3, type: 'accessible',
+  id: '15C', row: '15', col: 3, x: 96, y: 378, type: 'accessible',
   attributes: ['aisle'],
   companions: ['15B'],
   accessibility: {
@@ -295,8 +277,10 @@ legend: [{ id: 'standard', label: { en: 'Standard', 'ms-MY': 'Biasa' } }];
 ```
 
 `locale` overrides `KerusiMap.locale`. `rtl` defaults to `auto` and derives
-the direction from the resolved locale, mirroring the layout and the arrow keys
-while leaving `col` order, and so reading order, untouched.
+the direction from the resolved locale. Right-to-left mirrors the whole canvas,
+`x` becoming `canvas.width − x` and every rotation negated, with text kept
+readable, and swaps the arrow keys with it. `col` order, and so reading order,
+is untouched.
 
 ## Live availability (§5.1, §5.2)
 

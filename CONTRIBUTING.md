@@ -8,7 +8,7 @@ than the rest, so it goes first.
 > If a second binding would need to write this code again, it belongs in
 > `@kerusiweb/core`.
 
-A new colour rule, a new layout mode, a new validator check, a new seat shape,
+A new colour rule, a new geometry rule, a new validator check, a new seat shape,
 a new price resolution: **core**. A new component input, a new template branch,
 a new `effect` or `useMemo`: **the binding**.
 

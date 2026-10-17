@@ -1,0 +1,27 @@
+{
+  "kerusi": "1.0",
+  "id": "degenerate-canvas",
+  "canvas": {
+    "width": 0,
+    "height": 100
+  },
+  "seatSize": 10,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "seats": [
+        {
+          "id": "a",
+          "x": 0,
+          "y": 0,
+          "type": "standard"
+        }
+      ]
+    }
+  ]
+}

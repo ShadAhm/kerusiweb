@@ -1,5 +1,4 @@
 import {
-  cssVar,
   DEFAULT_KERUSI_COLORS,
   elementFill,
   elementStyle,
@@ -12,18 +11,25 @@ import type {
   KerusiSeatmapColors,
   PlacedElement,
   PlacedSeat,
-  RenderSection,
+  PlacedSection,
   SeatGlyph,
   SeatStyleFn,
   SeatTypeStyles,
-  SectionLayout,
 } from '@kerusiweb/core';
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import type { SeatRenderContext } from './types.js';
 
 export interface KerusiSectionProps {
-  section: RenderSection;
-  layout: SectionLayout;
+  /** The section with its seats and elements placed on the map's canvas. */
+  layout: PlacedSection;
+  /** The section's name: its accessible name, and its drawn label when one is shown. */
+  label?: string;
+  /**
+   * Draw `label` inside the SVG, at the top-left of the section's bounds. Only
+   * a section that declares `bounds` gets one (D5); otherwise the label is the
+   * group's accessible name alone.
+   */
+  showLabel?: boolean;
   /** Currently selected seat ids. */
   selection?: ReadonlySet<string>;
   /** The seat holding the section's single tab stop, if any. */
@@ -41,16 +47,6 @@ export interface KerusiSectionProps {
   renderSeat?: (ctx: SeatRenderContext) => ReactNode;
   /** When false, seats render but do not respond to pointer or keyboard. */
   interactive?: boolean;
-  /**
-   * CSS pixels per viewBox unit, at the section's natural size.
-   *
-   * Without a cap every section stretches to the full container width, so in a
-   * four-tier theatre the narrow box row would draw seats several times the
-   * size of the orchestra's. Capping each section at its own intrinsic width
-   * keeps a seat the same size everywhere; a section too wide to fit still
-   * scales down to the container.
-   */
-  unitScale?: number;
   onSeatActivate?: (seatId: string) => void;
   onSeatFocused?: (seatId: string) => void;
   onSeatKeyDown?: (event: ReactKeyboardEvent<SVGGElement>) => void;
@@ -62,18 +58,18 @@ const EMPTY_SELECTION: ReadonlySet<string> = new Set();
 const EMPTY_LABELS: ReadonlyMap<string, string> = new Map();
 
 /**
- * Draws one Kerusi `Section` as a single `<svg>`.
+ * Draws one Kerusi `Section` as a `<g>` on the map's shared canvas (D1).
  *
- * One SVG per section — rather than section groups inside a shared canvas — is
- * what makes per-section `aspectRatio` and mixed grid/freeform modes work: each
- * gets its own `viewBox` and its own intrinsic proportions, and CSS is free to
- * stack, wrap or column them. It also puts the section heading in real DOM,
- * where a screen reader can use it as a landmark.
+ * Sections are zones on one canvas in rev 15 (§4.1), and two may sit side by
+ * side, so a section is a group inside the map's single `<svg>` rather than an
+ * SVG of its own. Render it inside an `<svg>` whose `viewBox` is the canvas.
  *
  * This component holds no state. It takes a placed layout and reports intent.
  */
 export function KerusiSection({
   layout,
+  label,
+  showLabel = true,
   selection = EMPTY_SELECTION,
   focusedSeatId = null,
   ariaLabels = EMPTY_LABELS,
@@ -83,37 +79,36 @@ export function KerusiSection({
   seatStyle,
   renderSeat,
   interactive = true,
-  unitScale = 1,
   onSeatActivate,
   onSeatFocused,
   onSeatKeyDown,
   registerSeat,
 }: KerusiSectionProps) {
+  const section = layout.section;
+  const anchor = layout.labelAnchor;
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="kerusi-section-svg"
-      role="presentation"
-      focusable="false"
-      viewBox={`0 0 ${layout.width} ${layout.height}`}
-      preserveAspectRatio="xMidYMid meet"
-      style={
-        {
-          // The focus ring's middle tier: the stylesheet reads this property,
-          // so the `colors` prop can reach a rule it cannot otherwise see.
-          '--kerusi-focus-ring-input': colors.focusRing,
-          // The section's natural width in CSS pixels; it never draws wider.
-          maxWidth: layout.width * unitScale,
-        } as CSSProperties
-      }
+    <g
+      className="kerusi-section"
+      role="group"
+      aria-label={label ?? section.id}
+      data-section-id={section.id}
     >
-      <rect
-        x={0}
-        y={0}
-        width={layout.width}
-        height={layout.height}
-        style={{ fill: cssVar('backdrop', colors.backdrop) }}
-      />
+      {showLabel && label && section.boundsDeclared && (
+        /* Hidden from assistive technology: the group already carries the
+           same text as its accessible name. */
+        <text
+          className="kerusi-section-label"
+          aria-hidden="true"
+          textAnchor="start"
+          dominantBaseline="hanging"
+          x={anchor.x}
+          y={anchor.y}
+          fontSize={anchor.fontSize}
+          style={{ fill: elementTextFill(elementStyle('label').tone, colors) }}
+        >
+          {label}
+        </text>
+      )}
 
       {/* Elements first, so a screen or stage sits behind the seats it faces. */}
       {layout.elements.map((placed) => (
@@ -139,7 +134,7 @@ export function KerusiSection({
           registerSeat={registerSeat}
         />
       ))}
-    </svg>
+    </g>
   );
 }
 

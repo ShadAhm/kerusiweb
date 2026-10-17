@@ -18,6 +18,8 @@ import { DisallowedReason } from './selection.js';
 export interface SeatAriaStrings {
   rowSeat: (row: string, seat: string) => string;
   seatOnly: (seat: string) => string;
+  /** Said when an aisle runs beside the seat (§4.3.5: a skipped `col`). */
+  besideAisle: string;
   noPrice: string;
   available: string;
   booked: string;
@@ -37,6 +39,7 @@ export interface SeatAriaStrings {
 export const DEFAULT_SEAT_ARIA_STRINGS: SeatAriaStrings = {
   rowSeat: (row, seat) => `Row ${row}, seat ${seat}`,
   seatOnly: (seat) => `Seat ${seat}`,
+  besideAisle: 'next to an aisle',
   noPrice: 'no price',
   available: 'available',
   booked: 'booked, unavailable',
@@ -64,6 +67,10 @@ export const DEFAULT_SEAT_ARIA_STRINGS: SeatAriaStrings = {
  * Builds a seat's accessible name, in the order a listener needs it: where the
  * seat is, what kind it is, what it costs, whether it can be had, what
  * accessibility it offers, and finally its descriptive tags.
+ *
+ * "Where" comes from the document's row and adjacency, never from `x`/`y`: an
+ * aisle is mentioned when the next seat along the row skips a `col` (§4.3.5),
+ * which is also where the arrow keys jump across it.
  */
 export function seatAriaLabel(
   seat: RenderSeat,
@@ -75,6 +82,9 @@ export function seatAriaLabel(
   parts.push(
     seat.rowLabel ? strings.rowSeat(seat.rowLabel, seat.label) : strings.seatOnly(seat.label),
   );
+  if (seat.besideAisle) {
+    parts.push(strings.besideAisle);
+  }
 
   if (seat.typeLabel && seat.typeLabel !== seat.type.id) {
     parts.push(seat.typeLabel);

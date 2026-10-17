@@ -8,7 +8,7 @@
 
 export * from './render-model.js';
 export * from './build-render-model.js';
-export * from './section-layout.js';
+export * from './map-layout.js';
 export * from './navigation-order.js';
 export * from './element-shapes.js';
 export * from './seat-shapes.js';

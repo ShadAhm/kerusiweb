@@ -6,15 +6,17 @@ import {
   CINEMA_GRID_MAP,
   CINEMA_MAP,
   CINEMA_STATE_BY_MAP,
-} from './rev14-examples.fixture.js'; // rev 14 bridge: removed in phase 2.
+} from '../kerusi/kerusi-examples.fixture.js';
 import { buildRenderModel } from './build-render-model.js';
 
-/** A map with a grid balcony and a freeform stalls — the multi-section case. */
+/** A map with a balcony in rows and a stalls without them — the multi-section case. */
 const MIXED_VENUE: KerusiMap = {
   kerusi: '1.0',
   id: 'venue',
   name: 'Dewan Filharmonik',
   locale: 'ms-MY',
+  canvas: { width: 1000, height: 600 },
+  seatSize: 30,
   legend: [
     { id: 'standard', label: { en: 'Standard', 'ms-MY': 'Biasa' }, color: '#3a8f63' },
     { id: 'premium', label: { en: 'Premium' }, defaultPriceTier: 'top' },
@@ -28,29 +30,30 @@ const MIXED_VENUE: KerusiMap = {
       id: 'balcony',
       index: 2,
       label: { en: 'Balcony', 'ms-MY': 'Balkoni' },
-      layout: 'grid',
+      seatSize: 24,
+      bounds: { x: 600, y: 0, width: 400, height: 200 },
       rows: [
         { id: 'B', label: 'Row B', index: 1 },
         { id: 'A', label: 'Row A', index: 0 },
       ],
       seats: [
-        { id: 'B3', row: 'B', col: 3, type: 'standard', priceTier: 'base' },
-        { id: 'A1', row: 'A', col: 1, type: 'standard', priceTier: 'base' },
-        { id: 'B1', row: 'B', col: 1, type: 'standard', priceTier: 'base' },
+        { id: 'B3', row: 'B', col: 3, x: 740, y: 100, type: 'standard', priceTier: 'base' },
+        { id: 'A1', row: 'A', col: 1, x: 680, y: 60, type: 'standard', priceTier: 'base' },
+        { id: 'B1', row: 'B', col: 1, x: 680, y: 100, type: 'standard', priceTier: 'base' },
       ],
-      elements: [{ id: 'exit-b', kind: 'exit', label: 'Exit', row: 'B', col: 5 }],
+      elements: [{ id: 'exit-b', kind: 'exit', label: 'Exit', x: 820, y: 100 }],
     },
     {
       id: 'stalls',
       index: 1,
       label: { en: 'Stalls', 'ms-MY': 'Tempat Duduk Bawah' },
-      layout: 'freeform',
-      aspectRatio: '16:9',
       seats: [
-        { id: 'S1', x: 40, y: 60, rotation: -6, type: 'premium' },
-        { id: 'S2', x: 50, y: 62, type: 'premium' },
+        { id: 'S1', x: 200, y: 360, rotation: -6, type: 'premium' },
+        { id: 'S2', x: 250, y: 372, type: 'premium' },
       ],
-      elements: [{ id: 'stage', kind: 'stage', label: 'Stage', x: 50, y: 8, width: 60, height: 6 }],
+      elements: [
+        { id: 'stage', kind: 'stage', label: 'Stage', x: 250, y: 500, width: 300, height: 40 },
+      ],
     },
   ],
 };
@@ -61,20 +64,49 @@ describe('buildRenderModel — sections survive as render units', () => {
     expect(model.sections.map((s) => s.id)).toEqual(['stalls', 'balcony']);
   });
 
-  it('gives each section its OWN layout mode and aspect ratio', () => {
-    // The pre-1.0 adapter collapsed a whole map to one mode and kept only the
-    // last freeform section's ratio.
+  it('carries the one canvas and the map seat size (§4.5)', () => {
     const model = buildRenderModel(MIXED_VENUE);
-    const [stalls, balcony] = model.sections;
-    expect(stalls.layoutMode).toBe('freeform');
-    expect(stalls.aspectRatio).toBe('16:9');
-    expect(balcony.layoutMode).toBe('grid');
-    expect(balcony.aspectRatio).toBe('1:1');
+    expect(model.canvas).toEqual({ width: 1000, height: 600 });
+    expect(model.seatSize).toBe(30);
   });
 
-  it('infers a section mode when layout is omitted', () => {
-    const model = buildRenderModel(BUS_MAP);
-    expect(model.sections[0].layoutMode).toBe('grid');
+  it("resolves each section's seat size: its own, else the map's", () => {
+    const [stalls, balcony] = buildRenderModel(MIXED_VENUE).sections;
+    expect(stalls.seatSize).toBe(30);
+    expect(balcony.seatSize).toBe(24);
+    expect(stalls.seats.map((s) => s.size)).toEqual([30, 30]);
+    expect(balcony.seats.map((s) => s.size)).toEqual([24, 24, 24]);
+  });
+
+  it('keeps declared bounds, and marks them declared', () => {
+    const balcony = buildRenderModel(MIXED_VENUE).sections[1];
+    expect(balcony.bounds).toEqual({ x: 600, y: 0, width: 400, height: 200 });
+    expect(balcony.boundsDeclared).toBe(true);
+  });
+
+  it('computes bounds from the seat and element footprints otherwise', () => {
+    const stalls = buildRenderModel(MIXED_VENUE).sections[0];
+    expect(stalls.boundsDeclared).toBe(false);
+    // The stage spans x 100..400 and y 480..520; the turned footprint of S1
+    // reaches furthest up.
+    const half = (30 * (Math.cos((6 * Math.PI) / 180) + Math.sin((6 * Math.PI) / 180))) / 2;
+    expect(stalls.bounds.x).toBeCloseTo(100);
+    expect(stalls.bounds.y).toBeCloseTo(360 - half);
+    expect(stalls.bounds.x + stalls.bounds.width).toBeCloseTo(400);
+    expect(stalls.bounds.y + stalls.bounds.height).toBeCloseTo(520);
+  });
+
+  it('gives a section with nothing in it the whole canvas', () => {
+    const model = buildRenderModel({
+      ...MIXED_VENUE,
+      sections: [{ id: 'empty', seats: [] }],
+    });
+    expect(model.sections[0].bounds).toEqual({ x: 0, y: 0, width: 1000, height: 600 });
+  });
+
+  it('copies seat positions in canvas units, untouched', () => {
+    const s1 = buildRenderModel(MIXED_VENUE).seatsById.get('S1')!;
+    expect([s1.x, s1.y, s1.rotation]).toEqual([200, 360, -6]);
   });
 
   it('renders only the requested sections, in the requested order', () => {
@@ -92,7 +124,7 @@ describe('buildRenderModel — rows and seat order', () => {
     expect(balcony.rows.map((r) => r.label)).toEqual(['Row A', 'Row B']);
   });
 
-  it('orders seats within a grid row by col', () => {
+  it('orders seats within a row by col', () => {
     const balcony = buildRenderModel(MIXED_VENUE).sections[1];
     const rowB = balcony.rows.find((r) => r.id === 'B')!;
     expect(rowB.seats.map((s) => s.id)).toEqual(['B1', 'B3']);
@@ -112,7 +144,30 @@ describe('buildRenderModel — rows and seat order', () => {
     ]);
   });
 
-  it('groups rowless freeform seats into a single unnamed row', () => {
+  it('orders seats with no col after the rest, by x', () => {
+    const model = buildRenderModel({
+      ...MIXED_VENUE,
+      sections: [
+        {
+          id: 's',
+          seats: [
+            { id: 'free-right', row: 'A', x: 400, y: 50, type: 'standard' },
+            { id: 'col-2', row: 'A', col: 2, x: 100, y: 50, type: 'standard' },
+            { id: 'free-left', row: 'A', x: 300, y: 50, type: 'standard' },
+            { id: 'col-1', row: 'A', col: 1, x: 200, y: 50, type: 'standard' },
+          ],
+        },
+      ],
+    });
+    expect(model.sections[0].seats.map((s) => s.id)).toEqual([
+      'col-1',
+      'col-2',
+      'free-left',
+      'free-right',
+    ]);
+  });
+
+  it('groups rowless seats into a single unnamed row', () => {
     const stalls = buildRenderModel(MIXED_VENUE).sections[0];
     expect(stalls.rows).toHaveLength(1);
     expect(stalls.rows[0].label).toBeUndefined();
@@ -124,9 +179,8 @@ describe('buildRenderModel — the row registry and empty rows (§4.2)', () => {
   const stalls = () => buildRenderModel(CINEMA_GRID_MAP).sections[0];
 
   it('materializes every declared row, including the ones no seat references', () => {
-    // §7: a conformant consumer materializes every row a section declares. Rows
-    // used to come from the seats, so these four vanished and the screen had
-    // nowhere to sit.
+    // §7: a conformant consumer materializes every row a section declares, even
+    // the four here that no seat references.
     expect(stalls().rows.map((r) => r.id)).toEqual([
       'screen-1',
       'screen-2',
@@ -150,21 +204,18 @@ describe('buildRenderModel — the row registry and empty rows (§4.2)', () => {
     expect(buildRenderModel(CINEMA_GRID_MAP).seatsById.get('A1')?.rowIndex).toBe(3);
   });
 
-  it('anchors a row-addressed element to its empty row', () => {
-    expect(stalls().elements[0].rowIndex).toBe(0);
+  it('reserves nothing for an empty row: seats keep their own y', () => {
+    expect(buildRenderModel(CINEMA_GRID_MAP).seatsById.get('A1')?.y).toBe(130);
   });
 
   it('orders unindexed rows after indexed ones, in declaration order (§4.2.1)', () => {
     const model = buildRenderModel({
-      kerusi: '1.0',
-      id: 'm',
-      legend: [{ id: 'standard' }],
+      ...MIXED_VENUE,
       sections: [
         {
           id: 's',
-          layout: 'grid',
           rows: [{ id: 'late' }, { id: 'B', index: 11 }, { id: 'earlier' }, { id: 'A', index: 0 }],
-          seats: [{ id: 'A1', row: 'A', col: 1, type: 'standard' }],
+          seats: [{ id: 'A1', row: 'A', col: 1, x: 50, y: 50, type: 'standard' }],
         },
       ],
     });
@@ -185,17 +236,14 @@ describe('buildRenderModel — the row registry and empty rows (§4.2)', () => {
     // An `element-row-unresolved`-style §4.6 violation on the seat side. The
     // validator reports it; dropping the seat here would hide it instead.
     const model = buildRenderModel({
-      kerusi: '1.0',
-      id: 'm',
-      legend: [{ id: 'standard' }],
+      ...MIXED_VENUE,
       sections: [
         {
           id: 's',
-          layout: 'grid',
           rows: [{ id: 'A', index: 0 }],
           seats: [
-            { id: 'A1', row: 'A', col: 1, type: 'standard' },
-            { id: 'Z1', row: 'Z', col: 1, type: 'standard' },
+            { id: 'A1', row: 'A', col: 1, x: 50, y: 50, type: 'standard' },
+            { id: 'Z1', row: 'Z', col: 1, x: 50, y: 90, type: 'standard' },
           ],
         },
       ],
@@ -212,11 +260,12 @@ describe('buildRenderModel — direction labels (§4.10)', () => {
         kerusi: '1.0',
         id: 'm',
         locale: 'ms-MY',
+        canvas: { width: 100, height: 100 },
+        seatSize: 20,
         legend: [{ id: 'standard' }],
         sections: [
           {
             id: 'coach-b',
-            layout: 'grid',
             directions: [
               {
                 axis: 'row',
@@ -224,7 +273,7 @@ describe('buildRenderModel — direction labels (§4.10)', () => {
                 high: 'back of train',
               },
             ],
-            seats: [{ id: '1A', row: '1', col: 1, type: 'standard' }],
+            seats: [{ id: '1A', row: '1', col: 1, x: 50, y: 50, type: 'standard' }],
           },
         ],
       },
@@ -374,13 +423,26 @@ describe('buildRenderModel — elements (§4.4)', () => {
     expect(model.sections[1].elements[0].id).toBe('exit-b');
   });
 
-  it('resolves a grid element row to its row index, for cell placement', () => {
+  it('defaults a missing width and height to the section seat size (§4.4.1)', () => {
     const exit = buildRenderModel(MIXED_VENUE).sections[1].elements[0];
-    expect(exit.rowIndex).toBe(1);
-    expect(exit.col).toBe(5);
+    expect([exit.x, exit.y, exit.width, exit.height]).toEqual([820, 100, 24, 24]);
   });
 
-  it('carries elements for grid sections, not only freeform ones', () => {
-    expect(buildRenderModel(MIXED_VENUE).sections[1].elements).toHaveLength(1);
+  it('keeps a declared width and height', () => {
+    const stage = buildRenderModel(MIXED_VENUE).sections[0].elements[0];
+    expect([stage.width, stage.height]).toEqual([300, 40]);
+  });
+});
+
+describe('buildRenderModel — aisles from adjacency (§4.3.5)', () => {
+  it('marks the seats either side of a skipped col as beside an aisle', () => {
+    const model = buildRenderModel(BUS_MAP);
+    const beside = ['1A', '1B', '1C', '1D'].map((id) => model.seatsById.get(id)!.besideAisle);
+    expect(beside).toEqual([false, true, true, false]);
+  });
+
+  it('does not treat the ends of a row, or seats with no col, as aisles', () => {
+    const model = buildRenderModel(CINEMA_MAP);
+    expect([...model.seatsById.values()].some((s) => s.besideAisle)).toBe(false);
   });
 });

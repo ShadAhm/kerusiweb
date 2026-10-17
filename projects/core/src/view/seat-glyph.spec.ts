@@ -10,7 +10,7 @@ import {
   seatSelectedFrame,
   seatShapePath,
 } from '../render/seat-shapes.js';
-import { computeSectionLayout, PlacedSeat } from '../render/section-layout.js';
+import { computeMapLayout, PlacedSeat } from '../render/map-layout.js';
 import {
   cssVar,
   DEFAULT_KERUSI_COLORS,
@@ -34,11 +34,12 @@ import {
 const MAP: KerusiMap = {
   kerusi: '1.0',
   id: 'm',
+  canvas: { width: 100, height: 100 },
+  seatSize: 8,
   legend: [{ id: 'standard', color: '#3a8f63' }, { id: 'plain' }],
   sections: [
     {
       id: 'main',
-      layout: 'freeform',
       seats: [
         {
           id: 'A1',
@@ -75,8 +76,8 @@ const STATE: KerusiState = {
 const colors = DEFAULT_KERUSI_COLORS;
 
 function placed(id: string, state: KerusiState = STATE): PlacedSeat {
-  const section = buildRenderModel(MAP, state).sections[0];
-  const seat = computeSectionLayout(section).seats.find((p) => p.seat.id === id);
+  const layout = computeMapLayout(buildRenderModel(MAP, state));
+  const seat = layout.sections[0].seats.find((p) => p.seat.id === id);
   if (!seat) throw new Error(`no seat ${id}`);
   return seat;
 }

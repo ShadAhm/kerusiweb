@@ -7,12 +7,13 @@ import { disallowedAnnouncement, seatAriaLabel } from './seat-aria.js';
 const mapWith = (seat: Seat): KerusiMap => ({
   kerusi: '1.0',
   id: 'm',
+  canvas: { width: 200, height: 200 },
+  seatSize: 28,
   legend: [{ id: 'business', label: { en: 'Business class' }, defaultPriceTier: 'biz' }],
   priceTiers: [{ id: 'biz', price: { amount: 45000, currency: 'MYR' } }],
   sections: [
     {
       id: 'cabin',
-      layout: 'grid',
       rows: [{ id: '12', label: '12' }],
       seats: [seat],
     },
@@ -22,7 +23,7 @@ const mapWith = (seat: Seat): KerusiMap => ({
 const labelFor = (seat: Seat, state?: KerusiState) =>
   seatAriaLabel(buildRenderModel(mapWith(seat), state).seatsById.get(seat.id)!, 'en');
 
-const BASE: Seat = { id: '12A', label: 'A', row: '12', col: 1, type: 'business' };
+const BASE: Seat = { id: '12A', label: 'A', row: '12', col: 1, x: 50, y: 50, type: 'business' };
 
 describe('seatAriaLabel', () => {
   it('leads with the position, then type, price and status', () => {
@@ -32,7 +33,7 @@ describe('seatAriaLabel', () => {
   });
 
   it('omits the row when the seat has none', () => {
-    const rowless: Seat = { id: 'S1', label: '1', col: 1, type: 'business' };
+    const rowless: Seat = { id: 'S1', label: '1', x: 50, y: 50, type: 'business' };
     expect(labelFor(rowless)).toContain('Seat 1,');
   });
 
@@ -100,6 +101,42 @@ describe('seatAriaLabel', () => {
     const seat = buildRenderModel(mapWith(BASE)).seatsById.get('12A')!;
     // ms-MY renders MYR as "RM"; en does not.
     expect(seatAriaLabel(seat, 'ms-MY')).toContain('RM');
+  });
+});
+
+describe('seatAriaLabel — aisles (§4.3.5, D6)', () => {
+  const rowOf = (seats: Seat[]): KerusiMap => ({
+    ...mapWith(BASE),
+    sections: [{ id: 'cabin', rows: [{ id: '12', label: '12' }], seats }],
+  });
+  const seat = (id: string, col: number, x: number): Seat => ({
+    id,
+    label: id.slice(2),
+    row: '12',
+    col,
+    x,
+    y: 50,
+    type: 'business',
+  });
+  // Cols 1, 2, 4: col 3 is skipped, so an aisle runs between 12B and 12D.
+  const model = buildRenderModel(
+    rowOf([seat('12A', 1, 30), seat('12B', 2, 60), seat('12D', 4, 120)]),
+  );
+  const label = (id: string) => seatAriaLabel(model.seatsById.get(id)!, 'en');
+
+  it('says a seat is next to an aisle when the next seat skips a col', () => {
+    expect(label('12B')).toMatch(/^Row 12, seat B, next to an aisle, /);
+    expect(label('12D')).toMatch(/^Row 12, seat D, next to an aisle, /);
+  });
+
+  it('says nothing about an aisle between neighbours', () => {
+    expect(label('12A')).not.toContain('aisle');
+  });
+
+  it('reads the aisle from adjacency, not from the gap on the canvas', () => {
+    // Neighbours drawn far apart are still neighbours.
+    const wide = buildRenderModel(rowOf([seat('12A', 1, 30), seat('12B', 2, 180)]));
+    expect(seatAriaLabel(wide.seatsById.get('12A')!, 'en')).not.toContain('aisle');
   });
 });
 

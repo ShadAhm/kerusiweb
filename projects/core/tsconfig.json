@@ -20,7 +20,6 @@
   "exclude": [
     "**/*.spec.ts",
     "src/kerusi/conformance/**",
-    "src/kerusi/kerusi-examples.fixture.ts",
-    "src/render/rev14-examples.fixture.ts"
+    "src/kerusi/kerusi-examples.fixture.ts"
   ]
 }

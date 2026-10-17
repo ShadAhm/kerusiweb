@@ -8,6 +8,8 @@ import { companionClosure, summarizeSelection, toggleSeatSelection } from './sel
 const MAP: KerusiMap = {
   kerusi: '1.0',
   id: 'm',
+  canvas: { width: 200, height: 200 },
+  seatSize: 28,
   legend: [
     { id: 'standard', defaultPriceTier: 'base' },
     { id: 'sofa', defaultPriceTier: 'top' },
@@ -19,15 +21,14 @@ const MAP: KerusiMap = {
   sections: [
     {
       id: 'main',
-      layout: 'grid',
       seats: [
-        { id: 'A1', row: 'A', col: 1, type: 'standard' },
-        { id: 'A2', row: 'A', col: 2, type: 'standard' },
-        { id: 'L1', row: 'L', col: 1, type: 'sofa', companions: ['L2'] },
-        { id: 'L2', row: 'L', col: 2, type: 'sofa', companions: ['L1'] },
-        { id: 'F1', row: 'F', col: 1, type: 'standard', companions: ['F2'] },
-        { id: 'F2', row: 'F', col: 2, type: 'standard', companions: ['F1', 'F3'] },
-        { id: 'F3', row: 'F', col: 3, type: 'standard', companions: ['F2'] },
+        { id: 'A1', row: 'A', col: 1, x: 50, y: 50, type: 'standard' },
+        { id: 'A2', row: 'A', col: 2, x: 80, y: 50, type: 'standard' },
+        { id: 'L1', row: 'L', col: 1, x: 50, y: 90, type: 'sofa', companions: ['L2'] },
+        { id: 'L2', row: 'L', col: 2, x: 80, y: 90, type: 'sofa', companions: ['L1'] },
+        { id: 'F1', row: 'F', col: 1, x: 50, y: 130, type: 'standard', companions: ['F2'] },
+        { id: 'F2', row: 'F', col: 2, x: 80, y: 130, type: 'standard', companions: ['F1', 'F3'] },
+        { id: 'F3', row: 'F', col: 3, x: 110, y: 130, type: 'standard', companions: ['F2'] },
       ],
     },
   ],
@@ -57,8 +58,9 @@ describe('companionClosure', () => {
       sections: [
         {
           id: 'main',
-          layout: 'grid',
-          seats: [{ id: 'A1', row: 'A', col: 1, type: 'standard', companions: ['ghost'] }],
+          seats: [
+            { id: 'A1', row: 'A', col: 1, x: 50, y: 50, type: 'standard', companions: ['ghost'] },
+          ],
         },
       ],
     }).seatsById;

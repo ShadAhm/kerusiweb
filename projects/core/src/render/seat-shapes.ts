@@ -113,8 +113,8 @@ export function seatBodyPath(
  * The width of the frame around a selected seat's core — feed it straight to
  * {@link seatBodyPath}'s `inset` to get the core.
  *
- * A seat is always square: `section-layout` places every one of them as
- * `size × size`, in both the grid and the freeform mode. That makes the inset
+ * A seat is always square: `map-layout` places every one of them as
+ * `size × size`, every seat in a section the same size. That makes the inset
  * shape an *exact* scaled copy of the body about its centre, not merely a
  * similar-looking one, so any mark that clears the body also clears the core
  * when it is drawn to the core's own box. That is what lets the frame width
@@ -148,7 +148,7 @@ export const seatRingStroke = seatSelectedFrame;
  * though, so pass the box the figure is meant to sit *on*: a selected seat
  * draws it to the core's box, not the seat's, or the hips cross the frame.
  *
- * The ratios assume a square box, which is what `section-layout` always
+ * The ratios assume a square box, which is what `map-layout` always
  * places. On a wide box the head, sized from the width, would outgrow the
  * height.
  */

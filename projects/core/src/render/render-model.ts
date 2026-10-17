@@ -1,5 +1,7 @@
 import {
   Accessibility,
+  Bounds,
+  Canvas,
   Element,
   Money,
   PriceTier,
@@ -7,14 +9,13 @@ import {
   SeatType,
   Section,
 } from '../kerusi/kerusi-map.model.js';
-// rev 14 bridge: removed in phase 2.
-import { SectionLayoutMode } from './rev14-compat.js';
 import { SeatStatus } from '../kerusi/kerusi-state.model.js';
 
 /**
  * The renderer's view of a Kerusi document pair: a `KerusiMap` with its
  * `KerusiState` merged in, every reference resolved, every label localized, and
- * every section carrying its own layout mode.
+ * every size the document leaves to a default filled in. Positions stay in the
+ * map's canvas units (§4.5), exactly as the document gives them.
  *
  * This is deliberately not the source documents — a renderer should never have
  * to re-resolve a price tier or re-read a locale map while drawing. It is also
@@ -40,14 +41,25 @@ export interface RenderSeat {
   rowLabel?: string;
   /** The row's position among the section's rows, for vertical navigation. */
   rowIndex: number;
-  /** `Seat.col` — the adjacency ordinal, meaningful in grid and mixed (§4.3.1). */
+  /**
+   * `Seat.col` — the adjacency ordinal within the row (§4.3.5). It says which
+   * seats are neighbours, never where a seat is drawn.
+   */
   col?: number;
-  /** `Seat.x`, 0–100 percent of the section canvas. */
-  x?: number;
-  /** `Seat.y`, 0–100 percent of the section canvas. */
-  y?: number;
-  /** `Seat.rotation` in degrees. */
+  /** `Seat.x`: the centre, in canvas units. */
+  x: number;
+  /** `Seat.y`: the centre, in canvas units. */
+  y: number;
+  /** The side of the seat's square footprint, in canvas units: its section's seat size. */
+  size: number;
+  /** `Seat.rotation` in degrees, clockwise on screen about the centre. */
   rotation?: number;
+  /**
+   * Whether an aisle runs beside this seat: the next seat along its row skips
+   * a `col`, so the two are not neighbours (§4.3.5). Read from adjacency, never
+   * from the drawing.
+   */
+  besideAisle: boolean;
 
   // --- classification -------------------------------------------------------
   /** The resolved legend entry, not merely its id (§4.7). */
@@ -85,13 +97,15 @@ export interface RenderElement {
   /** `Element.kind`: "screen" | "stage" | "exit" | "lavatory" | "gap" | "label" | ... */
   kind: string;
   label?: string;
-  row?: string;
-  rowIndex?: number;
-  col?: number;
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
+  /** `Element.x`: the centre, in canvas units. */
+  x: number;
+  /** `Element.y`: the centre, in canvas units. */
+  y: number;
+  /** Canvas units; the section's seat size when the document gives none (§4.4.1). */
+  width: number;
+  /** Canvas units; the section's seat size when the document gives none (§4.4.1). */
+  height: number;
+  /** Degrees, clockwise on screen about the centre. */
   rotation?: number;
   source: Element;
 }
@@ -104,13 +118,12 @@ export interface RenderRow {
   label?: string;
   /** Position among the section's rows, after the §4.2.1 ordering. */
   index: number;
-  /** The seats in this row, ordered by `col` (grid/mixed) or `x` (freeform). */
+  /** The seats in this row, ordered by `col`, then by `x`. */
   seats: readonly RenderSeat[];
   /**
-   * An **empty row** (§4.2.2): declared by `Section.rows`, referenced by no
-   * seat, and still occupying a slot — it reserves the vertical space one row
-   * of seats would. This is what a document uses to open the throw between a
-   * cinema screen and row A, or a cross-aisle mid-section.
+   * An **empty row** (§4.2.2): declared by `Section.rows` and referenced by no
+   * seat. It takes its place in the row order and reserves nothing: rows give
+   * order and adjacency, never space. Kept as information only.
    */
   empty: boolean;
 }
@@ -126,10 +139,16 @@ export interface RenderSection {
   id: string;
   /** `Section.label` localized; absent when the section declares none. */
   label?: string;
-  /** The resolved mode — declared, or inferred per §4.5. */
-  layoutMode: SectionLayoutMode;
-  /** "width:height"; meaningful for freeform and mixed sections. */
-  aspectRatio: string;
+  /** The seat size that applies in this section (§4.5), resolved. */
+  seatSize: number;
+  /**
+   * The section's extent on the canvas: `Section.bounds` when declared, else
+   * the box around its seats' and elements' footprints. For zooming to a
+   * section and revealing a focused seat; never for placing anything.
+   */
+  bounds: Bounds;
+  /** Whether `bounds` is the document's own `Section.bounds` rather than computed. */
+  boundsDeclared: boolean;
   /** Rows in display order. Grouping only — seats do not live inside rows. */
   rows: readonly RenderRow[];
   /** Every seat in the section, flat, in row-then-position order. */
@@ -139,7 +158,7 @@ export interface RenderSection {
   /**
    * `Section.directions` localized (§4.10) — what an axis means in the physical
    * world. Informational only: nothing in this library reads it to decide
-   * layout or screen placement, exactly as nothing branches on `RenderMap.domain`.
+   * screen placement, exactly as nothing branches on `RenderMap.domain`.
    */
   directions?: readonly RenderDirection[];
   source: Section;
@@ -153,6 +172,10 @@ export interface RenderMap {
   locale: string;
   /** `KerusiMap.domain` — informational only; never used to reject or branch. */
   domain?: string;
+  /** `KerusiMap.canvas`: the one drawing surface every section shares (§4.5). */
+  canvas: Canvas;
+  /** `KerusiMap.seatSize`: the map-wide seat size, before any section overrides it. */
+  seatSize: number;
   /** Sections in `Section.index` order. */
   sections: readonly RenderSection[];
   /** The legend, with labels localized, for a key or legend component. */

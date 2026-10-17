@@ -7,8 +7,15 @@
  * The bindings own the measuring and the event listeners; this owns what a
  * wheel tick, a key press or a pinch *means*.
  *
- * Zoom 1 is "fit": the map exactly as it lays out without zooming. It is also
- * the minimum, so the map can never be shrunk below the container.
+ * Zoom 1 is "fit": the whole canvas (§4.5) exactly as it lays out without
+ * zooming. It is also the minimum, so the map can never be shrunk below the
+ * container.
+ *
+ * Positions come in two frames. *Content* coordinates are CSS pixels on the
+ * unzoomed map, with the canvas's top-left at the origin; convert a canvas
+ * rect, such as a section's bounds or a placed seat, with
+ * {@link canvasRectToContent}. *Container* coordinates are where something is
+ * on screen now, relative to the container.
  */
 
 /** Zoom and pan of the map, as a CSS transform about its top-left corner. */
@@ -37,7 +44,7 @@ export interface ViewportLimits {
   maxZoom: number;
 }
 
-/** The map exactly as laid out: no zoom, no pan. */
+/** The whole canvas exactly as laid out: no zoom, no pan. */
 export const FIT_VIEWPORT: KerusiViewport = Object.freeze({ zoom: 1, x: 0, y: 0 });
 
 /** Zoom is relative to fit, so the floor is always 1. */
@@ -167,13 +174,71 @@ export function panViewportBy(
 }
 
 /**
+ * A rect in canvas units — a section's bounds, a placed seat — in content
+ * coordinates, given the canvas and the size the map lays out at when unzoomed.
+ * The canvas has the same scale on both axes (§4.5), and so does a map laid
+ * out at its aspect ratio; each axis is scaled on its own regardless, so a
+ * stretched layout still lands where it is drawn.
+ */
+export function canvasRectToContent(
+  rect: ViewportRect,
+  canvas: ViewportSize,
+  content: ViewportSize,
+): ViewportRect {
+  const sx = canvas.width > 0 ? content.width / canvas.width : 0;
+  const sy = canvas.height > 0 ? content.height / canvas.height : 0;
+  return { x: rect.x * sx, y: rect.y * sy, width: rect.width * sx, height: rect.height * sy };
+}
+
+/** Where a rect in content coordinates is on screen under `viewport`, in container coordinates. */
+export function contentRectToContainer(viewport: KerusiViewport, rect: ViewportRect): ViewportRect {
+  return {
+    x: viewport.x + rect.x * viewport.zoom,
+    y: viewport.y + rect.y * viewport.zoom,
+    width: rect.width * viewport.zoom,
+    height: rect.height * viewport.zoom,
+  };
+}
+
+/**
+ * The viewport that shows `rect` as large as the container allows, centred on
+ * it, with a margin: zoom to a section's bounds. `rect` is in content
+ * coordinates. The zoom stays within the limits, so a rect bigger than the
+ * container at fit gives fit, and the pan stays within the map.
+ */
+export function viewportForRect(
+  rect: ViewportRect,
+  content: ViewportSize,
+  container: ViewportSize,
+  margin: number = REVEAL_MARGIN,
+  limits: ViewportLimits = zoomLimits(),
+): KerusiViewport {
+  const fits = (available: number, size: number) =>
+    size > 0 ? Math.max(available - 2 * Math.max(0, margin), 0) / size : Number.POSITIVE_INFINITY;
+  const zoom = clamp(
+    Math.min(fits(container.width, rect.width), fits(container.height, rect.height)),
+    limits.minZoom,
+    limits.maxZoom,
+  );
+  return clampViewport(
+    {
+      zoom,
+      x: container.width / 2 - (rect.x + rect.width / 2) * zoom,
+      y: container.height / 2 - (rect.y + rect.height / 2) * zoom,
+    },
+    content,
+    container,
+    limits,
+  );
+}
+
+/**
  * Pans just far enough to bring `rect` inside the container, with a margin.
  *
  * `rect` is where the thing is on screen *now*, in container coordinates — a
- * seat's bounding box minus the container's. Measuring the result of the
- * current transform, rather than computing a position from the layout, is what
- * keeps this correct whatever the section widths and unit scale are. A rect
- * bigger than the container is aligned by its leading edge.
+ * seat's bounding box minus the container's. A rect bigger than the container
+ * is aligned by its leading edge. To reveal something from where it is on the
+ * canvas instead, without measuring, use {@link revealContentRect}.
  */
 export function revealRect(
   viewport: KerusiViewport,
@@ -186,6 +251,28 @@ export function revealRect(
   const dx = revealAxis(rect.x, rect.width, container.width, margin);
   const dy = revealAxis(rect.y, rect.height, container.height, margin);
   return panViewportBy(viewport, dx, dy, content, container, limits);
+}
+
+/**
+ * Pans just far enough to bring `rect`, in content coordinates, inside the
+ * container: reveal a focused seat from its placed position on the canvas.
+ */
+export function revealContentRect(
+  viewport: KerusiViewport,
+  rect: ViewportRect,
+  content: ViewportSize,
+  container: ViewportSize,
+  margin: number = REVEAL_MARGIN,
+  limits: ViewportLimits = zoomLimits(),
+): KerusiViewport {
+  return revealRect(
+    viewport,
+    contentRectToContainer(viewport, rect),
+    content,
+    container,
+    margin,
+    limits,
+  );
 }
 
 /**

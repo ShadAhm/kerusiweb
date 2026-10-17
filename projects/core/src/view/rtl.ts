@@ -1,7 +1,7 @@
 /**
  * Which locales are written right-to-left.
  *
- * A binding needs this to decide whether to mirror a grid section and swap the
+ * A binding needs this to decide whether to mirror the whole canvas and swap the
  * left/right arrow keys, and it would be written identically in every one —
  * so it belongs here rather than in any of them.
  */

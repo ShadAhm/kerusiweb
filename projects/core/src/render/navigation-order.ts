@@ -1,17 +1,26 @@
-import { RenderSeat, RenderSection } from './render-model.js';
+import { RenderRow, RenderSeat, RenderSection } from './render-model.js';
 
 /**
  * Keyboard navigation order over a seat map.
  *
- * §4.3.1 gives `col` a second job beyond drawing: it is the *logical adjacency
- * ordinal*, which is exactly what "the seat to my right" must mean for a
- * keyboard or a screen reader. That holds in `mixed` sections too, where
- * `x`/`y` places the seat but `col` still orders it — so a stand curving away
- * from the pitch still reads seat 1, 2, 3.
+ * §4.3.5 makes `row` and `col` the source of truth for "next to": two seats are
+ * neighbours when they share a row and their cols differ by one, whatever the
+ * drawing looks like. That is exactly what "the seat to my right" must mean for
+ * a keyboard or a screen reader, so a curved balcony or a round table still
+ * reads seat 1, 2, 3.
  *
- * Freeform sections have no columns. Where their seats carry a `row` label,
- * that grouping is used; where they carry nothing, seats are banded by `y` and
- * ordered by `x`. That last case is a heuristic, and documented as one.
+ *  - Left/right moves along the row in `col` order. At an aisle, a skipped
+ *    `col`, it jumps to the next seat in the row rather than stopping, so a
+ *    keyboard user is never stranded; `RenderSeat.besideAisle` lets the seat's
+ *    description say the aisle is there.
+ *  - Up/down moves to the next row in the §4.2.1 order and picks the seat
+ *    nearest on the canvas.
+ *  - Seats with no `row` have no adjacency, so they fall back to a heuristic:
+ *    banded by `y` and ordered by `x`.
+ *
+ * The arrows follow the screen. A row whose cols run right to left on the
+ * canvas, or a mirrored canvas (D3), swaps left and right; rows ordered up the
+ * screen swap up and down.
  */
 
 /** The seats reachable from a given seat, by id. */
@@ -36,7 +45,7 @@ export interface NavigationGraph {
 }
 
 export interface NavigationOptions {
-  /** Swaps left/right so arrow keys stay visually correct in RTL locales. */
+  /** The canvas is mirrored for a right-to-left locale, so left and right swap with it. */
   rtl?: boolean;
   /**
    * Restrict traversal to seats passing this test — e.g. to skip unselectable
@@ -48,35 +57,42 @@ export interface NavigationOptions {
 
 /**
  * Builds the navigation graph for one section. Sections are navigated
- * independently: Tab moves between them, arrows move within.
+ * independently: Tab moves between them, arrows move within. Seats in
+ * different sections are never neighbours (§4.3.5).
  */
 export function buildNavigationGraph(
   section: RenderSection,
   options: NavigationOptions = {},
 ): NavigationGraph {
-  const bands = section.layoutMode === 'freeform' ? freeformBands(section) : gridBands(section);
   const included = options.includes;
+  const bands = section.rows
+    .flatMap(rowBands)
+    .map((band) => ({
+      seats: band.filter((s) => !included || included(s.id)),
+      ascending: runsRight(band) !== !!options.rtl,
+    }))
+    .filter((band) => band.seats.length > 0);
 
-  const filtered = bands
-    .map((band) => band.filter((s) => !included || included(s.id)))
-    .filter((band) => band.length > 0);
-
+  const downIsNext = runsDown(bands.map((b) => b.seats));
   const neighbours = new Map<string, SeatNeighbours>();
   const order: string[] = [];
 
-  filtered.forEach((band, bandIndex) => {
-    band.forEach((seat, i) => {
+  bands.forEach(({ seats, ascending }, bandIndex) => {
+    const above = bands[downIsNext ? bandIndex - 1 : bandIndex + 1]?.seats;
+    const below = bands[downIsNext ? bandIndex + 1 : bandIndex - 1]?.seats;
+
+    seats.forEach((seat, i) => {
       order.push(seat.id);
 
-      const prev = band[i - 1]?.id;
-      const next = band[i + 1]?.id;
+      const prev = seats[i - 1]?.id;
+      const next = seats[i + 1]?.id;
       neighbours.set(seat.id, {
-        left: options.rtl ? next : prev,
-        right: options.rtl ? prev : next,
-        up: nearest(filtered[bandIndex - 1], seat),
-        down: nearest(filtered[bandIndex + 1], seat),
-        rowStart: band[0]?.id,
-        rowEnd: band[band.length - 1]?.id,
+        left: ascending ? prev : next,
+        right: ascending ? next : prev,
+        up: nearest(above, seat),
+        down: nearest(below, seat),
+        rowStart: seats[0]?.id,
+        rowEnd: seats[seats.length - 1]?.id,
       });
     });
   });
@@ -89,84 +105,83 @@ export function buildNavigationGraph(
   };
 }
 
-/** A seat reduced to what navigation needs: an id and a position along the row. */
-interface NavSeat {
-  id: string;
-  /** The ordinal used to find the vertically nearest seat in another band. */
-  ordinal: number;
-}
-
 /**
- * Grid and mixed sections: the rows the render model already grouped, with
- * seats ordered by `col`. `RenderRow.seats` is already in that order.
+ * The bands one row contributes. A named row is one band, in the `col`-then-`x`
+ * order the render model already gave it. An empty row (§4.2.2) contributes
+ * nothing, so an arrow press never lands between two rows of seats.
  *
- * Empty rows (§4.2.2) are skipped: they reserve space on the canvas but hold
- * nothing to move to, and an empty band would strand an arrow press between two
- * rows of seats.
+ * The seats with no `row` are not a row at all, so they are banded by `y`:
+ * sorted top to bottom and split wherever the vertical step is far larger than
+ * a typical one, which separates distinct arcs without assuming they are
+ * level. This is a heuristic; a document that wants exact reading order gives
+ * its seats `row` and `col`.
  */
-function gridBands(section: RenderSection): NavSeat[][] {
-  return section.rows
-    .filter((row) => row.seats.length > 0)
-    .map((row) => row.seats.map((seat, i) => ({ id: seat.id, ordinal: seat.col ?? i })));
-}
-
-/**
- * Freeform sections: group by the seats' `row` labels when they have them,
- * since §4.5 permits `row` as a pure label in freeform mode and an author who
- * supplied one has told us how the seats group.
- *
- * With no row labels at all, seats are banded by `y`: sorted top to bottom and
- * split wherever the vertical step exceeds the median step, which separates
- * distinct arcs without assuming they are level. This is a heuristic; a
- * document that wants exact reading order should carry `row` labels.
- */
-function freeformBands(section: RenderSection): NavSeat[][] {
-  const toNav = (seats: readonly RenderSeat[]): NavSeat[] =>
-    [...seats]
-      .sort((a, b) => (a.x ?? 0) - (b.x ?? 0))
-      .map((seat) => ({ id: seat.id, ordinal: seat.x ?? 0 }));
-
-  const hasRowLabels = section.seats.some((s) => s.row !== undefined && s.row !== '');
-  if (hasRowLabels) {
-    return section.rows.filter((row) => row.seats.length > 0).map((row) => toNav(row.seats));
-  }
-
-  const sorted = [...section.seats].sort((a, b) => (a.y ?? 0) - (b.y ?? 0));
-  if (sorted.length === 0) {
+function rowBands(row: RenderRow): RenderSeat[][] {
+  if (row.seats.length === 0) {
     return [];
   }
+  if (row.id !== '') {
+    return [[...row.seats]];
+  }
 
-  // Split where the vertical step is far larger than a typical one. "Typical"
-  // is the 25th percentile rather than the median: the between-row jumps are
-  // themselves steps, and in a section with few rows they drag the median up
-  // until no jump looks unusual any more.
-  const steps = sorted.slice(1).map((seat, i) => (seat.y ?? 0) - (sorted[i].y ?? 0));
-  const threshold = Math.max(percentile(steps, 0.25) * 4, 1);
+  const sorted = [...row.seats].sort((a, b) => a.y - b.y);
+
+  // "Typical" is the 25th percentile rather than the median: the between-band
+  // jumps are themselves steps, and with few bands they drag the median up
+  // until no jump looks unusual any more. The floor keeps seats a fraction of
+  // a seat apart in one band.
+  const steps = sorted.slice(1).map((seat, i) => seat.y - sorted[i].y);
+  const threshold = Math.max(percentile(steps, 0.25) * 4, sorted[0].size / 4);
 
   const bands: RenderSeat[][] = [[sorted[0]]];
   for (let i = 1; i < sorted.length; i++) {
-    const gap = (sorted[i].y ?? 0) - (sorted[i - 1].y ?? 0);
-    if (gap > threshold) {
+    if (sorted[i].y - sorted[i - 1].y > threshold) {
       bands.push([]);
     }
     bands[bands.length - 1].push(sorted[i]);
   }
 
-  return bands.map(toNav);
+  return bands.map((band) => band.sort((a, b) => a.x - b.x));
 }
 
-/** The seat in `band` whose ordinal is closest to `from`'s — vertical movement. */
-function nearest(
-  band: NavSeat[] | undefined,
-  from: NavSeat | { ordinal: number },
-): string | undefined {
+/**
+ * Whether a band's order runs left to right on the canvas, judged from its two
+ * ends. A band whose ends are level, such as a round table's, counts as left
+ * to right.
+ */
+function runsRight(band: readonly RenderSeat[]): boolean {
+  const dx = band[band.length - 1].x - band[0].x;
+  return dx >= -tolerance(band[0]);
+}
+
+/**
+ * Whether the row order runs down the screen, judged from the first and last
+ * bands' mean `y`. Applied to the whole section, so up and down stay each
+ * other's inverse.
+ */
+function runsDown(bands: readonly (readonly RenderSeat[])[]): boolean {
+  if (bands.length < 2) {
+    return true;
+  }
+  const meanY = (band: readonly RenderSeat[]) =>
+    band.reduce((sum, s) => sum + s.y, 0) / band.length;
+  return meanY(bands[bands.length - 1]) - meanY(bands[0]) >= -tolerance(bands[0][0]);
+}
+
+/** Below this, two positions count as level: a small fraction of a seat. */
+function tolerance(seat: RenderSeat): number {
+  return seat.size * 1e-6;
+}
+
+/** The seat in `band` nearest `from` on the canvas — vertical movement. */
+function nearest(band: readonly RenderSeat[] | undefined, from: RenderSeat): string | undefined {
   if (!band || band.length === 0) {
     return undefined;
   }
   let best = band[0];
-  let bestDistance = Math.abs(best.ordinal - from.ordinal);
+  let bestDistance = Math.hypot(best.x - from.x, best.y - from.y);
   for (const candidate of band.slice(1)) {
-    const distance = Math.abs(candidate.ordinal - from.ordinal);
+    const distance = Math.hypot(candidate.x - from.x, candidate.y - from.y);
     if (distance < bestDistance) {
       best = candidate;
       bestDistance = distance;

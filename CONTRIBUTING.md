@@ -117,7 +117,9 @@ The workflow then:
 - publishes core first, then Angular and React, each with
   [npm provenance](https://docs.npmjs.com/generating-provenance-statements);
 - skips any package whose version is already on npm, so if a run fails part-way,
-  re-running it from the Actions tab finishes the job.
+  re-running it from the Actions tab finishes the job;
+- then creates the GitHub Release, titled `kerusiweb x.y.z`, with the matching
+  `CHANGELOG.md` section as its notes (skipped if the Release already exists).
 
 Watch it under **Actions → Publish to npm**. npm can take a few minutes to list
 a new version after it is published.

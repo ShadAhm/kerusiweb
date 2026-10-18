@@ -3,7 +3,8 @@ name: Publish to npm
 # Publishes @kerusiweb/core, @kerusiweb/angular and @kerusiweb/react when a
 # version tag is pushed: `git tag v2.4.0 && git push origin v2.4.0`.
 # The tag must match the version in all three package.json files, which the
-# release PR bumps beforehand. See "Releasing" in CONTRIBUTING.md.
+# release PR bumps beforehand. Once the packages are out it also creates the
+# GitHub Release from the CHANGELOG.md section. See "Releasing" in CONTRIBUTING.md.
 
 on:
   push:
@@ -79,3 +80,29 @@ jobs:
           publish @kerusiweb/core ./projects/core
           publish @kerusiweb/angular ./dist/angular
           publish @kerusiweb/react ./projects/react
+
+  # Runs only after every package is published, so a Release is never announced
+  # for a version that failed to reach npm. Re-running skips an existing one.
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create the GitHub Release from the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; skipping."
+            exit 0
+          fi
+          version="${TAG#v}"
+          awk -v h="## [$version]" 'index($0,h)==1{f=1;next} f&&/^## \[/{exit} f' CHANGELOG.md             | sed '1{/^$/d}' > notes.md
+          if [ ! -s notes.md ]; then
+            echo "No CHANGELOG.md section for $version; add one before tagging." >&2
+            exit 1
+          fi
+          gh release create "$TAG" --title "kerusiweb $version" --notes-file notes.md --verify-tag

@@ -1,0 +1,264 @@
+# Decisions
+
+Every design decision that shapes the library's behaviour or public surface,
+numbered once, across the whole repository. Planning issues propose them; this
+file is where they are kept once made.
+
+Code comments, specs and the changelog cite a decision by its number, for
+example `(D4)`. A number is never reused or renumbered, so a citation always
+points at the same decision.
+
+## How to read an entry
+
+- **Status** is one of:
+  - **Accepted**: decided, not shipped yet.
+  - **Shipped** in a version.
+  - **Superseded** by a later decision, which is named. The old entry stays, so
+    old citations still resolve.
+  - **Rejected**: considered and turned down. It is kept so the question isn't
+    reopened without new information.
+- **Source** is where the decision was made: an issue, a PR or a review thread.
+- **Why** is the reason, as it stood when the decision was made. If the reason
+  stops holding, add a new decision that supersedes this one. Don't edit the old
+  reason.
+
+To add one, use the `record-decision` skill
+([`.claude/skills/record-decision/SKILL.md`](../.claude/skills/record-decision/SKILL.md)),
+or follow its steps by hand.
+
+## Index
+
+| #                                                        | Decision                                                   | Status        |
+| -------------------------------------------------------- | ---------------------------------------------------------- | ------------- |
+| [D1](#d1-one-svg-for-the-whole-map)                      | One `<svg>` for the whole map                              | Shipped 3.0.0 |
+| [D2](#d2-no-sizing-inputs-beyond-unitscale)              | No sizing inputs beyond `unitScale`                        | Shipped 3.0.0 |
+| [D3](#d3-rtl-mirrors-the-whole-canvas)                   | RTL mirrors the whole canvas                               | Shipped 3.0.0 |
+| [D4](#d4-a-hidden-section-leaves-its-space-empty)        | A hidden section leaves its space empty                    | Shipped 3.0.0 |
+| [D5](#d5-section-labels-only-for-sections-with-bounds)   | Section labels only for sections with `bounds`             | Shipped 3.0.0 |
+| [D6](#d6-keyboard-navigation-follows-adjacency)          | Keyboard navigation follows adjacency                      | Shipped 3.0.0 |
+| [D7](#d7-validator-rule-ids-match-the-reference)         | Validator rule ids match the reference validator           | Shipped 3.0.0 |
+| [D8](#d8-no-rev-14--15-upgrader)                         | No rev 14 → 15 upgrader                                    | Shipped 3.0.0 |
+| [D9](#d9-no-rows-view-in-300)                            | No §4.5.1 rows view in 3.0.0                               | Shipped 3.0.0 |
+| [D10](#d10-hover-and-click-are-independent-and-optional) | Hover and click are independent and optional               | Accepted      |
+| [D11](#d11-the-consuming-app-owns-seat-card-styling)     | The consuming app owns seat card styling                   | Accepted      |
+| [D12](#d12-hover-card-on-keyboard-focus-is-opt-in)       | Hover card on keyboard focus is opt-in                     | Accepted      |
+| [D13](#d13-the-click-event-is-read-only)                 | The click event is read-only                               | Accepted      |
+| [D14](#d14-read-only-maps-infer-clicks)                  | Read-only maps infer clicks from a configured click action | Accepted      |
+| [D15](#d15-events-and-seat-cards-ship-together)          | Events and seat cards ship together                        | Accepted      |
+
+---
+
+## Kerusi rev 15 (v3.0.0)
+
+Made in [#32](https://github.com/ShadAhm/kerusiweb/issues/32), 2026-10-17.
+
+### D1. One SVG for the whole map
+
+- **Status:** Shipped in 3.0.0
+- **Source:** [#32](https://github.com/ShadAhm/kerusiweb/issues/32)
+
+One `<svg>` for the whole map, `viewBox="0 0 canvas.width canvas.height"`, with
+each section a `<g class="kerusi-section" data-section-id role="group">` inside
+it.
+
+**Why:** sections are zones on one canvas now, and two can sit side by side.
+Stacking one SVG per section would draw a valid map wrongly.
+
+### D2. No sizing inputs beyond unitScale
+
+- **Status:** Shipped in 3.0.0
+- **Source:** [#32](https://github.com/ShadAhm/kerusiweb/issues/32)
+
+Remove the `seatSize`, `seatGap` and `freeformBasis` inputs/props, plus
+`SectionRenderOptions.aspectRatio` and `SectionRenderOptions.seatSize`. Keep
+`hidden` and `label`.
+
+**Why:** the document now fixes seat size and position, and §4.5 forbids
+resizing. `unitScale` (CSS px per canvas unit) remains the only sizing control.
+
+### D3. RTL mirrors the whole canvas
+
+- **Status:** Shipped in 3.0.0
+- **Source:** [#32](https://github.com/ShadAhm/kerusiweb/issues/32)
+
+RTL mirrors the whole drawing: `x' = canvas.width − x`, rotation negated, text
+kept readable. Arrow keys keep following the screen.
+
+**Why:** §2 and §4.5 allow mirroring the whole canvas, and only that. Mirroring
+each section or row separately is now a reflow.
+
+### D4. A hidden section leaves its space empty
+
+- **Status:** Shipped in 3.0.0
+- **Source:** [#32](https://github.com/ShadAhm/kerusiweb/issues/32)
+
+`hidden` removes the section's `<g>` and the canvas does not shrink.
+
+**Why:** closing the gap would move other sections, which is a reflow.
+
+### D5. Section labels only for sections with bounds
+
+- **Status:** Shipped in 3.0.0
+- **Source:** [#32](https://github.com/ShadAhm/kerusiweb/issues/32)
+
+Section labels are drawn inside the SVG only when the section declares
+`bounds`, at the top-left of the bounds. Otherwise the label is only the group's
+accessible name. `showSectionLabels` keeps its meaning.
+
+**Why:** the old `<h3>` above each section SVG has nowhere to go on a shared
+canvas. `bounds` is the one thing the spec gives a consumer for placing
+per-section chrome.
+
+### D6. Keyboard navigation follows adjacency
+
+- **Status:** Shipped in 3.0.0
+- **Source:** [#32](https://github.com/ShadAhm/kerusiweb/issues/32)
+
+Left/right moves to the seat at `col ± 1` in the same row. At an aisle (a
+skipped `col`) it jumps to the next seat in the row, and the seat's accessible
+description says the aisle is there. Up/down moves to the next row in §4.2.1
+order and picks the seat nearest on the canvas. Seats with no `row` keep the
+freeform heuristic (banded by `y`, ordered by `x`).
+
+**Why:** §4.3.5 makes `row`/`col` the source of truth for "next to", and the RFC
+says adjacency is for keyboard and screen-reader navigation. Stopping at an
+aisle would strand keyboard users.
+
+### D7. Validator rule ids match the reference
+
+- **Status:** Shipped in 3.0.0
+- **Source:** [#32](https://github.com/ShadAhm/kerusiweb/issues/32)
+
+Validator rule ids match the reference validator (`schema/semantic-rules.mjs`):
+`seat-outside-canvas`, `element-outside-canvas`, `seat-row-col-duplicate`,
+`row-shape-cols-reversed`, plus the schema-stage checks. Overlap and bounds
+findings (`seat-overlap`, `seat-outside-section-bounds`) have severity
+`warning`.
+
+**Why:** `KerusiViolation` already has a `warning` severity, and matching ids
+keeps the corpus spec a one-to-one check.
+
+### D8. No rev 14 → 15 upgrader
+
+- **Status:** Shipped in 3.0.0
+- **Source:** [#32](https://github.com/ShadAhm/kerusiweb/issues/32)
+
+No rev 14 → 15 upgrader ships in the library. Demo fixtures were migrated once
+with a throwaway script.
+
+**Why:** the spec calls itself a draft with only the editor's own consumers. A
+shipped upgrader would keep the old layout code alive for a format nobody can
+produce any more.
+
+### D9. No rows view in 3.0.0
+
+- **Status:** Shipped in 3.0.0 (as a deferral)
+- **Source:** [#32](https://github.com/ShadAhm/kerusiweb/issues/32)
+
+The §4.5.1 "rows view" (a reflowed grid for phones) is not part of 3.0.0. It
+goes in a follow-up issue.
+
+**Why:** it's optional (MAY), and 3.0.0 was already a large change. The render
+model keeps everything that view would need.
+
+---
+
+## Seat hover and click (planned for 3.1.0)
+
+Made in [#42](https://github.com/ShadAhm/kerusiweb/issues/42), 2026-10-18. The
+issue has the full API and acceptance criteria.
+
+### D10. Hover and click are independent and optional
+
+- **Status:** Accepted
+- **Source:** [#42](https://github.com/ShadAhm/kerusiweb/issues/42)
+
+What happens on hover and what happens on click are configured separately, and
+each may be nothing: hover only, click only, both or neither. Two layers ship:
+
+- **Events**: `onSeatHover` / `seatHover` and `onSeatClick` / `seatClick`.
+- **Optional seat cards**: `renderHoverCard` / `renderClickCard` in React, and
+  `kerusiSeatHoverCard` / `kerusiSeatClickCard` templates in Angular.
+
+The library never supplies card content. With nothing configured, the markup is
+unchanged.
+
+**Why:** consumers need hover detail on a read-only map (SeatMaps Easy's "Who
+sits where") without reading kerusiweb's DOM. Other apps want click detail, or
+their own UI. Two layers let an app take the events alone or let the library do
+positioning, dismissal and accessibility.
+
+### D11. The consuming app owns seat card styling
+
+- **Status:** Accepted
+- **Source:** [#42](https://github.com/ShadAhm/kerusiweb/issues/42)
+
+The library's card CSS sets structure only (position, stacking, pointer events,
+arrow geometry), plus a plain default look built from custom properties. The app
+restyles it through:
+
+- `--kerusi-seat-card-*` tokens
+- class and `data-*` hooks, including `data-placement` and `data-seat-status`
+- its own classes (`seatCardClassName` / `seatCardClass`)
+- `seatCardAppearance="none"`, which drops the library's chrome entirely
+
+The card's content is the app's own markup. The library never sets a
+`--kerusi-seat-card-*` property on its own root.
+
+**Why:** a popup has to match the host application's design system. Following
+the existing theming tiers keeps one mental model, and keeps a consumer's
+stylesheet winning without `!important`.
+
+### D12. Hover card on keyboard focus is opt-in
+
+- **Status:** Accepted
+- **Source:** [#42](https://github.com/ShadAhm/kerusiweb/issues/42)
+
+The hover card shows on pointer hover only, unless `hoverCardOnFocus` is set
+(default `false`). The README warns that a pointer-only card must not be the
+only place important information lives, and points to `hoverCardOnFocus`, a
+click card or `onSeatFocus`.
+
+**Why:** maintainer's call in #42. A card popping up on every arrow key is
+noisy, so the consumer chooses.
+
+### D13. The click event is read-only
+
+- **Status:** Accepted
+- **Source:** [#42](https://github.com/ShadAhm/kerusiweb/issues/42)
+
+`onSeatClick` / `seatClick` reports a click on any seat, booked, held and
+blocked ones included, and cannot cancel or change it: there is no
+`preventDefault()`. Selection behaves as it does without it. A click on a
+selectable seat selects it and also opens the click card if one is configured.
+To show details without selecting, turn selection off with the existing props
+(`interactive={false}`, `selectableStatuses`, `seatSelectable`).
+
+**Why:** maintainer's call in #42. A notification-only event keeps selection
+behaviour in one place and avoids a second way to configure what a click does.
+
+### D14. Read-only maps infer clicks
+
+- **Status:** Accepted
+- **Source:** [#42](https://github.com/ShadAhm/kerusiweb/issues/42)
+
+On an `interactive={false}` map, clicks and keyboard access (Tab, arrows,
+Enter/Space) turn on whenever `onSeatClick` / `seatClick` or a click card is
+set. Selection stays off. There is no separate prop. With neither set, the
+markup is what it was before.
+
+Angular's `output()` has no public way to tell whether `(seatClick)` is bound.
+Check this before implementing. If there is no supported way, bring it back to
+#42 rather than adding an Angular-only input.
+
+**Why:** maintainer's call in #42. It keeps the API small, and anything
+clickable must be keyboard-reachable (WCAG 2.1.1).
+
+### D15. Events and seat cards ship together
+
+- **Status:** Accepted
+- **Source:** [#42](https://github.com/ShadAhm/kerusiweb/issues/42)
+
+Both layers in D10 ship in one minor release, 3.1.0, rather than events first.
+
+**Why:** maintainer's call in #42.

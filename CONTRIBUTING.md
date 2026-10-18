@@ -73,6 +73,14 @@ If a change affects conformance, update
 cite the section of the standard (`§4.3.1`, and so on) in the code comment and
 the changelog entry. The existing entries show the house style.
 
+## Design decisions
+
+Decisions that shape behaviour or the public surface are numbered repo-wide and
+kept in [docs/decisions.md](docs/decisions.md). Planning issues propose them,
+and once agreed they go in the log with the next free number. Cite them where
+they are implemented, e.g. `(D4)`, as the existing code and changelog do. A
+number is never reused: to reverse a decision, add a new one that supersedes it.
+
 ## Commits and changelog
 
 Add a `CHANGELOG.md` entry under `## [Unreleased]` for anything a consumer

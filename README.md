@@ -136,15 +136,15 @@ is a feature-by-feature audit; the highlights:
 
 ## Repository layout
 
-| Path                       | What it is                                                               |
-| -------------------------- | ------------------------------------------------------------------------ |
-| `projects/core/`           | `@kerusiweb/core`: framework-agnostic format, render model and geometry. |
-| `projects/angular/`        | `@kerusiweb/angular`: the Angular binding over core.                     |
-| `projects/react/`          | `@kerusiweb/react`: the React binding over core.                         |
-| `projects/angular-demo/`   | The Angular demo, deployed to GitHub Pages.                              |
-| `projects/react-demo/`     | The React demo (Vite), deployed alongside it.                            |
-| `projects/demo-scenarios/` | The five venue documents both demos render.                              |
-| `docs/`                    | [Architecture](docs/architecture.md), format guide, conformance report.  |
+| Path                       | What it is                                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `projects/core/`           | `@kerusiweb/core`: framework-agnostic format, render model and geometry.                                |
+| `projects/angular/`        | `@kerusiweb/angular`: the Angular binding over core.                                                    |
+| `projects/react/`          | `@kerusiweb/react`: the React binding over core.                                                        |
+| `projects/angular-demo/`   | The Angular demo, deployed to GitHub Pages.                                                             |
+| `projects/react-demo/`     | The React demo (Vite), deployed alongside it.                                                           |
+| `projects/demo-scenarios/` | The five venue documents both demos render.                                                             |
+| `docs/`                    | [Architecture](docs/architecture.md), format guide, conformance report, [decisions](docs/decisions.md). |
 
 ## Develop
 

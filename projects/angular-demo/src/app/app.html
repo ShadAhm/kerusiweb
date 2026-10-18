@@ -41,104 +41,14 @@
         <p class="hint">{{ scenario().blurb }}</p>
       </div>
 
-      <div class="controls">
-        <label>
-          Locale
-          <select [value]="locale()" (change)="locale.set($any($event.target).value)">
-            @for (item of locales; track item.id) {
-              <option [value]="item.id">{{ item.label }}</option>
-            }
-          </select>
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="typeColors()"
-            (change)="typeColors.set($any($event.target).checked)"
-          />
-          Seat-type colours
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="showLegend()"
-            (change)="showLegend.set($any($event.target).checked)"
-          />
-          Legend
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="zoomable()"
-            (change)="zoomable.set($any($event.target).checked)"
-          />
-          Zoom &amp; pan
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="maximizable()"
-            (change)="maximizable.set($any($event.target).checked)"
-          />
-          Full screen
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="roundSeats()"
-            (change)="roundSeats.set($any($event.target).checked)"
-          />
-          Custom seat template
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="aisleCss()"
-            (change)="aisleCss.set($any($event.target).checked)"
-          />
-          Aisle seats via CSS
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="goldPremium()"
-            (change)="goldPremium.set($any($event.target).checked)"
-          />
-          Gold premium seats
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="circleShape()"
-            (change)="circleShape.set($any($event.target).checked)"
-          />
-          Circle seat shape
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="hoverCard()"
-            (change)="hoverCard.set($any($event.target).checked)"
-          />
-          Hover card
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="clickCard()"
-            (change)="clickCard.set($any($event.target).checked)"
-          />
-          Click card
-        </label>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="restyledCards()"
-            (change)="restyledCards.set($any($event.target).checked)"
-          />
-          Restyled cards
-        </label>
-      </div>
+      <label class="locale">
+        Locale
+        <select [value]="locale()" (change)="locale.set($any($event.target).value)">
+          @for (item of locales; track item.id) {
+            <option [value]="item.id">{{ item.label }}</option>
+          }
+        </select>
+      </label>
     </div>
 
     <div class="scenario-body">
@@ -355,6 +265,147 @@
           }
         </div>
       </aside>
+    </div>
+
+    <div class="options" role="group" aria-label="Demo options">
+      <div class="options__head">
+        <h3>
+          Options <span class="options__count">· {{ optionsOn() }} of {{ optionCount }} on</span>
+        </h3>
+        <button type="button" class="options__reset" (click)="resetOptions()">Reset</button>
+      </div>
+      <div class="options__groups">
+        <fieldset class="options__group">
+          <legend>Map</legend>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="typeColors()"
+              (change)="typeColors.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Seat-type colours</span>
+              <span class="toggle__hint">Tint each seat by its type</span>
+            </span>
+          </label>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="showLegend()"
+              (change)="showLegend.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Legend</span>
+              <span class="toggle__hint">A key under the map</span>
+            </span>
+          </label>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="zoomable()"
+              (change)="zoomable.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Zoom &amp; pan</span>
+              <span class="toggle__hint">Pinch, wheel, drag</span>
+            </span>
+          </label>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="maximizable()"
+              (change)="maximizable.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Full screen</span>
+              <span class="toggle__hint">Adds an expand button</span>
+            </span>
+          </label>
+        </fieldset>
+        <fieldset class="options__group">
+          <legend>Seats</legend>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="goldPremium()"
+              (change)="goldPremium.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Gold premium seats</span>
+              <span class="toggle__hint">seatTypeStyles</span>
+            </span>
+          </label>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="circleShape()"
+              (change)="circleShape.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Circle seat shape</span>
+              <span class="toggle__hint">seatStyle</span>
+            </span>
+          </label>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="aisleCss()"
+              (change)="aisleCss.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Aisle seats via CSS</span>
+              <span class="toggle__hint">Data attributes, no code</span>
+            </span>
+          </label>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="roundSeats()"
+              (change)="roundSeats.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Custom seat template</span>
+              <span class="toggle__hint">kerusiSeat — your own SVG</span>
+            </span>
+          </label>
+        </fieldset>
+        <fieldset class="options__group">
+          <legend>Seat cards</legend>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="hoverCard()"
+              (change)="hoverCard.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Hover card</span>
+              <span class="toggle__hint">Details on hover or focus</span>
+            </span>
+          </label>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="clickCard()"
+              (change)="clickCard.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Click card</span>
+              <span class="toggle__hint">Details with a Close button</span>
+            </span>
+          </label>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="restyledCards()"
+              (change)="restyledCards.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Restyled cards</span>
+              <span class="toggle__hint">Restyled with tokens alone</span>
+            </span>
+          </label>
+        </fieldset>
+      </div>
     </div>
 
     <details class="source" [open]="showSource()">

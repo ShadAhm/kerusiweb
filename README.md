@@ -134,6 +134,102 @@ is a feature-by-feature audit; the highlights:
 | **Live availability**               | `KerusiStateStore` (Angular) and `useKerusiState` (React) apply deltas in order, discard stale and out-of-scope ones, and revert lapsed holds.                                                                                      |
 | **Validation**                      | Every MUST-level rule, throwing or collecting, with a rule slug and document path per violation, tested against the example corpus published with the standard.                                                                     |
 
+## Hover and click, and seat cards
+
+What happens when the pointer **hovers** a seat, and what happens when a seat is **clicked**, are decided separately, and each is optional. Nothing is on by default.
+
+| Hover    | Click    | How                                                                     |
+| -------- | -------- | ----------------------------------------------------------------------- |
+| nothing  | nothing  | The default: no new markup, no new behaviour.                           |
+| card     | nothing  | A read-only "who sits where" map: point at a seat to see who booked it. |
+| nothing  | card     | A booking map: tap a seat to see its price and perks in a card.         |
+| card     | card     | A short tooltip on hover, plus a fuller card with actions on click.     |
+| callback | callback | Your own UI: the library only reports the events.                       |
+
+Two layers ship: **events** that report the seat and nothing more, and optional **seat cards**, a card anchored to the seat that you fill with your own content.
+
+### Hover and click
+
+```tsx
+// React
+<KerusiSeatmap
+  map={map}
+  state={state}
+  interactive={false}
+  onSeatHover={(seat) => setHovered(seat?.id ?? null)} // RenderSeat | null
+  onSeatClick={({ seat, selected, source }) => openDetail(seat.id)}
+  onSeatFocus={(seat) => setHovered(seat.id)} // the same detail for the keyboard
+/>
+```
+
+```html
+<!-- Angular -->
+<kerusi-seatmap
+  [map]="map"
+  [state]="state"
+  [interactive]="false"
+  (seatHover)="hovered.set($event?.id ?? null)"
+  (seatClick)="openDetail($event.seat.id)"
+  (seatFocus)="hovered.set($event.id)"
+/>
+```
+
+- `onSeatHover` / `seatHover` reports the seat on entry and `null` on leave, for a mouse or pen only, never during a pan or zoom, and also on a read-only map.
+- `onSeatClick` / `seatClick` reports **every** activation of **any** seat, booked ones included, before the selection callbacks. It is read-only: it cannot change what the click does.
+- `interactive={false}` turns selection off, but seats stay clickable and keyboard-reachable while `onSeatClick` or a click card is set.
+
+### Seat cards
+
+```tsx
+// React
+<KerusiSeatmap
+  map={map}
+  interactive={false}
+  renderHoverCard={({ seat }) => (seat.status === 'booked' ? <b>{who[seat.id]}</b> : null)}
+  renderClickCard={({ seat, close }) => <BookingDetail id={seat.id} onDone={close} />}
+/>
+```
+
+```html
+<!-- Angular -->
+<kerusi-seatmap [map]="map" [interactive]="false">
+  <ng-template kerusiSeatHoverCard let-ctx>
+    @if (ctx.seat.status === 'booked') { {{ who[ctx.seat.id] }} }
+  </ng-template>
+  <ng-template kerusiSeatClickCard let-ctx>
+    <app-booking-detail [id]="ctx.seat.id" (done)="ctx.close()" />
+  </ng-template>
+</kerusi-seatmap>
+```
+
+The hover card shows on a mouse or pen, never on touch, and on keyboard focus only with `hoverCardOnFocus`. The click card opens on a click, a tap or Enter, and stays until `Escape`, a press outside, a second click on the same seat, or `close()`. Both follow zoom and pan, flip and clamp at the map's edges, and show in full screen. Full details: the [React](projects/react/README.md#seat-cards) and [Angular](projects/angular/README.md#seat-cards) READMEs.
+
+### Styling seat cards
+
+The library sets structure and a plain default look from custom properties. You own the rest: set a token on `.kerusi-seatmap` or any ancestor, hook a class or `data-*` attribute, add your own classes, or drop the chrome with `seatCardAppearance="none"`.
+
+| Custom property                 | Default                                |
+| ------------------------------- | -------------------------------------- |
+| `--kerusi-seat-card-bg`         | `--kerusi-element-bg`, else white      |
+| `--kerusi-seat-card-fg`         | `--kerusi-element-fg`, else near-black |
+| `--kerusi-seat-card-border`     | `1px solid rgb(0 0 0 / 0.12)`          |
+| `--kerusi-seat-card-radius`     | `8px`                                  |
+| `--kerusi-seat-card-shadow`     | a soft drop shadow                     |
+| `--kerusi-seat-card-padding`    | `8px 12px`                             |
+| `--kerusi-seat-card-max-width`  | `280px`                                |
+| `--kerusi-seat-card-font`       | `inherit`                              |
+| `--kerusi-seat-card-offset`     | `8px` (the gap between seat and card)  |
+| `--kerusi-seat-card-arrow-size` | `6px` (`0` hides the arrow)            |
+| `--kerusi-seat-card-z-index`    | `10`                                   |
+
+```css
+.kerusi-seat-card[data-seat-status='booked'] {
+  --kerusi-seat-card-border: 2px solid #e5707e;
+}
+```
+
+The class and attribute hooks are `.kerusi-seat-card`, `.kerusi-seat-card--hover` / `--click`, `.kerusi-seat-card__body`, `.kerusi-seat-card__arrow`, `data-placement`, `data-seat-id`, `data-seat-status`, `data-seat-type` and `data-section-id`.
+
 ## Repository layout
 
 | Path                       | What it is                                                               |

@@ -32,6 +32,11 @@ export interface UseViewportOptions {
   enabled: boolean;
   maxZoom: number;
   onViewportChange?: (viewport: KerusiViewport) => void;
+  /**
+   * Called when a pan, pinch or wheel zoom begins, so a seat hover can be cleared
+   * for the duration (D10). Not called for the buttons and keys.
+   */
+  onGestureStart?: () => void;
 }
 
 /** The slice of a key event {@link ViewportControls.handleKeyDown} reads. */
@@ -78,6 +83,7 @@ export function useViewport({
   enabled,
   maxZoom,
   onViewportChange,
+  onGestureStart,
 }: UseViewportOptions): ViewportControls {
   const limits = useMemo(() => zoomLimits(maxZoom), [maxZoom]);
   const [viewport, setViewport] = useState<KerusiViewport>(FIT_VIEWPORT);
@@ -90,8 +96,8 @@ export function useViewport({
    * re-renders, and each must start from the one before.
    */
   const viewportRef = useRef<KerusiViewport>(FIT_VIEWPORT);
-  const settings = useRef({ enabled, limits, onViewportChange });
-  settings.current = { enabled, limits, onViewportChange };
+  const settings = useRef({ enabled, limits, onViewportChange, onGestureStart });
+  settings.current = { enabled, limits, onViewportChange, onGestureStart };
 
   const commit = useCallback((next: KerusiViewport, animate: boolean) => {
     if (viewportsEqual(next, viewportRef.current)) {
@@ -247,6 +253,7 @@ export function useViewport({
       // Capture only once a tap has become a gesture: capturing on `down` would
       // retarget the tap's click away from the seat.
       if (result.capture) {
+        settings.current.onGestureStart?.();
         for (const id of result.state.ids) {
           try {
             view.setPointerCapture(id);
@@ -297,6 +304,7 @@ export function useViewport({
         return; // A plain wheel is the page's to scroll.
       }
       e.preventDefault();
+      settings.current.onGestureStart?.();
       commit(
         zoomViewportBy(
           viewportRef.current,
@@ -326,6 +334,7 @@ export function useViewport({
       if (!gestureBase || !measured) {
         return;
       }
+      settings.current.onGestureStart?.();
       commit(
         zoomViewportTo(
           gestureBase,

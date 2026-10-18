@@ -114,11 +114,35 @@
           />
           Circle seat shape
         </label>
+        <label class="toggle">
+          <input
+            type="checkbox"
+            [checked]="hoverCard()"
+            (change)="hoverCard.set($any($event.target).checked)"
+          />
+          Hover card
+        </label>
+        <label class="toggle">
+          <input
+            type="checkbox"
+            [checked]="clickCard()"
+            (change)="clickCard.set($any($event.target).checked)"
+          />
+          Click card
+        </label>
+        <label class="toggle">
+          <input
+            type="checkbox"
+            [checked]="restyledCards()"
+            (change)="restyledCards.set($any($event.target).checked)"
+          />
+          Restyled cards
+        </label>
       </div>
     </div>
 
     <div class="scenario-body">
-      <div class="stage" [class.demo-aisles]="aisleCss()">
+      <div class="stage" [class.demo-aisles]="aisleCss()" [class.demo-cards]="restyledCards()">
         <kerusi-seatmap
           #seatmap
           [map]="scenario().map"
@@ -133,6 +157,7 @@
           [maximizable]="maximizable()"
           [seatTypeStyles]="seatTypeStyles()"
           [seatStyle]="circleShape() ? circleSeats : undefined"
+          [hoverCardOnFocus]="hoverCard()"
           (seatDisallowed)="onDisallowed($event)"
           (validationIssues)="issues.set($event)"
         >
@@ -191,6 +216,35 @@
               >
                 {{ g.label.text }}
               </svg:text>
+            </ng-template>
+          }
+
+          <!-- The cards' content is the app's own markup, and belongs to this
+               component, so its encapsulated styles apply to it. -->
+          @if (hoverCard()) {
+            <ng-template kerusiSeatHoverCard let-ctx>
+              @let text = cardText(ctx);
+              <span class="demo-card__title">{{ text.title }}</span>
+              <span class="demo-card__meta">
+                {{ text.type }}{{ text.price ? ' · ' + text.price : '' }} · {{ text.status
+                }}{{ ctx.trigger === 'focus' ? ' · focused' : '' }}
+              </span>
+            </ng-template>
+          }
+          @if (clickCard()) {
+            <ng-template kerusiSeatClickCard let-ctx>
+              @let text = cardText(ctx);
+              <span class="demo-card__title">{{ text.title }}</span>
+              <span class="demo-card__meta">{{ text.type }}</span>
+              @if (text.price) {
+                <span class="demo-card__meta">{{ text.price }}</span>
+              }
+              <span class="demo-card__meta">
+                {{ text.status }}{{ ctx.selected ? ' · in your selection' : '' }}
+              </span>
+              <span class="demo-card__actions">
+                <button type="button" class="demo-card__button" (click)="ctx.close()">Close</button>
+              </span>
             </ng-template>
           }
         </kerusi-seatmap>

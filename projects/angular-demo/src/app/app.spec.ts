@@ -92,6 +92,33 @@ describe('App', () => {
     expect(d.split(' A ').length - 1).toBe(2);
   });
 
+  it('shows no seat card until a card toggle is on', () => {
+    const seat = () => el.querySelector<SVGGElement>('g.kerusi-seat')!;
+    seat().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+    expect(el.querySelector('.kerusi-seat-card')).toBeNull();
+  });
+
+  it('opens a click card for a seat from its toggle, with the app’s own content in it', async () => {
+    toggleNamed('Click card').click();
+    fixture.detectChanges();
+    el.querySelector<SVGGElement>('g.kerusi-seat')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true }),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const card = el.querySelector<HTMLElement>('.kerusi-seat-card--click')!;
+    expect(card).not.toBeNull();
+    expect(card.querySelector('.demo-card__title')?.textContent).toContain('seat');
+    expect(card.parentElement).toBe(el.querySelector('.kerusi-seatmap'));
+  });
+
+  it('marks the stage for the card-token CSS rule from its toggle', () => {
+    toggleNamed('Restyled cards').click();
+    fixture.detectChanges();
+    expect(el.querySelector('.stage')!.classList).toContain('demo-cards');
+  });
+
   it('renders the map as one svg, with a group per section of the selected scenario', () => {
     const sectionCount = SCENARIOS[0].map.sections.length;
     expect(el.querySelectorAll('svg.kerusi-seatmap__svg')).toHaveLength(1);

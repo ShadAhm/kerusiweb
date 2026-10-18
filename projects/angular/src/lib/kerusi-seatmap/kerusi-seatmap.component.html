@@ -1,4 +1,5 @@
 <div
+  #root
   class="kerusi-seatmap"
   [class.kerusi-seatmap--maximized]="maximized()"
   role="group"
@@ -125,6 +126,44 @@
     />
   }
 
+  <!-- Inside the root and outside the clipped viewport, so a card shows in full
+       screen and inherits the map's --kerusi-* properties. Keyed by seat, so a
+       card moving to another seat is a new card. -->
+  @for (seat of hoverCardSeats(); track seat.id) {
+    <div
+      kerusi-seat-card
+      [kind]="'hover'"
+      [id]="hoverCardElementId"
+      [seat]="seat"
+      [placement]="seatCardPlacement()"
+      [appearance]="seatCardAppearance()"
+      [extraClass]="seatCardClass()"
+      [template]="hoverCardTemplate()!.template"
+      [context]="hoverContext()!"
+      [rootEl]="rootElement()!"
+      [seatNode]="seatNodeOf"
+      (cardEnter)="onCardEnter()"
+      (cardLeave)="onCardLeave()"
+    ></div>
+  }
+  @for (seat of clickCardSeats(); track seat.id) {
+    <div
+      kerusi-seat-card
+      [kind]="'click'"
+      [id]="clickCardId"
+      [seat]="seat"
+      [label]="clickCardLabel()"
+      [placement]="seatCardPlacement()"
+      [appearance]="seatCardAppearance()"
+      [extraClass]="seatCardClass()"
+      [template]="clickCardTemplate()!.template"
+      [context]="clickContext()!"
+      [rootEl]="rootElement()!"
+      [seatNode]="seatNodeOf"
+      [focusOnOpen]="clickFromKeyboard()"
+    ></div>
+  }
+
   <p class="kerusi-sr-only" aria-live="polite" aria-atomic="true">{{ liveMessage() }}</p>
 </div>
 
@@ -164,8 +203,12 @@
         [seatStyle]="seatStyle()"
         [seatTypeStyles]="seatTypeStyles()"
         [interactive]="interactive()"
-        (seatActivate)="onSeatActivate($event)"
+        [clickable]="clickable()"
+        [reachable]="reachable()"
+        [describedBy]="describedBy()"
+        (seatActivate)="onSeatActivate($event, 'pointer')"
         (seatFocused)="onSeatFocused($event)"
+        (seatBlurred)="onSeatBlurred($event)"
         (seatKeydown)="onKeydown(placed.section, $event)"
       ></g>
     }

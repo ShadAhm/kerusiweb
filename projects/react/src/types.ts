@@ -1,7 +1,9 @@
 import type {
   DisallowedReason,
+  HoverCardDelay,
   KerusiControlStrings,
   KerusiMap,
+  KerusiSeatCardContext,
   KerusiSeatContext,
   KerusiSeatmapColors,
   KerusiSession,
@@ -10,6 +12,9 @@ import type {
   KerusiViolation,
   RenderSeat,
   SeatAriaStrings,
+  SeatCardAppearance,
+  SeatCardPlacement,
+  SeatClick,
   SeatRenderStatus,
   SeatStyleFn,
   SeatTypeStyles,
@@ -66,6 +71,15 @@ export interface KerusiSeatmapHandle {
   readonly summary: SelectionSummary;
   /** Moves DOM focus to a seat, if it is rendered. */
   focusSeat(seatId: string): void;
+  /**
+   * Opens the click card for a seat, for example from a search result. No-op
+   * without `renderClickCard`, or for a seat that is not rendered.
+   */
+  openSeatCard(seatId: string): void;
+  /** Closes the click card. */
+  closeSeatCard(): void;
+  /** The seat whose click card is showing, or `null`. */
+  readonly openSeatCardId: string | null;
   /** The current zoom and pan. Fit (`{ zoom: 1, x: 0, y: 0 }`) unless `zoomable`. */
   readonly viewport: KerusiViewport;
   /** Zooms in one step about the centre. No-op unless `zoomable`. */
@@ -175,7 +189,11 @@ export interface KerusiSeatmapProps {
    * Memoize it — an inline arrow rebuilds the whole render model every render.
    */
   seatSelectable?: (seat: RenderSeat) => boolean;
-  /** When false the map renders read-only: no pointer or keyboard interaction. */
+  /**
+   * `false` turns selection off. Seats still take clicks, and stay
+   * keyboard-reachable, while `onSeatClick` or `renderClickCard` is set (D14).
+   * With neither set, a read-only map has no pointer or keyboard interaction.
+   */
   interactive?: boolean;
   /**
    * Revert a lapsed `holdExpires` to available on a ticker (§5.1). Off by
@@ -207,6 +225,45 @@ export interface KerusiSeatmapProps {
    */
   controlStrings?: Partial<KerusiControlStrings>;
 
+  // --- seat cards (both optional, both off by default) ----------------------
+
+  /**
+   * Shown while a seat is hovered, anchored to it. Return `null` for no card on
+   * this seat. Never shown for touch. With neither card function set, nothing is
+   * rendered and the markup is unchanged (D10).
+   *
+   * A hover card is pointer-only unless `hoverCardOnFocus` is set, so it must not
+   * be the only place important information lives.
+   */
+  renderHoverCard?: (ctx: KerusiSeatCardContext) => ReactNode;
+  /**
+   * Opened by a click, tap or Enter/Space on a seat, anchored to it. It stays
+   * open until dismissed: `Escape`, a press outside, a second click on the same
+   * seat, `ctx.close()`, or another seat's click card opening. Return `null` for
+   * no card on this seat.
+   *
+   * A click on a selectable seat still toggles it. To show details without
+   * selecting, turn selection off with `interactive={false}`,
+   * `selectableStatuses={[]}` or `seatSelectable`.
+   */
+  renderClickCard?: (ctx: KerusiSeatCardContext) => ReactNode;
+  /** The side a card prefers; it flips when it would overflow the map. Default `top`. */
+  seatCardPlacement?: SeatCardPlacement;
+  /** Extra classes on the card element, for Tailwind or a design-system class (D11). */
+  seatCardClassName?: string;
+  /**
+   * `none` drops the card's background, border, padding, shadow and arrow,
+   * leaving only positioning, so your content is the card (D11). Default `default`.
+   */
+  seatCardAppearance?: SeatCardAppearance;
+  /** Milliseconds before a hover card opens and closes. Default `{ open: 150, close: 100 }`. */
+  hoverCardDelay?: Partial<HoverCardDelay>;
+  /**
+   * Also show the hover card when a seat takes keyboard focus (D12). Default
+   * `false`. Setting it makes seats keyboard-reachable even on a read-only map.
+   */
+  hoverCardOnFocus?: boolean;
+
   // --- validation -----------------------------------------------------------
 
   validate?: ValidationMode;
@@ -217,6 +274,20 @@ export interface KerusiSeatmapProps {
   onSeatDeselect?: (event: SeatInteraction) => void;
   onSeatDisallowed?: (event: SeatDisallowed) => void;
   onSeatFocus?: (seat: RenderSeat) => void;
+  /**
+   * The seat under the pointer when it enters a seat, and `null` when it leaves
+   * the seat or the map. Not repeated while the pointer moves within a seat.
+   * Pointer devices only (mouse and pen), never during a pan or zoom, and
+   * unaffected by `interactive` (D10).
+   */
+  onSeatHover?: (seat: RenderSeat | null) => void;
+  /**
+   * Every activation of any seat, whether or not it can be selected: booked,
+   * held and blocked seats included. Fires before the selection callbacks, with
+   * `selected` as it was before the click. A read-only notification: it cannot
+   * cancel or change what the click does (D13).
+   */
+  onSeatClick?: (event: SeatClick) => void;
   /** Called whenever the documents change, unless `validate` is `off`. */
   onValidationIssues?: (issues: readonly KerusiViolation[]) => void;
   /** The zoom and pan, whenever they change. For a host that persists or shows them. */

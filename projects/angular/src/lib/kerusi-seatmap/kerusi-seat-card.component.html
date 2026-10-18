@@ -1,0 +1,6 @@
+<div #body class="kerusi-seat-card__body">
+  <ng-container *ngTemplateOutlet="template(); context: outletContext()" />
+</div>
+@if (showArrow()) {
+  <span class="kerusi-seat-card__arrow" aria-hidden="true"></span>
+}

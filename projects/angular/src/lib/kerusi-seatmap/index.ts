@@ -10,3 +10,5 @@ export * from './kerusi-seatmap.component';
 export * from './kerusi-section.component';
 export * from './kerusi-legend.component';
 export * from './kerusi-seat-template.directive';
+export * from './kerusi-seat-card.directive';
+export * from './kerusi-seat-card.component';

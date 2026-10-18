@@ -31,6 +31,7 @@ import type {
   NavigationGraph,
   RenderMap,
   RenderSection,
+  SeatClickSource,
 } from '@kerusiweb/core';
 import {
   forwardRef,
@@ -52,6 +53,7 @@ import type {
 } from './types.js';
 import { useMaximized } from './use-maximized.js';
 import { useRovingFocus } from './use-roving-focus.js';
+import { useSeatCards } from './use-seat-cards.js';
 import { useViewport } from './use-viewport.js';
 
 const NO_SELECTION: readonly string[] = [];
@@ -122,6 +124,15 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       onSeatDeselect,
       onSeatDisallowed,
       onSeatFocus,
+      onSeatHover,
+      onSeatClick,
+      renderHoverCard,
+      renderClickCard,
+      seatCardPlacement = 'top',
+      seatCardClassName,
+      seatCardAppearance = 'default',
+      hoverCardDelay,
+      hoverCardOnFocus = false,
       onValidationIssues,
       onViewportChange,
       onMaximizedChange,
@@ -260,10 +271,43 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
     const { focusedSeatIds, setFocusedSeat, moveFocusTo, focusSeat, getSeatNode, registerSeat } =
       useRovingFocus(renderMap, zoomable);
 
-    // --- zoom, pan and maximize -----------------------------------------------
+    // --- seat cards and hover (D10) -------------------------------------------
 
     const rootRef = useRef<HTMLDivElement | null>(null);
-    const zoom = useViewport({ enabled: zoomable, maxZoom, onViewportChange });
+    const cards = useSeatCards({
+      rootRef,
+      renderMap,
+      selection: selectionSet,
+      locale: resolvedLocale,
+      ariaStrings,
+      getSeatNode,
+      focusSeat,
+      onSeatHover,
+      renderHoverCard,
+      renderClickCard,
+      placement: seatCardPlacement,
+      className: seatCardClassName,
+      appearance: seatCardAppearance,
+      hoverCardDelay,
+      hoverCardOnFocus,
+    });
+
+    /**
+     * Whether a click behaviour is configured (D14): `onSeatClick` or a click
+     * card. It is what keeps a read-only map's seats clickable and reachable.
+     */
+    const clickable = !!onSeatClick || !!renderClickCard;
+    /** Seats take pointer and keyboard interaction: to select, to click, or to show a card. */
+    const reachable = interactive || clickable || cards.tracksFocus;
+
+    // --- zoom, pan and maximize -----------------------------------------------
+
+    const zoom = useViewport({
+      enabled: zoomable,
+      maxZoom,
+      onViewportChange,
+      onGestureStart: cards.gesture,
+    });
     const { maximized, toggleMaximized, setMaximized } = useMaximized({
       enabled: maximizable,
       rootRef,
@@ -311,9 +355,19 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
     // --- interaction --------------------------------------------------------
 
     const onSeatActivate = useCallback(
-      (seatId: string) => {
+      (seatId: string, source: SeatClickSource = 'pointer') => {
         const seat = renderMap.seatsById.get(seatId);
         if (!seat) {
+          return;
+        }
+
+        // The click is reported first, with the selection as it stood before it,
+        // and cannot change what follows (D13).
+        onSeatClick?.({ seat, selected: selectionSet.has(seatId), source });
+        cards.activate(seatId, source);
+
+        // A read-only map stops here: selection is off (D14).
+        if (!interactive) {
           return;
         }
 
@@ -341,6 +395,10 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       [
         renderMap,
         selection,
+        selectionSet,
+        interactive,
+        onSeatClick,
+        cards.activate,
         companionMode,
         maxSelection,
         announce,
@@ -361,11 +419,23 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
         }
         setFocusedSeat(seat.sectionId, seatId);
         onSeatFocus?.(seat);
+        if (cards.tracksFocus) {
+          cards.focus(seatId);
+        }
         if (zoomable) {
           zoom.revealSeat(getSeatNode(seatId));
         }
       },
-      [renderMap, setFocusedSeat, onSeatFocus, zoomable, zoom.revealSeat, getSeatNode],
+      [
+        renderMap,
+        setFocusedSeat,
+        onSeatFocus,
+        cards.tracksFocus,
+        cards.focus,
+        zoomable,
+        zoom.revealSeat,
+        getSeatNode,
+      ],
     );
 
     /**
@@ -415,10 +485,15 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
           case 'Enter':
           case ' ':
             event.preventDefault();
-            onSeatActivate(seatId);
+            onSeatActivate(seatId, 'keyboard');
             return;
           case 'Escape':
-            if (selection.length > 0) {
+            // An open card is dismissed before anything else gives way.
+            if (cards.dismiss()) {
+              event.preventDefault();
+              return;
+            }
+            if (interactive && selection.length > 0) {
               event.preventDefault();
               commitSelection([]);
               announceSelection([]);
@@ -433,7 +508,16 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
           moveFocusTo(sectionId, target);
         }
       },
-      [graphs, onSeatActivate, selection, commitSelection, announceSelection, moveFocusTo],
+      [
+        graphs,
+        onSeatActivate,
+        selection,
+        interactive,
+        cards.dismiss,
+        commitSelection,
+        announceSelection,
+        moveFocusTo,
+      ],
     );
 
     // --- public handle ------------------------------------------------------
@@ -455,6 +539,9 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       () => ({
         summary,
         focusSeat,
+        openSeatCard: cards.openSeatCard,
+        closeSeatCard: cards.closeSeatCard,
+        openSeatCardId: cards.openSeatCardId,
         viewport: zoom.viewport,
         zoomIn: zoom.zoomIn,
         zoomOut: zoom.zoomOut,
@@ -466,6 +553,9 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       [
         summary,
         focusSeat,
+        cards.openSeatCard,
+        cards.closeSeatCard,
+        cards.openSeatCardId,
         zoom.viewport,
         zoom.zoomIn,
         zoom.zoomOut,
@@ -486,6 +576,11 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
         return;
       }
       if (zoomable && zoom.handleKeyDown(event)) {
+        event.preventDefault();
+        return;
+      }
+      if (event.key === 'Escape' && cards.dismiss()) {
+        // A card in the way goes first; a second Escape leaves a maximized map.
         event.preventDefault();
         return;
       }
@@ -543,9 +638,14 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
             seatStyle={seatStyle}
             renderSeat={renderSeat}
             interactive={interactive}
+            clickable={clickable}
+            reachable={reachable}
+            describedBy={cards.describedBy}
             onSeatActivate={onSeatActivate}
             onSeatFocused={onSeatFocused}
+            onSeatBlurred={cards.tracksFocus ? cards.blur : undefined}
             onSeatKeyDown={(event) => onKeyDown(placed.section.id, event)}
+            onSeatPointer={cards.tracksPointer ? cards.pointer : undefined}
             registerSeat={registerSeat}
           />
         ))}
@@ -698,6 +798,10 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
             showPrices={showLegendPrices}
           />
         )}
+
+        {/* Inside the root and outside the clipped viewport, so a card shows in
+            full screen and inherits the map's `--kerusi-*` properties. */}
+        {cards.elements}
 
         <p className="kerusi-sr-only" aria-live="polite" aria-atomic="true">
           {liveMessage}

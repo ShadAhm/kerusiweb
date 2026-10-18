@@ -20,6 +20,9 @@
           role="toolbar"
           [attr.aria-label]="strings().toolbar"
           [style.--kerusi-focus-ring-input]="resolvedColors().focusRing"
+          [style.--kerusi-control-bg-input]="controlColors().buttonBackground"
+          [style.--kerusi-control-fg-input]="controlColors().buttonColor"
+          [style.--kerusi-control-border-input]="controlColors().buttonBorder"
         >
           @if (zoomable() && showZoomControls()) {
             <button
@@ -27,9 +30,6 @@
               class="kerusi-control kerusi-control--zoom-in"
               [attr.aria-label]="strings().zoomIn"
               [attr.aria-disabled]="atMaxZoom()"
-              [style.background]="controlColors().buttonBackground"
-              [style.color]="controlColors().buttonColor"
-              [style.border-color]="controlColors().buttonBorder"
               (click)="zoomIn()"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -41,9 +41,6 @@
               class="kerusi-control kerusi-control--zoom-out"
               [attr.aria-label]="strings().zoomOut"
               [attr.aria-disabled]="atFit()"
-              [style.background]="controlColors().buttonBackground"
-              [style.color]="controlColors().buttonColor"
-              [style.border-color]="controlColors().buttonBorder"
               (click)="zoomOut()"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -55,9 +52,6 @@
               class="kerusi-control kerusi-control--zoom-reset"
               [attr.aria-label]="strings().zoomReset"
               [attr.aria-disabled]="atFit()"
-              [style.background]="controlColors().buttonBackground"
-              [style.color]="controlColors().buttonColor"
-              [style.border-color]="controlColors().buttonBorder"
               (click)="resetZoom()"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -70,9 +64,6 @@
               type="button"
               class="kerusi-control kerusi-control--maximize"
               [attr.aria-label]="maximized() ? strings().restore : strings().maximize"
-              [style.background]="controlColors().buttonBackground"
-              [style.color]="controlColors().buttonColor"
-              [style.border-color]="controlColors().buttonBorder"
               (click)="toggleMaximized()"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

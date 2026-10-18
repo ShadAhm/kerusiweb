@@ -70,6 +70,17 @@ additive. Planned in #42.
    a hover card toggle, a click card toggle and a "Restyled cards" toggle that
    restyles every card from the demo's stylesheet through the tokens alone.
 
+8. **Slimmer zoom and full-screen buttons, and `--kerusi-control-*` tokens.**
+   The controls are now one grouped bar of 32px buttons with 16px icons, and
+   hover and pressed states, in place of four loose 44px squares. Touch screens
+   (`pointer: coarse`) keep the 44px target. Restyle them from your own
+   stylesheet with `--kerusi-control-size`, `-icon-size`, `-icon-stroke`,
+   `-radius`, `-shadow`, `-bg`, `-fg`, `-border` and `-hover-bg`; see the
+   READMEs. The buttons no longer carry inline colours, so a rule on
+   `.kerusi-control` no longer needs `!important` to win. The default colours are
+   unchanged (`elementBg`, `elementFg`, `elementMutedFg`). The bar's border is a
+   40% tint of `elementMutedFg`, lighter than before.
+
 ## [3.0.0] - 2026-10-17
 
 **3.0.0, a breaking release** of `@kerusiweb/core`, `@kerusiweb/angular` and

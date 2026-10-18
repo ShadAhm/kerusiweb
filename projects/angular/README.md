@@ -513,9 +513,38 @@ ignored.
 **Controls.** The zoom buttons (zoom in, zoom out, reset to fit) are real
 `<button>`s with accessible names. At a limit they set `aria-disabled` rather than
 `disabled`, so keyboard focus is not thrown away mid-press. Their names come from
-`controlStrings`, for translation. They use the theme's existing tokens
+`controlStrings`, for translation. They are one compact bar (32px buttons, 44px
+on touch screens) coloured from the theme's existing tokens
 (`--kerusi-element-bg`, `--kerusi-element-fg`, `--kerusi-element-muted-fg`,
-`--kerusi-focus-ring`), so there is nothing new to theme.
+`--kerusi-focus-ring`).
+
+To restyle them, set any of these in your own stylesheet; each beats the theme
+colours without `!important`:
+
+| Token                          | Default                                            |
+| ------------------------------ | -------------------------------------------------- |
+| `--kerusi-control-size`        | `2rem` (`2.75rem` on touch screens)                |
+| `--kerusi-control-icon-size`   | `1rem`                                             |
+| `--kerusi-control-icon-stroke` | `1.75`                                             |
+| `--kerusi-control-radius`      | `0.5rem`                                           |
+| `--kerusi-control-shadow`      | `0 1px 3px rgb(0 0 0 / 0.14)`                      |
+| `--kerusi-control-bg`          | `--kerusi-element-bg`                              |
+| `--kerusi-control-fg`          | `--kerusi-element-fg`                              |
+| `--kerusi-control-border`      | `--kerusi-element-muted-fg` at 40%                 |
+| `--kerusi-control-hover-bg`    | the foreground mixed 10% (18% pressed) into the bg |
+
+```css
+.kerusi-seatmap {
+  --kerusi-control-size: 2.5rem;
+  --kerusi-control-radius: 999px;
+  --kerusi-control-bg: #1b1f27;
+  --kerusi-control-fg: #fff;
+}
+```
+
+The classes `.kerusi-toolbar`, `.kerusi-control` and `.kerusi-control--zoom-in`,
+`--zoom-out`, `--zoom-reset` and `--maximize` are there for anything the tokens
+do not cover.
 
 To put the controls somewhere else, turn the built-in ones off
 (`[showZoomControls]="false"`) and drive the map yourself:

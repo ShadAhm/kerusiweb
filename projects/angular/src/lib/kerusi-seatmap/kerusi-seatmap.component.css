@@ -46,12 +46,34 @@
   gap: 1.25rem;
 }
 
+/* One grouped bar rather than four loose squares. Every measure and colour is a
+   `--kerusi-control-*` token so a host can restyle it from its own stylesheet;
+   the private `--kc-*` values below only resolve the tiers once. The `*-input`
+   colours are the `[colors]` palette, written inline by the component. */
 .kerusi-toolbar {
+  --kc-size: var(--kerusi-control-size, 2rem);
+  --kc-bg: var(--kerusi-control-bg, var(--kerusi-control-bg-input));
+  --kc-fg: var(--kerusi-control-fg, var(--kerusi-control-fg-input));
+  --kc-border: var(
+    --kerusi-control-border,
+    color-mix(in srgb, var(--kerusi-control-border-input) 40%, transparent)
+  );
   display: flex;
-  gap: 0.35rem;
   align-self: flex-end;
   /* Stays put under a maximized map's scrolling stage. */
   flex: none;
+  box-sizing: border-box;
+  border: 1px solid var(--kc-border);
+  border-radius: var(--kerusi-control-radius, 0.5rem);
+  overflow: hidden;
+  box-shadow: var(--kerusi-control-shadow, 0 1px 3px rgb(0 0 0 / 0.14));
+}
+
+/* A fingertip needs more than a cursor does: keep the 44px target on touch. */
+@media (pointer: coarse) {
+  .kerusi-toolbar {
+    --kc-size: var(--kerusi-control-size, 2.75rem);
+  }
 }
 
 .kerusi-control {
@@ -59,35 +81,55 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  /* 44px: a comfortable touch target on the phones this exists for. */
-  width: 2.75rem;
-  height: 2.75rem;
+  width: var(--kc-size);
+  height: var(--kc-size);
   padding: 0;
-  border: 1px solid;
-  border-radius: 0.4rem;
+  border: 0;
+  border-radius: 0;
+  background: var(--kc-bg);
+  color: var(--kc-fg);
   font: inherit;
   cursor: pointer;
+  transition: background-color 120ms ease-out;
+}
+
+.kerusi-control + .kerusi-control {
+  border-inline-start: 1px solid var(--kc-border);
+}
+
+.kerusi-control:hover {
+  background: var(--kerusi-control-hover-bg, color-mix(in srgb, var(--kc-fg) 10%, var(--kc-bg)));
+}
+
+.kerusi-control:active {
+  background: var(--kerusi-control-hover-bg, color-mix(in srgb, var(--kc-fg) 18%, var(--kc-bg)));
 }
 
 /* `aria-disabled`, not `disabled`: a disabled button drops out of the tab order,
    and pressing "zoom in" until the ceiling would throw focus away mid-press. */
 .kerusi-control[aria-disabled='true'] {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: default;
+  background: var(--kc-bg);
 }
 
 .kerusi-control svg {
-  width: 1.4rem;
-  height: 1.4rem;
+  width: var(--kerusi-control-icon-size, 1rem);
+  height: var(--kerusi-control-icon-size, 1rem);
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: var(--kerusi-control-icon-stroke, 1.75);
   stroke-linecap: round;
   stroke-linejoin: round;
   pointer-events: none;
 }
 
-.kerusi-control:focus-visible,
+/* Inset, so the bar's `overflow: hidden` does not clip it. */
+.kerusi-control:focus-visible {
+  outline: 2px solid var(--kerusi-focus-ring, var(--kerusi-focus-ring-input, currentColor));
+  outline-offset: -2px;
+}
+
 .kerusi-viewport:focus-visible {
   outline: 2px solid var(--kerusi-focus-ring, var(--kerusi-focus-ring-input, currentColor));
   outline-offset: 2px;

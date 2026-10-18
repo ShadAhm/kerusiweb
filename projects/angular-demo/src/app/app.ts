@@ -66,6 +66,40 @@ export class App {
   /** Restyles every card from the demo's stylesheet alone, through the tokens. */
   protected readonly restyledCards = signal(false);
   protected readonly showSource = signal(false);
+
+  /** How many switches the options panel has, and how many are on. */
+  protected readonly optionCount = 11;
+  protected readonly optionsOn = computed(
+    () =>
+      [
+        this.typeColors(),
+        this.showLegend(),
+        this.zoomable(),
+        this.maximizable(),
+        this.goldPremium(),
+        this.circleShape(),
+        this.aisleCss(),
+        this.roundSeats(),
+        this.hoverCard(),
+        this.clickCard(),
+        this.restyledCards(),
+      ].filter(Boolean).length,
+  );
+
+  /** Puts every switch back to how the page first loads. */
+  protected resetOptions(): void {
+    this.typeColors.set(true);
+    this.showLegend.set(true);
+    this.zoomable.set(true);
+    this.maximizable.set(true);
+    this.goldPremium.set(false);
+    this.circleShape.set(false);
+    this.aisleCss.set(false);
+    this.roundSeats.set(false);
+    this.hoverCard.set(false);
+    this.clickCard.set(false);
+    this.restyledCards.set(false);
+  }
   protected readonly theme = signal<Theme>(getInitialTheme());
 
   protected toggleTheme(): void {

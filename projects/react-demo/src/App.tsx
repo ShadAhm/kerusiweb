@@ -144,6 +144,101 @@ export function App() {
     [scenario],
   );
 
+  /** Every switch in the options panel, by key; the panel renders from this. */
+  const options: Option[] = [
+    {
+      key: 'typeColors',
+      label: 'Seat-type colours',
+      hint: 'Tint each seat by its type',
+      value: typeColors,
+      set: setTypeColors,
+      initial: true,
+    },
+    {
+      key: 'showLegend',
+      label: 'Legend',
+      hint: 'A key under the map',
+      value: showLegend,
+      set: setShowLegend,
+      initial: true,
+    },
+    {
+      key: 'zoomable',
+      label: 'Zoom & pan',
+      hint: 'Pinch, wheel, drag',
+      value: zoomable,
+      set: setZoomable,
+      initial: true,
+    },
+    {
+      key: 'maximizable',
+      label: 'Full screen',
+      hint: 'Adds an expand button',
+      value: maximizable,
+      set: setMaximizable,
+      initial: true,
+    },
+    {
+      key: 'goldPremium',
+      label: 'Gold premium seats',
+      hint: 'seatTypeStyles',
+      value: goldPremium,
+      set: setGoldPremium,
+      initial: false,
+    },
+    {
+      key: 'circleShape',
+      label: 'Circle seat shape',
+      hint: 'seatStyle',
+      value: circleShape,
+      set: setCircleShape,
+      initial: false,
+    },
+    {
+      key: 'aisleCss',
+      label: 'Aisle seats via CSS',
+      hint: 'Data attributes, no code',
+      value: aisleCss,
+      set: setAisleCss,
+      initial: false,
+    },
+    {
+      key: 'roundSeats',
+      label: 'Custom seat template',
+      hint: 'renderSeat — your own SVG',
+      value: roundSeats,
+      set: setRoundSeats,
+      initial: false,
+    },
+    {
+      key: 'hoverCard',
+      label: 'Hover card',
+      hint: 'Details on hover or focus',
+      value: hoverCard,
+      set: setHoverCard,
+      initial: false,
+    },
+    {
+      key: 'clickCard',
+      label: 'Click card',
+      hint: 'Details with a Close button',
+      value: clickCard,
+      set: setClickCard,
+      initial: false,
+    },
+    {
+      key: 'restyledCards',
+      label: 'Restyled cards',
+      hint: 'Restyled with tokens alone',
+      value: restyledCards,
+      set: setRestyledCards,
+      initial: false,
+    },
+  ];
+  const optionsByKey = Object.fromEntries(options.map((option) => [option.key, option]));
+  const optionsOn = options.filter((option) => option.value).length;
+  const resetOptions = () => options.forEach((option) => option.set(option.initial));
+
   /** The scenario's map as JSON, so the standard itself is visible on the page. */
   const sourceJson = useMemo(() => JSON.stringify(scenario.map, null, 2), [scenario]);
 
@@ -193,106 +288,16 @@ export function App() {
               <p className="hint">{scenario.blurb}</p>
             </div>
 
-            <div className="controls">
-              <label>
-                Locale
-                <select value={locale} onChange={(e) => setLocale(e.target.value)}>
-                  {DEMO_LOCALES.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={typeColors}
-                  onChange={(e) => setTypeColors(e.target.checked)}
-                />
-                Seat-type colours
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={showLegend}
-                  onChange={(e) => setShowLegend(e.target.checked)}
-                />
-                Legend
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={zoomable}
-                  onChange={(e) => setZoomable(e.target.checked)}
-                />
-                Zoom &amp; pan
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={maximizable}
-                  onChange={(e) => setMaximizable(e.target.checked)}
-                />
-                Full screen
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={roundSeats}
-                  onChange={(e) => setRoundSeats(e.target.checked)}
-                />
-                Custom seat template
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={aisleCss}
-                  onChange={(e) => setAisleCss(e.target.checked)}
-                />
-                Aisle seats via CSS
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={goldPremium}
-                  onChange={(e) => setGoldPremium(e.target.checked)}
-                />
-                Gold premium seats
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={circleShape}
-                  onChange={(e) => setCircleShape(e.target.checked)}
-                />
-                Circle seat shape
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={hoverCard}
-                  onChange={(e) => setHoverCard(e.target.checked)}
-                />
-                Hover card
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={clickCard}
-                  onChange={(e) => setClickCard(e.target.checked)}
-                />
-                Click card
-              </label>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={restyledCards}
-                  onChange={(e) => setRestyledCards(e.target.checked)}
-                />
-                Restyled cards
-              </label>
-            </div>
+            <label className="locale">
+              Locale
+              <select value={locale} onChange={(e) => setLocale(e.target.value)}>
+                {DEMO_LOCALES.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div className="scenario-body">
@@ -432,6 +437,43 @@ export function App() {
             </aside>
           </div>
 
+          <div className="options" role="group" aria-label="Demo options">
+            <div className="options__head">
+              <h3>
+                Options{' '}
+                <span className="options__count">
+                  · {optionsOn} of {options.length} on
+                </span>
+              </h3>
+              <button type="button" className="options__reset" onClick={resetOptions}>
+                Reset
+              </button>
+            </div>
+            <div className="options__groups">
+              {OPTION_GROUPS.map((group) => (
+                <fieldset key={group.name} className="options__group">
+                  <legend>{group.name}</legend>
+                  {group.keys.map((key) => {
+                    const option = optionsByKey[key]!;
+                    return (
+                      <label key={key} className="toggle">
+                        <input
+                          type="checkbox"
+                          checked={option.value}
+                          onChange={(e) => option.set(e.target.checked)}
+                        />
+                        <span className="toggle__text">
+                          <span className="toggle__label">{option.label}</span>
+                          <span className="toggle__hint">{option.hint}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </fieldset>
+              ))}
+            </div>
+          </div>
+
           <details className="source">
             <summary>The KerusiMap behind this view</summary>
             <pre>
@@ -453,6 +495,23 @@ export function App() {
 }
 
 const EMPTY: readonly string[] = [];
+
+interface Option {
+  key: string;
+  label: string;
+  hint: string;
+  value: boolean;
+  set: (value: boolean) => void;
+  /** What "Reset" puts it back to. */
+  initial: boolean;
+}
+
+/** How the options panel groups its switches. */
+const OPTION_GROUPS: readonly { name: string; keys: readonly string[] }[] = [
+  { name: 'Map', keys: ['typeColors', 'showLegend', 'zoomable', 'maximizable'] },
+  { name: 'Seats', keys: ['goldPremium', 'circleShape', 'aisleCss', 'roundSeats'] },
+  { name: 'Seat cards', keys: ['hoverCard', 'clickCard', 'restyledCards'] },
+];
 
 /** The "Circle seat shape" toggle: every seat as a circle, through `seatStyle`. */
 const circleSeats: SeatStyleFn = () => ({ shape: 'circle' });

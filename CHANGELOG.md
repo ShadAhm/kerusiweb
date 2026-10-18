@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-10-18
+
 **A minor release (3.1.0)** of `@kerusiweb/core`, `@kerusiweb/angular` and
 `@kerusiweb/react`: customizable seat hover and click behaviour. All of it is
 additive. Planned in #42.
@@ -776,6 +778,7 @@ Carried over from the legacy directive:
 - Rendering is per-instance (no global element id lookup), so multiple pickers
   can coexist on one page.
 
+[3.1.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v3.1.0
 [3.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v3.0.0
 [2.3.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.3.0
 [2.2.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.2.0

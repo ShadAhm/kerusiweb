@@ -144,8 +144,9 @@
     role="button"
     [attr.tabindex]="tabIndex(placed)"
     [attr.aria-label]="ariaLabel(placed)"
-    [attr.aria-pressed]="entry.selected"
+    [attr.aria-pressed]="pressed(entry.selected)"
     [attr.aria-disabled]="!placed.seat.selectable"
+    [attr.aria-describedby]="describedById(placed)"
     [attr.data-seat-id]="placed.seat.id"
     [attr.data-seat-type]="glyph.data.type"
     [attr.data-seat-status]="glyph.data.status"
@@ -155,6 +156,7 @@
     [attr.transform]="transform(placed)"
     (click)="onSeatClick(placed)"
     (focus)="onSeatFocus(placed)"
+    (blur)="onSeatBlur(placed)"
     (keydown)="onKeydown($event)"
   >
     @if (seatTemplate(); as custom) {

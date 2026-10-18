@@ -3,6 +3,8 @@
 }
 
 .kerusi-seatmap {
+  /* The containing block for a seat card, which is positioned in the map's root. */
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;

@@ -45,11 +45,31 @@ export interface KerusiSectionProps {
   seatStyle?: SeatStyleFn;
   /** Draws the inside of each seat in place of the stock glyph. */
   renderSeat?: (ctx: SeatRenderContext) => ReactNode;
-  /** When false, seats render but do not respond to pointer or keyboard. */
+  /**
+   * When false, selection is off: seats render read-only, with no `aria-pressed`
+   * once a click behaviour is set. Whether they still respond is `reachable`'s.
+   */
   interactive?: boolean;
-  onSeatActivate?: (seatId: string) => void;
+  /**
+   * A click behaviour is configured (`onSeatClick` or a click card). On a
+   * read-only map this keeps the seats clickable without turning selection on
+   * (D14), so `aria-pressed` is left off.
+   */
+  clickable?: boolean;
+  /**
+   * Whether seats take pointer and keyboard interaction at all: they respond,
+   * and the section's tab stop is reachable. Defaults to `interactive`.
+   */
+  reachable?: boolean;
+  /** The seat that shows a hover card, and the card's `id`, for `aria-describedby`. */
+  describedBy?: { seatId: string; id: string } | null;
+  onSeatActivate?: (seatId: string, source: 'pointer') => void;
   onSeatFocused?: (seatId: string) => void;
+  /** Present only when a hover card follows keyboard focus (D12). */
+  onSeatBlurred?: (seatId: string) => void;
   onSeatKeyDown?: (event: ReactKeyboardEvent<SVGGElement>) => void;
+  /** Present only when something listens for hover: `onSeatHover` or a hover card. */
+  onSeatPointer?: (type: 'enter' | 'leave' | 'move', seatId: string, pointerType: string) => void;
   /** Called with each seat's `<g>` as it mounts and unmounts, for focus moves. */
   registerSeat?: (seatId: string, node: SVGGElement | null) => void;
 }
@@ -79,9 +99,14 @@ export function KerusiSection({
   seatStyle,
   renderSeat,
   interactive = true,
+  clickable = false,
+  reachable = interactive,
+  describedBy = null,
   onSeatActivate,
   onSeatFocused,
+  onSeatBlurred,
   onSeatKeyDown,
+  onSeatPointer,
   registerSeat,
 }: KerusiSectionProps) {
   const section = layout.section;
@@ -128,9 +153,14 @@ export function KerusiSection({
           seatStyle={seatStyle}
           renderSeat={renderSeat}
           interactive={interactive}
+          clickable={clickable}
+          reachable={reachable}
+          describedById={describedBy?.seatId === placed.seat.id ? describedBy.id : undefined}
           onSeatActivate={onSeatActivate}
           onSeatFocused={onSeatFocused}
+          onSeatBlurred={onSeatBlurred}
           onSeatKeyDown={onSeatKeyDown}
+          onSeatPointer={onSeatPointer}
           registerSeat={registerSeat}
         />
       ))}
@@ -151,9 +181,14 @@ interface SeatProps {
   seatStyle?: SeatStyleFn;
   renderSeat?: (ctx: SeatRenderContext) => ReactNode;
   interactive: boolean;
-  onSeatActivate?: (seatId: string) => void;
+  clickable: boolean;
+  reachable: boolean;
+  describedById?: string;
+  onSeatActivate?: (seatId: string, source: 'pointer') => void;
   onSeatFocused?: (seatId: string) => void;
+  onSeatBlurred?: (seatId: string) => void;
   onSeatKeyDown?: (event: ReactKeyboardEvent<SVGGElement>) => void;
+  onSeatPointer?: (type: 'enter' | 'leave' | 'move', seatId: string, pointerType: string) => void;
   registerSeat?: (seatId: string, node: SVGGElement | null) => void;
 }
 
@@ -168,9 +203,14 @@ function SectionSeat({
   seatStyle,
   renderSeat,
   interactive,
+  clickable,
+  reachable,
+  describedById,
   onSeatActivate,
   onSeatFocused,
+  onSeatBlurred,
   onSeatKeyDown,
+  onSeatPointer,
   registerSeat,
 }: SeatProps) {
   const seat = placed.seat;
@@ -185,10 +225,13 @@ function SectionSeat({
       }}
       className={glyph.className}
       role="button"
-      tabIndex={interactive && tabStop ? 0 : -1}
+      tabIndex={reachable && tabStop ? 0 : -1}
       aria-label={ariaLabel}
-      aria-pressed={selected}
+      /* A read-only map that still takes clicks does not toggle, so it does not
+         claim to be a toggle button (D14). */
+      aria-pressed={!interactive && clickable ? undefined : selected}
       aria-disabled={!seat.selectable}
+      aria-describedby={describedById}
       data-seat-id={seat.id}
       data-seat-type={glyph.data.type}
       data-seat-status={glyph.data.status}
@@ -196,9 +239,19 @@ function SectionSeat({
       data-seat-row={glyph.data.row}
       data-seat-attributes={glyph.data.attributes}
       transform={transform(placed) ?? undefined}
-      onClick={interactive ? () => onSeatActivate?.(seat.id) : undefined}
-      onFocus={interactive ? () => onSeatFocused?.(seat.id) : undefined}
-      onKeyDown={interactive ? onSeatKeyDown : undefined}
+      onClick={reachable ? () => onSeatActivate?.(seat.id, 'pointer') : undefined}
+      onFocus={reachable ? () => onSeatFocused?.(seat.id) : undefined}
+      onBlur={reachable && onSeatBlurred ? () => onSeatBlurred(seat.id) : undefined}
+      onKeyDown={reachable ? onSeatKeyDown : undefined}
+      onPointerEnter={
+        onSeatPointer ? (e) => onSeatPointer('enter', seat.id, e.pointerType) : undefined
+      }
+      onPointerLeave={
+        onSeatPointer ? (e) => onSeatPointer('leave', seat.id, e.pointerType) : undefined
+      }
+      onPointerMove={
+        onSeatPointer ? (e) => onSeatPointer('move', seat.id, e.pointerType) : undefined
+      }
     >
       {renderSeat ? (
         <>

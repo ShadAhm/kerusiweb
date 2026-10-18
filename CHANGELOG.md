@@ -6,6 +6,70 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+**A minor release (3.1.0)** of `@kerusiweb/core`, `@kerusiweb/angular` and
+`@kerusiweb/react`: customizable seat hover and click behaviour. All of it is
+additive. Planned in #42.
+
+### Added
+
+1. **Hover and click are independent and optional** (D10). Two layers, each
+   useful without the other, and nothing is on by default: a map using none of
+   what follows renders the same markup and behaves the same as 3.0.0 (the
+   parity signature does not move).
+
+2. **Events.** `onSeatHover` / `seatHover` reports the `RenderSeat` under the
+   pointer when it enters a seat and `null` when it leaves the seat or the map,
+   once each. Mouse and pen only, never during a pan or zoom (it is cleared once
+   when one starts and resumes on the next pointer move), and it fires on a map
+   with `interactive={false}` too. `onSeatClick` / `seatClick` reports
+   `{ seat, selected, source }` on **every** activation of **any** seat, booked,
+   held and blocked included, before the selection callbacks and with `selected`
+   as it was before the click. It is read-only (D13): it cannot cancel or change
+   what the click does. In Angular `seatClick` is an `EventEmitter` rather than an
+   `output()`, because only that can say whether it is bound.
+
+3. **A read-only map can still take clicks** (D14). `interactive={false}` turns
+   selection off. While `onSeatClick` (or `(seatClick)`) or a click card is set,
+   seats stay clickable and keyboard-reachable (Tab, arrows, Enter and Space, per
+   WCAG 2.1.1), with no toggle and no `aria-pressed`. There is no new prop: set
+   one and it turns on, remove them and the markup is a read-only map's again.
+
+4. **Seat cards.** A floating card anchored to a seat, with one card element and
+   two triggers: `renderHoverCard` and `renderClickCard` in React,
+   `<ng-template kerusiSeatHoverCard>` and `<ng-template kerusiSeatClickCard>` in
+   Angular. The consumer supplies the content, and the library handles
+   positioning, dismissal, zoom, full screen, touch and accessibility. The hover
+   card follows a mouse or pen (never touch), is hoverable and dismissible with
+   `Escape` (WCAG 1.4.13), and is a `role="tooltip"` wired to the seat with
+   `aria-describedby`. The click card opens on a click, a tap or Enter/Space, is a
+   non-modal `role="dialog"` labelled by the seat, moves focus in when opened from
+   the keyboard and back to the seat on close, and closes on `Escape`, a press
+   outside, a second click on the same seat, `close()` or another seat's card.
+   Props and inputs: `seatCardPlacement`, `seatCardClassName` / `seatCardClass`,
+   `seatCardAppearance`, `hoverCardDelay` and `hoverCardOnFocus`. The hover card
+   shows on keyboard focus only with `hoverCardOnFocus` (D12). `openSeatCard()`,
+   `closeSeatCard()` and `openSeatCardId` open and close a click card from code.
+
+5. **The app owns the styling of a card** (D11). Eleven `--kerusi-seat-card-*`
+   tokens, the `.kerusi-seat-card` class hooks, `data-placement`, `data-seat-id`,
+   `data-seat-status`, `data-seat-type` and `data-section-id` attributes, your own
+   classes, and `seatCardAppearance="none"` to drop the chrome. Every library rule
+   is wrapped in `:where()`, so a one-class rule of yours wins without
+   `!important`. The card sits inside `.kerusi-seatmap`, so it inherits the
+   map's `--kerusi-*` properties and shows in full screen.
+
+6. **Core** (`@kerusiweb/core`). `reduceSeatHover()` holds the hover rules once
+   for both bindings, as `reduceGesture()` does for pan and pinch.
+   `placeSeatCard()` is the placement arithmetic: side, position and arrow
+   offset, with flip and clamp, pure and tested in Node. New types:
+   `SeatClick`, `KerusiSeatCardContext`, `SeatCardPlacement`, `SeatCardTrigger`,
+   `SeatCardAppearance` and `HoverCardDelay`.
+
+7. **Docs and demos.** "Hover and click", "Seat cards" and "Styling seat cards"
+   in the root, React and Angular READMEs, with the tokens table. Both demos get
+   a hover card toggle, a click card toggle and a "Restyled cards" toggle that
+   restyles every card from the demo's stylesheet through the tokens alone.
+
 ## [3.0.0] - 2026-10-17
 
 **3.0.0, a breaking release** of `@kerusiweb/core`, `@kerusiweb/angular` and

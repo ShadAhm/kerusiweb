@@ -515,3 +515,51 @@ main {
   --kerusi-seat-fill: #f2c94c;
   --kerusi-seat-label: #000000;
 }
+
+/* The demo's seat cards. The content is the app's own markup, so these classes
+   style it the way any markup in the app is styled. */
+.demo-card__title {
+  display: block;
+  font-weight: 600;
+}
+
+.demo-card__meta {
+  display: block;
+  opacity: 0.8;
+}
+
+.demo-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.demo-card__button {
+  font: inherit;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The "Restyled cards" toggle: every seat card restyled from here alone, by the
+   tokens, and one rule for the hook on a booked seat. Nothing in the library
+   changes and no !important is needed. The tokens are set on an ancestor of the
+   map, so they inherit down to the card inside it. */
+.demo-cards {
+  --kerusi-seat-card-bg: #1d2433;
+  --kerusi-seat-card-fg: #f2f5fb;
+  --kerusi-seat-card-border: 2px solid #f2c94c;
+  --kerusi-seat-card-radius: 14px;
+  --kerusi-seat-card-padding: 10px 14px;
+  --kerusi-seat-card-shadow: 0 10px 28px rgb(0 0 0 / 0.35);
+  --kerusi-seat-card-arrow-size: 9px;
+  --kerusi-seat-card-offset: 12px;
+  --kerusi-seat-card-max-width: 240px;
+}
+
+.demo-cards .kerusi-seat-card[data-seat-status='booked'] {
+  --kerusi-seat-card-border: 2px solid #e5707e;
+}

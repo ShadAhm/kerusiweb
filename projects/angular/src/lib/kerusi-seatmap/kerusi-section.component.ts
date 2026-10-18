@@ -77,12 +77,31 @@ export class KerusiSectionComponent {
   readonly seatStyle = input<SeatStyleFn | undefined>(undefined);
   /** Draws the inside of each seat in place of the stock glyph. */
   readonly seatTemplate = input<TemplateRef<SeatTemplateOutletContext> | undefined>(undefined);
-  /** When false, seats render but do not respond to pointer or keyboard. */
+  /**
+   * When false, selection is off: seats render read-only, with no `aria-pressed`
+   * once a click behaviour is set. Whether they still respond is `reachable`'s.
+   */
   readonly interactive = input<boolean>(true);
+  /**
+   * A click behaviour is configured (`(seatClick)` or a click card). On a
+   * read-only map this keeps the seats clickable without turning selection on
+   * (D14), so `aria-pressed` is left off.
+   */
+  readonly clickable = input<boolean>(false);
+  /**
+   * Whether seats take pointer and keyboard interaction at all: they respond,
+   * and the section's tab stop is reachable. Defaults to `interactive`.
+   */
+  readonly reachable = input<boolean | undefined>(undefined);
+  /** The seat that shows a hover card, and the card's `id`, for `aria-describedby`. */
+  readonly describedBy = input<{ seatId: string; id: string } | null>(null);
 
   readonly seatActivate = output<string>();
   readonly seatFocused = output<string>();
+  readonly seatBlurred = output<string>();
   readonly seatKeydown = output<KeyboardEvent>();
+
+  private readonly live = computed(() => this.reachable() ?? this.interactive());
 
   /** Whether the label is drawn: asked for, present, and with declared bounds to sit in. */
   protected readonly drawsLabel = computed(
@@ -116,10 +135,20 @@ export class KerusiSectionComponent {
 
   /** The section's single tab stop; every other seat is reachable by arrow key. */
   protected tabIndex(placed: PlacedSeat): number {
-    if (!this.interactive()) {
+    if (!this.live()) {
       return -1;
     }
     return placed.seat.id === this.focusedSeatId() ? 0 : -1;
+  }
+
+  /** A read-only map that still takes clicks does not toggle, so it is not a toggle button (D14). */
+  protected pressed(selected: boolean): boolean | null {
+    return !this.interactive() && this.clickable() ? null : selected;
+  }
+
+  protected describedById(placed: PlacedSeat): string | null {
+    const described = this.describedBy();
+    return described?.seatId === placed.seat.id ? described.id : null;
   }
 
   protected ariaLabel(placed: PlacedSeat): string {
@@ -173,19 +202,25 @@ export class KerusiSectionComponent {
   // --- interaction ----------------------------------------------------------
 
   protected onSeatClick(placed: PlacedSeat): void {
-    if (this.interactive()) {
+    if (this.live()) {
       this.seatActivate.emit(placed.seat.id);
     }
   }
 
   protected onSeatFocus(placed: PlacedSeat): void {
-    if (this.interactive()) {
+    if (this.live()) {
       this.seatFocused.emit(placed.seat.id);
     }
   }
 
+  protected onSeatBlur(placed: PlacedSeat): void {
+    if (this.live()) {
+      this.seatBlurred.emit(placed.seat.id);
+    }
+  }
+
   protected onKeydown(event: KeyboardEvent): void {
-    if (this.interactive()) {
+    if (this.live()) {
       this.seatKeydown.emit(event);
     }
   }

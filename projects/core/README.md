@@ -48,8 +48,12 @@ const d = seatBodyPath(x, y, width, height); // → 'M4 8 …', ready for <path 
 
 **`view/`: presentation policy, still framework-free.** The colour system
 (`DEFAULT_KERUSI_COLORS`, `seatFill`, `readableOn`), the ARIA strings
-(`seatAriaLabel`, `disallowedAnnouncement`), and the selection rules
-(`toggleSeatSelection`, `summarizeSelection`, `DisallowedReason`).
+(`seatAriaLabel`, `disallowedAnnouncement`), the selection rules
+(`toggleSeatSelection`, `summarizeSelection`, `DisallowedReason`), and the rules
+behind seat hover and seat cards: `reduceSeatHover()` (the pointer-type filter,
+the pause during a pan or zoom, the open and close delays) and `placeSeatCard()`
+(side, position and arrow offset, with flip and clamp), both pure, plus the
+`SeatClick` and `KerusiSeatCardContext` types.
 
 ## Server-side use
 

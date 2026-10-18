@@ -1,8 +1,8 @@
 import { buildRenderModel, formatMoney, summarizeSelection } from '@kerusiweb/core';
-import type { Bounds, KerusiViolation, SeatStyleFn } from '@kerusiweb/core';
+import type { Bounds, KerusiSeatCardContext, KerusiViolation, SeatStyleFn } from '@kerusiweb/core';
 import { KerusiSeatmap } from '@kerusiweb/react';
 import type { KerusiSeatmapHandle, SeatDisallowed, SeatRenderContext } from '@kerusiweb/react';
-import { DEMO_LOCALES, premiumTypeStyles, SCENARIOS } from '@kerusi/demo-scenarios';
+import { DEMO_LOCALES, premiumTypeStyles, SCENARIOS, seatCardText } from '@kerusi/demo-scenarios';
 import type { Scenario } from '@kerusi/demo-scenarios';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
@@ -21,6 +21,9 @@ export function App() {
   const [aisleCss, setAisleCss] = useState(false);
   const [goldPremium, setGoldPremium] = useState(false);
   const [circleShape, setCircleShape] = useState(false);
+  const [hoverCard, setHoverCard] = useState(false);
+  const [clickCard, setClickCard] = useState(false);
+  const [restyledCards, setRestyledCards] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const seatmap = useRef<KerusiSeatmapHandle | null>(null);
 
@@ -61,6 +64,50 @@ export function App() {
       : `Seat ${event.seat.label}`;
     setLastDisallowed(`${where} — ${DISALLOWED_TEXT[event.reason]}`);
   }, []);
+
+  /**
+   * The cards' content is the app's own markup: the library positions it,
+   * dismisses it and names it, and never decides what it says (D10).
+   */
+  const renderHoverCard = useCallback(
+    ({ seat, trigger }: KerusiSeatCardContext) => {
+      const text = seatCardText(seat, locale);
+      return (
+        <>
+          <span className="demo-card__title">{text.title}</span>
+          <span className="demo-card__meta">
+            {text.type}
+            {text.price && ` · ${text.price}`} · {text.status}
+            {trigger === 'focus' && ' · focused'}
+          </span>
+        </>
+      );
+    },
+    [locale],
+  );
+
+  const renderClickCard = useCallback(
+    ({ seat, selected, close }: KerusiSeatCardContext) => {
+      const text = seatCardText(seat, locale);
+      return (
+        <>
+          <span className="demo-card__title">{text.title}</span>
+          <span className="demo-card__meta">{text.type}</span>
+          {text.price && <span className="demo-card__meta">{text.price}</span>}
+          <span className="demo-card__meta">
+            {text.status}
+            {selected && ' · in your selection'}
+          </span>
+          <span className="demo-card__actions">
+            <button type="button" className="demo-card__button" onClick={close}>
+              Close
+            </button>
+          </span>
+        </>
+      );
+    },
+    [locale],
+  );
 
   /** Resolved selection: the seats picked, their prices, and the total. */
   const seatTypeStyles = useMemo(
@@ -221,11 +268,39 @@ export function App() {
                 />
                 Circle seat shape
               </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={hoverCard}
+                  onChange={(e) => setHoverCard(e.target.checked)}
+                />
+                Hover card
+              </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={clickCard}
+                  onChange={(e) => setClickCard(e.target.checked)}
+                />
+                Click card
+              </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={restyledCards}
+                  onChange={(e) => setRestyledCards(e.target.checked)}
+                />
+                Restyled cards
+              </label>
             </div>
           </div>
 
           <div className="scenario-body">
-            <div className={aisleCss ? 'stage demo-aisles' : 'stage'}>
+            <div
+              className={['stage', aisleCss && 'demo-aisles', restyledCards && 'demo-cards']
+                .filter(Boolean)
+                .join(' ')}
+            >
               <KerusiSeatmap
                 ref={seatmap}
                 map={scenario.map}
@@ -241,6 +316,9 @@ export function App() {
                 seatTypeStyles={seatTypeStyles}
                 seatStyle={circleShape ? circleSeats : undefined}
                 renderSeat={roundSeats ? renderRoundSeat : undefined}
+                renderHoverCard={hoverCard ? renderHoverCard : undefined}
+                renderClickCard={clickCard ? renderClickCard : undefined}
+                hoverCardOnFocus={hoverCard}
                 onSeatDisallowed={onDisallowed}
                 onValidationIssues={setIssues}
               />

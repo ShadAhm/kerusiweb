@@ -133,7 +133,7 @@ export const PARITY_STATE: KerusiState = {
 export const PARITY_SELECTION: readonly string[] = ['A3', 'L4'];
 
 /** Attributes a framework adds for its own bookkeeping, never part of the drawing. */
-const FRAMEWORK_ATTRIBUTE = /^(_ng|ng-|kerusi-section$|xmlns)/;
+const FRAMEWORK_ATTRIBUTE = /^(_ng|ng-|kerusi-section$|kerusi-seat-card$|xmlns)/;
 
 /**
  * A framework-neutral text form of an `<svg>` subtree: one line per element,
@@ -164,7 +164,13 @@ export function svgSignature(root: Element): string {
   return lines.join('\n');
 }
 
+/** Ids a binding generates per instance differ by nature; only that one is present matters. */
+const INSTANCE_ID_ATTRIBUTES = new Set(['id', 'aria-describedby']);
+
 function normalizeAttribute(name: string, value: string): string {
+  if (INSTANCE_ID_ATTRIBUTES.has(name)) {
+    return '{instance id}';
+  }
   if (name === 'class') {
     return value
       .split(/\s+/)
@@ -182,6 +188,17 @@ function normalizeAttribute(name: string, value: string): string {
   }
   return value.trim();
 }
+
+/**
+ * One open click card, for the booked seat A2 of {@link PARITY_MAP}, whose
+ * content is `<span class="detail">Booked A2</span>`, in a jsdom that does no
+ * layout (so every box is empty and the card sits at 0, 0). Both bindings hold
+ * to it, so the markup a consumer styles is the same in either (D11).
+ */
+export const PARITY_CARD_SIGNATURE = `<div aria-label="Row A, seat A2, Standard, MYR 25.00, booked, unavailable." class="kerusi-seat-card kerusi-seat-card--click" data-placement="top" data-seat-id="A2" data-seat-status="booked" data-seat-type="std" data-section-id="stalls" id="{instance id}" role="dialog" style="--kerusi-seat-card-arrow-shift: 0px; left: 0px; top: 0px" tabindex="-1">
+  <div class="kerusi-seat-card__body">
+    <span class="detail">Booked A2
+  <span aria-hidden="true" class="kerusi-seat-card__arrow">`;
 
 /** The town hall as both bindings draw it. Regenerate when the drawing changes on purpose. */
 export const PARITY_SIGNATURE = `<svg class="kerusi-seatmap__svg" focusable="false" preserveAspectRatio="xMidYMid meet" role="presentation" style="--kerusi-focus-ring-input: #1b1f27; max-width: 1600px" viewBox="0 0 1600 900">

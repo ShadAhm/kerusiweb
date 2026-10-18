@@ -47,14 +47,14 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 
 **Selection**
 
-| Input                | Type                            | Default         |                                                                            |
-| -------------------- | ------------------------------- | --------------- | -------------------------------------------------------------------------- |
-| `selection`          | `readonly string[]`             | `[]`            | Selected seat ids. Two-way (`[(selection)]`) or read-only (`[selection]`). |
-| `selectableStatuses` | `SeatRenderStatus[]`            | `['available']` | Which statuses a seat may be picked in.                                    |
-| `companionMode`      | `'auto' \| 'independent'`       | `'auto'`        | `auto` selects a seat's whole companion closure together (§4.6).           |
-| `maxSelection`       | `number`                        | —               | Cap on selected seats. Counts a companion closure as its full size.        |
-| `seatSelectable`     | `(seat: RenderSeat) => boolean` | —               | A final say, applied after the status test.                                |
-| `interactive`        | `boolean`                       | `true`          | `false` renders read-only.                                                 |
+| Input                | Type                            | Default         |                                                                                                                                                  |
+| -------------------- | ------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `selection`          | `readonly string[]`             | `[]`            | Selected seat ids. Two-way (`[(selection)]`) or read-only (`[selection]`).                                                                       |
+| `selectableStatuses` | `SeatRenderStatus[]`            | `['available']` | Which statuses a seat may be picked in.                                                                                                          |
+| `companionMode`      | `'auto' \| 'independent'`       | `'auto'`        | `auto` selects a seat's whole companion closure together (§4.6).                                                                                 |
+| `maxSelection`       | `number`                        | —               | Cap on selected seats. Counts a companion closure as its full size.                                                                              |
+| `seatSelectable`     | `(seat: RenderSeat) => boolean` | —               | A final say, applied after the status test.                                                                                                      |
+| `interactive`        | `boolean`                       | `true`          | `false` turns selection off. Seats still take clicks, and stay keyboard-reachable, while `(seatClick)` is bound or a click card template is set. |
 
 **Appearance**
 
@@ -105,6 +105,8 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 | `seatSelect` / `seatDeselect` | `SeatInteraction`            | The `RenderSeat`, the resulting selection, and every seat that changed (companions included).          |
 | `seatDisallowed`              | `SeatDisallowed`             | `reason` is `booked`, `held`, `blocked`, `not-selectable`, `max-selection` or `companion-unavailable`. |
 | `seatFocus`                   | `RenderSeat`                 |                                                                                                        |
+| `seatHover`                   | `RenderSeat \| null`         | The seat under the pointer, then `null` when it leaves. See [Hover and click](#hover-and-click).       |
+| `seatClick`                   | `SeatClick`                  | Every seat activation: `{ seat, selected, source }`. Read-only; fires before the selection outputs.    |
 | `validationIssues`            | `readonly KerusiViolation[]` | Emitted whenever the documents change.                                                                 |
 | `viewportChange`              | `KerusiViewport`             | `{ zoom, x, y }`, whenever the zoom or pan changes. Only with `zoomable`.                              |
 | `maximizedChange`             | `boolean`                    | When the map is maximized or restored. Only with `maximizable`.                                        |
@@ -547,6 +549,154 @@ canvas's own proportions. It is not a modal dialog: focus is not trapped, and an
 `transform` or `filter` would anchor the fixed layout to itself instead of the
 screen.
 
+### Hover and click
+
+What happens when the pointer **hovers** a seat, and what happens when a seat is **clicked**, are decided separately, and each is optional (D10). Nothing is on by default: a map with none of the bindings below renders and behaves exactly as it always did.
+
+| Hover    | Click    | How                                                                     |
+| -------- | -------- | ----------------------------------------------------------------------- |
+| nothing  | nothing  | The default: no new markup, no new behaviour.                           |
+| card     | nothing  | A read-only "who sits where" map: point at a seat to see who booked it. |
+| nothing  | card     | A booking map: tap a seat to see its price and perks in a card.         |
+| card     | card     | A short tooltip on hover, plus a fuller card with actions on click.     |
+| callback | callback | Your own UI: the library only reports the events.                       |
+
+Two layers ship, and each is useful without the other: **events**, which report the seat and nothing more (below), and optional [**seat cards**](#seat-cards), which show a card anchored to the seat.
+
+```html
+<kerusi-seatmap
+  [map]="map"
+  [state]="state"
+  [interactive]="false"
+  (seatHover)="hovered.set($event?.id ?? null)"
+  (seatClick)="openDetail($event.seat.id)"
+  (seatFocus)="hovered.set($event.id)"
+/>
+```
+
+**`(seatHover)`: `RenderSeat | null`**
+
+- Emitted with the seat under the pointer when it enters a seat, and with `null` when it leaves the seat or the map. It is not emitted again while the pointer moves within the same seat.
+- The payload is the `RenderSeat` that `seatDisallowed` carries: id, label, row label, section, status, type, price, accessibility and `source.metadata`.
+- **Mouse and pen only.** Touch has no hover, and a tap behaves as it always did.
+- **Not emitted while the map is panned or zoomed.** The hovered seat is cleared (`null`) once when a drag, pinch or wheel zoom starts, and hover resumes on the next pointer move after it ends.
+- Fires on a map with `[interactive]="false"` too, and with a `kerusiSeat` template. It works at any zoom and in full screen.
+
+**`(seatClick)`: `{ seat, selected, source }`**
+
+- Emitted on **every** activation of **any** seat, whether or not it can be selected: booked, held and blocked seats included. This is the supported way to react to a click on a booked seat, in place of catching `seatDisallowed`.
+- `selected` is whether the seat was selected **before** the click. `source` is `'pointer'` (a click or tap) or `'keyboard'` (Enter or Space on a focused seat).
+- It fires before the selection outputs for the same click, and it is **read-only** (D13): it cannot cancel or change what the click does. `seatSelect`, `seatDeselect` and `seatDisallowed` fire exactly as they do without it.
+- To show details _without_ selecting, turn selection off with inputs that already exist: `[interactive]="false"`, `[selectableStatuses]="[]"` or `[seatSelectable]`.
+- A tap that turns into a pan is never a click.
+
+**`[interactive]="false"` and clicks (D14).** `false` turns selection off. Seats still take clicks, and stay reachable by Tab and the arrow keys, while `(seatClick)` is bound or a click card template is set: Enter and Space then activate the click behaviour, with no toggle and no `aria-pressed`. There is no extra input: binding one of them turns this on, and removing both turns it off again, back to a read-only map's usual markup. A hover card that follows keyboard focus (`[hoverCardOnFocus]`) makes the seats reachable too.
+
+> `seatClick` is declared as an `EventEmitter` rather than `output()`. Angular offers no public way to ask whether an `output()` is bound, and a read-only map has to know whether `(seatClick)` is. RxJS `observed` answers it. Templates bind it exactly as they would an `output()`.
+
+### Seat cards
+
+A floating card anchored to a seat: **one card element, two triggers**, and you choose which to use. The library handles positioning, dismissal, zoom, full screen, touch and accessibility. **What a card says is yours** (D10): with neither template set, nothing is rendered and the markup is unchanged.
+
+```html
+<kerusi-seatmap
+  [map]="map"
+  [state]="state"
+  [interactive]="false"
+  seatCardPlacement="top"
+  seatCardClass="my-seat-card"
+  [hoverCardOnFocus]="true"
+>
+  <!-- Shown while a seat is hovered. Render nothing for no card on this seat. -->
+  <ng-template kerusiSeatHoverCard let-ctx>
+    @if (ctx.seat.status === 'booked') { {{ bookings[ctx.seat.id]?.name }} }
+  </ng-template>
+
+  <!-- Opened on click, tap or Enter. Stays open until dismissed. -->
+  <ng-template kerusiSeatClickCard let-ctx>
+    <app-booking-detail [id]="ctx.seat.id" (done)="ctx.close()" />
+  </ng-template>
+</kerusi-seatmap>
+```
+
+Both templates are handed a `KerusiSeatCardContext` as `let-ctx`:
+
+| Field      | Type                            |                                                                      |
+| ---------- | ------------------------------- | -------------------------------------------------------------------- |
+| `seat`     | `RenderSeat`                    | Everything the document knows about the seat, already resolved.      |
+| `selected` | `boolean`                       | Whether the seat is in the current selection.                        |
+| `trigger`  | `'hover' \| 'focus' \| 'click'` | What opened the card. `'focus'` only occurs with `hoverCardOnFocus`. |
+| `close`    | `() => void`                    | Closes the card. Most useful for a click card's own buttons.         |
+
+| Input                | Type                                               | Default                     |                                                                                 |
+| -------------------- | -------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------- |
+| `seatCardPlacement`  | `'top' \| 'bottom' \| 'left' \| 'right' \| 'auto'` | `'top'`                     | The side it prefers. It flips when it would overflow the map.                   |
+| `seatCardClass`      | `string`                                           | —                           | Extra classes on the card element.                                              |
+| `seatCardAppearance` | `'default' \| 'none'`                              | `'default'`                 | `none` drops the library's chrome.                                              |
+| `hoverCardDelay`     | `{ open?: number; close?: number }`                | `{ open: 150, close: 100 }` | Milliseconds before a hover card opens, and after the pointer leaves it closes. |
+| `hoverCardOnFocus`   | `boolean`                                          | `false`                     | Also show the hover card on keyboard focus (D12).                               |
+
+|                              | Hover card                                                                                                                         | Click card                                                                                                                             |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Opens on**                 | The pointer entering a seat, after `hoverCardDelay.open`. Keyboard focus too, **only** with `hoverCardOnFocus`.                    | A click, a tap, or Enter/Space on a seat.                                                                                              |
+| **Closes on**                | The pointer leaving both the seat and the card (after `hoverCardDelay.close`), focus leaving, `Escape`, or a pan or zoom starting. | `Escape`, a press outside the card and the seats, a second click on the same seat, `close()`, or another seat's click card opening.    |
+| **Touch**                    | Never shown.                                                                                                                       | Shown: a tap is the trigger.                                                                                                           |
+| **The pointer can enter it** | Yes. The close delay lets it travel in to select text or follow a link (WCAG 1.4.13).                                              | Yes.                                                                                                                                   |
+| **ARIA**                     | `role="tooltip"`, wired to the seat with `aria-describedby`.                                                                       | A non-modal `role="dialog"` labelled by the seat. Focus moves into it when opened from the keyboard, and returns to the seat on close. |
+| **With both set**            | While a seat's click card is open, its hover card is hidden.                                                                       |                                                                                                                                        |
+
+- **A click on a selectable seat toggles it and opens the click card.** Neither the card nor `(seatClick)` can stop the toggle (D13).
+- **Keyboard users and hover cards.** With `hoverCardOnFocus` off (the default), a hover card is pointer-only, so it must not be the only place important information lives. For keyboard parity use `[hoverCardOnFocus]`, a click card, or `(seatFocus)` beside `(seatHover)`.
+- **Render nothing from a template** (an `@if` that is false) for no card on that seat: show cards for booked seats only, for example. Angular cannot ask a template whether it drew anything, so the card element stays in the DOM with the `hidden` attribute, empty and not announced.
+- **Positioning.** The card is anchored to the seat's on-screen box and **follows zoom and pan**. It flips to the opposite side when it would overflow the map, and is clamped inside it. It is rendered inside `.kerusi-seatmap`, outside the clipped viewport, so it shows in full screen and inherits the `--kerusi-*` properties set on the map.
+- **Live state.** If the seat's status changes while a card is open, the card re-renders with the new `RenderSeat`. If the seat disappears (a hidden section, say), the card closes.
+- **`Escape`** closes a card before it does anything else: a second `Escape` then clears the selection, or leaves a maximized map.
+
+`openSeatCard(seatId)`, `closeSeatCard()` and the `openSeatCardId` signal are on the component, to open a click card from a search result, say.
+
+### Styling seat cards
+
+The library's stylesheet sets **structure only** (position, stacking, pointer events, the arrow's geometry), plus a plain default look built entirely from custom properties. The app owns the rest. From the smallest change to the largest:
+
+1. **Tokens.** Set any of these on `.kerusi-seatmap` or any ancestor. The library never sets one on its own root, so a value you set always wins (the same precedence as [Theming](#theming)).
+
+| Custom property                 | Default                                |
+| ------------------------------- | -------------------------------------- |
+| `--kerusi-seat-card-bg`         | `--kerusi-element-bg`, else white      |
+| `--kerusi-seat-card-fg`         | `--kerusi-element-fg`, else near-black |
+| `--kerusi-seat-card-border`     | `1px solid rgb(0 0 0 / 0.12)`          |
+| `--kerusi-seat-card-radius`     | `8px`                                  |
+| `--kerusi-seat-card-shadow`     | a soft drop shadow                     |
+| `--kerusi-seat-card-padding`    | `8px 12px`                             |
+| `--kerusi-seat-card-max-width`  | `280px`                                |
+| `--kerusi-seat-card-font`       | `inherit`                              |
+| `--kerusi-seat-card-offset`     | `8px` (the gap between seat and card)  |
+| `--kerusi-seat-card-arrow-size` | `6px` (`0` hides the arrow)            |
+| `--kerusi-seat-card-z-index`    | `10`                                   |
+
+`--kerusi-seat-card-offset` and `--kerusi-seat-card-arrow-size` are read as numbers by the placement code, so give them `px`, `rem` or `em`. The card sits inside the map's root, which is itself the stacking context while maximized, so it is always above the map without touching `--kerusi-maximized-z-index`.
+
+2. **Class and attribute hooks**, for anything the tokens don't cover: `.kerusi-seat-card`, `.kerusi-seat-card--hover` / `--click`, `.kerusi-seat-card__body`, `.kerusi-seat-card__arrow`; `data-placement="top|bottom|left|right"` (the side actually used, after any flip); and `data-seat-id`, `data-seat-status`, `data-seat-type` and `data-section-id`, mirroring the seat's own attributes. Every library rule has no specificity (it is wrapped in `:where()`), so a single class of yours wins without `!important`.
+
+   ```css
+   .kerusi-seat-card[data-seat-status='booked'] {
+     --kerusi-seat-card-border: 2px solid #e5707e;
+   }
+   ```
+
+3. **Your own classes**, for Tailwind or a design-system class: `seatCardClass="my-seat-card"`.
+4. **No chrome at all.** `seatCardAppearance="none"` drops the background, border, padding, shadow and arrow, leaving only positioning, so your content _is_ the card.
+5. **The content is your own markup**, styled however your app styles markup. In Angular, an `ng-template`'s content belongs to the **declaring component**, so that component's own encapsulated styles apply to it. The card wrapper is reachable from your global stylesheet through the hooks above. The library's card styles are not encapsulated, which is what lets a one-class rule of yours win.
+6. **Motion.** A short fade and scale on open, removed under `prefers-reduced-motion: reduce`. Override it with `.kerusi-seat-card { transition: none; animation: none }`.
+
+```html
+<kerusi-seatmap [map]="map" seatCardClass="rounded-xl shadow-lg" seatCardAppearance="none">
+  <ng-template kerusiSeatClickCard let-ctx>
+    <app-my-card [seat]="ctx.seat" />
+  </ng-template>
+</kerusi-seatmap>
+```
+
 ### Keyboard
 
 Tab moves between sections; each section keeps its own tab stop. Within a
@@ -555,15 +705,15 @@ across an aisle (a `col` no seat occupies) rather than into it. Up and down move
 to the next row and pick the seat nearest on the canvas. The arrows follow the
 screen, so they swap along with a mirrored right-to-left map.
 
-| Key                      |                                  |
-| ------------------------ | -------------------------------- |
-| `←` `→`                  | Previous / next seat in the row  |
-| `↑` `↓`                  | Nearest seat in the adjacent row |
-| `Home` / `End`           | First / last seat of the row     |
-| `Ctrl+Home` / `Ctrl+End` | First / last seat of the section |
-| `PageUp` / `PageDown`    | First / last seat of the section |
-| `Enter` / `Space`        | Toggle                           |
-| `Escape`                 | Clear the selection              |
+| Key                      |                                        |
+| ------------------------ | -------------------------------------- |
+| `←` `→`                  | Previous / next seat in the row        |
+| `↑` `↓`                  | Nearest seat in the adjacent row       |
+| `Home` / `End`           | First / last seat of the row           |
+| `Ctrl+Home` / `Ctrl+End` | First / last seat of the section       |
+| `PageUp` / `PageDown`    | First / last seat of the section       |
+| `Enter` / `Space`        | Toggle, and open a click card          |
+| `Escape`                 | Close a card; else clear the selection |
 
 Each seat is a `role="button"` announcing its position, whether it is next to
 an aisle, its type, price and status, every `Seat.accessibility` property and its

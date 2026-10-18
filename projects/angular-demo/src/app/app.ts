@@ -3,16 +3,25 @@ import {
   Bounds,
   buildRenderModel,
   formatMoney,
+  KerusiSeatCardContext,
   KerusiViolation,
   SeatStyleFn,
   summarizeSelection,
 } from '@kerusiweb/core';
 import {
+  KerusiSeatClickCardDirective,
+  KerusiSeatHoverCardDirective,
   KerusiSeatmapComponent,
   KerusiSeatTemplateDirective,
   SeatDisallowed,
 } from '@kerusiweb/angular';
-import { DEMO_LOCALES, premiumTypeStyles, Scenario, SCENARIOS } from '@kerusi/demo-scenarios';
+import {
+  DEMO_LOCALES,
+  premiumTypeStyles,
+  Scenario,
+  SCENARIOS,
+  seatCardText,
+} from '@kerusi/demo-scenarios';
 
 const THEME_STORAGE_KEY = 'kerusi-demo-theme';
 
@@ -21,7 +30,12 @@ type Theme = 'light' | 'dark';
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [KerusiSeatmapComponent, KerusiSeatTemplateDirective],
+  imports: [
+    KerusiSeatmapComponent,
+    KerusiSeatTemplateDirective,
+    KerusiSeatHoverCardDirective,
+    KerusiSeatClickCardDirective,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.css',
   host: { '[attr.data-theme]': 'theme()' },
@@ -45,6 +59,12 @@ export class App {
   /** Draws every seat as a circle through `seatStyle`. */
   protected readonly circleShape = signal(false);
   protected readonly circleSeats: SeatStyleFn = () => ({ shape: 'circle' });
+  /** Shows a card while a seat is hovered (or focused), through a `kerusiSeatHoverCard` template. */
+  protected readonly hoverCard = signal(false);
+  /** Opens a card on a click, tap or Enter, through a `kerusiSeatClickCard` template. */
+  protected readonly clickCard = signal(false);
+  /** Restyles every card from the demo's stylesheet alone, through the tokens. */
+  protected readonly restyledCards = signal(false);
   protected readonly showSource = signal(false);
   protected readonly theme = signal<Theme>(getInitialTheme());
 
@@ -86,6 +106,14 @@ export class App {
       ? `Row ${event.seat.rowLabel}, seat ${event.seat.label}`
       : `Seat ${event.seat.label}`;
     this.lastDisallowed.set(`${where} — ${DISALLOWED_TEXT[event.reason]}`);
+  }
+
+  /**
+   * What the cards say. The library positions a card, dismisses it and names it,
+   * and never decides its content (D10); this is the app's own.
+   */
+  protected cardText(ctx: KerusiSeatCardContext) {
+    return seatCardText(ctx.seat, this.locale());
   }
 
   /** Resolved selection: the seats picked, their prices, and the total. */

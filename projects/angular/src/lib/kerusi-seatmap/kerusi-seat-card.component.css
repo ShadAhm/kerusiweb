@@ -1,0 +1,126 @@
+/* --- seat cards -------------------------------------------------------------
+   Only when `renderHoverCard` or `renderClickCard` is set; a map without them
+   renders none of these elements. The card is positioned by the component
+   (`left`, `top`, `data-placement`); this file owns what it looks like by
+   default, entirely through custom properties, so a consumer restyles it from
+   their own stylesheet without `!important` (D11):
+
+     --kerusi-seat-card-bg, -fg, -border, -radius, -shadow, -padding, -max-width,
+     -font, -offset, -arrow-size, -z-index
+
+   None is set here on `.kerusi-seatmap`, so a value set on the map or any
+   ancestor wins. The same rules as the React package's stylesheet; this
+   component's styles are not encapsulated, so they are plain, global rules. */
+
+:where(.kerusi-seat-card) {
+  position: absolute;
+  z-index: var(--kerusi-seat-card-z-index, 10);
+  box-sizing: border-box;
+  max-width: min(var(--kerusi-seat-card-max-width, 280px), 100%);
+  padding: var(--kerusi-seat-card-padding, 8px 12px);
+  border: var(--kerusi-seat-card-border, 1px solid rgb(0 0 0 / 0.12));
+  border-radius: var(--kerusi-seat-card-radius, 8px);
+  background: var(--kerusi-seat-card-bg, var(--kerusi-element-bg, #fff));
+  color: var(--kerusi-seat-card-fg, var(--kerusi-element-fg, #1a1d24));
+  box-shadow: var(--kerusi-seat-card-shadow, 0 4px 14px rgb(0 0 0 / 0.16));
+  font: var(--kerusi-seat-card-font, inherit);
+  text-align: start;
+  /* Text in a card can be selected and its links followed. */
+  user-select: text;
+  -webkit-user-select: text;
+  animation: kerusi-seat-card-in 120ms ease-out;
+}
+
+:where(.kerusi-seat-card):focus-visible {
+  outline: 2px solid var(--kerusi-focus-ring, var(--kerusi-focus-ring-input, currentColor));
+  outline-offset: 2px;
+}
+
+:where(.kerusi-seat-card__body) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* No chrome: the consumer's content is the card. Only positioning is left. */
+:where(.kerusi-seat-card--bare) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* The arrow is a square turned 45 degrees and centred on the card's edge that
+   faces the seat, so half of it shows. `--kerusi-seat-card-arrow-shift` is how
+   far along that edge, set inline from the placement. Its background covers the
+   card's own border where they meet; only the two sides that point out are
+   drawn, from the same border token as the card. The component leaves the arrow
+   out when `--kerusi-seat-card-arrow-size` is `0`. */
+:where(.kerusi-seat-card__arrow) {
+  position: absolute;
+  box-sizing: border-box;
+  width: calc(var(--kerusi-seat-card-arrow-size, 6px) * 1.4142);
+  height: calc(var(--kerusi-seat-card-arrow-size, 6px) * 1.4142);
+  background: inherit;
+  pointer-events: none;
+}
+
+/* The card is above the seat: the arrow is on its bottom edge, pointing down. */
+:where(.kerusi-seat-card[data-placement='top'] .kerusi-seat-card__arrow) {
+  bottom: 0;
+  left: var(--kerusi-seat-card-arrow-shift);
+  transform: translate(-50%, 50%) rotate(45deg);
+  border-right: var(--kerusi-seat-card-border, 1px solid rgb(0 0 0 / 0.12));
+  border-bottom: var(--kerusi-seat-card-border, 1px solid rgb(0 0 0 / 0.12));
+}
+
+:where(.kerusi-seat-card[data-placement='bottom'] .kerusi-seat-card__arrow) {
+  top: 0;
+  left: var(--kerusi-seat-card-arrow-shift);
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-top: var(--kerusi-seat-card-border, 1px solid rgb(0 0 0 / 0.12));
+  border-left: var(--kerusi-seat-card-border, 1px solid rgb(0 0 0 / 0.12));
+}
+
+:where(.kerusi-seat-card[data-placement='left'] .kerusi-seat-card__arrow) {
+  right: 0;
+  top: var(--kerusi-seat-card-arrow-shift);
+  transform: translate(50%, -50%) rotate(45deg);
+  border-top: var(--kerusi-seat-card-border, 1px solid rgb(0 0 0 / 0.12));
+  border-right: var(--kerusi-seat-card-border, 1px solid rgb(0 0 0 / 0.12));
+}
+
+:where(.kerusi-seat-card[data-placement='right'] .kerusi-seat-card__arrow) {
+  left: 0;
+  top: var(--kerusi-seat-card-arrow-shift);
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-bottom: var(--kerusi-seat-card-border, 1px solid rgb(0 0 0 / 0.12));
+  border-left: var(--kerusi-seat-card-border, 1px solid rgb(0 0 0 / 0.12));
+}
+
+/* A short fade and settle, from the side the card grows out of. */
+:where(.kerusi-seat-card[data-placement='top']) {
+  transform-origin: bottom center;
+}
+:where(.kerusi-seat-card[data-placement='bottom']) {
+  transform-origin: top center;
+}
+:where(.kerusi-seat-card[data-placement='left']) {
+  transform-origin: center right;
+}
+:where(.kerusi-seat-card[data-placement='right']) {
+  transform-origin: center left;
+}
+
+@keyframes kerusi-seat-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.kerusi-seat-card) {
+    animation: none;
+  }
+}

@@ -263,10 +263,15 @@ describe('KerusiSeatmap: zoom, pan and maximize', () => {
       expect(container.querySelector('.kerusi-toolbar')!.getAttribute('role')).toBe('toolbar');
     });
 
-    it('uses the --kerusi-* tokens for the buttons, with no colour of its own', () => {
-      const style = button('Zoom in')!.getAttribute('style')!;
-      expect(style).toContain('var(--kerusi-element-bg');
-      expect(style).toContain('var(--kerusi-element-fg');
+    it('hands the palette to the stylesheet, leaving the buttons uncoloured so tokens win', () => {
+      const toolbar = container.querySelector<HTMLElement>('.kerusi-toolbar')!;
+      expect(toolbar.style.getPropertyValue('--kerusi-control-bg-input')).toContain(
+        'var(--kerusi-element-bg',
+      );
+      expect(toolbar.style.getPropertyValue('--kerusi-control-fg-input')).toContain(
+        'var(--kerusi-element-fg',
+      );
+      expect(button('Zoom in')!.hasAttribute('style')).toBe(false);
     });
 
     describe('buttons', () => {

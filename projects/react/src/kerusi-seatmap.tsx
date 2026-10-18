@@ -653,11 +653,14 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
     );
 
     const focusRing = { '--kerusi-focus-ring-input': resolvedColors.focusRing } as CSSProperties;
-    const buttonStyle: CSSProperties = {
-      background: controlColors.buttonBackground,
-      color: controlColors.buttonColor,
-      borderColor: controlColors.buttonBorder,
-    };
+    // The palette, handed to the stylesheet, which puts the `--kerusi-control-*`
+    // tokens in front of it. Inline colours on the buttons would beat those.
+    const toolbarStyle = {
+      ...focusRing,
+      '--kerusi-control-bg-input': controlColors.buttonBackground,
+      '--kerusi-control-fg-input': controlColors.buttonColor,
+      '--kerusi-control-border-input': controlColors.buttonBorder,
+    } as CSSProperties;
     const classes = ['kerusi-seatmap', className, maximized && 'kerusi-seatmap--maximized']
       .filter(Boolean)
       .join(' ');
@@ -690,7 +693,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
                 className="kerusi-toolbar"
                 role="toolbar"
                 aria-label={strings.toolbar}
-                style={focusRing}
+                style={toolbarStyle}
               >
                 {zoomable && showZoomControls && (
                   <>
@@ -699,7 +702,6 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
                       className="kerusi-control kerusi-control--zoom-in"
                       aria-label={strings.zoomIn}
                       aria-disabled={atMaxZoom}
-                      style={buttonStyle}
                       onClick={zoom.zoomIn}
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -711,7 +713,6 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
                       className="kerusi-control kerusi-control--zoom-out"
                       aria-label={strings.zoomOut}
                       aria-disabled={atFit}
-                      style={buttonStyle}
                       onClick={zoom.zoomOut}
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -723,7 +724,6 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
                       className="kerusi-control kerusi-control--zoom-reset"
                       aria-label={strings.zoomReset}
                       aria-disabled={atFit}
-                      style={buttonStyle}
                       onClick={zoom.resetZoom}
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -737,7 +737,6 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
                     type="button"
                     className="kerusi-control kerusi-control--maximize"
                     aria-label={maximized ? strings.restore : strings.maximize}
-                    style={buttonStyle}
                     onClick={toggleMaximized}
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

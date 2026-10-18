@@ -255,18 +255,23 @@ describe('KerusiSeatmapComponent: zoom, pan and maximize', () => {
       expect(el.querySelector('.kerusi-toolbar')!.getAttribute('role')).toBe('toolbar');
     });
 
+    it('hands the palette to the stylesheet, leaving the buttons uncoloured so tokens win', () => {
+      const toolbar = el.querySelector<HTMLElement>('.kerusi-toolbar')!;
+      expect(toolbar.style.getPropertyValue('--kerusi-control-bg-input')).toContain(
+        'var(--kerusi-element-bg',
+      );
+      expect(toolbar.style.getPropertyValue('--kerusi-control-fg-input')).toContain(
+        'var(--kerusi-element-fg',
+      );
+      expect(button('Zoom in')!.hasAttribute('style')).toBe(false);
+    });
+
     it('takes the control names from controlStrings', () => {
       host.controlStrings.set({ zoomIn: 'Zum masuk', zoomReset: 'Set semula' });
       fixture.detectChanges();
       expect(button('Zum masuk')).not.toBeNull();
       expect(button('Set semula')).not.toBeNull();
       expect(button('Zoom out')).not.toBeNull();
-    });
-
-    it('uses the --kerusi-* tokens for the buttons, with no colour of its own', () => {
-      const style = button('Zoom in')!.getAttribute('style')!;
-      expect(style).toContain('var(--kerusi-element-bg');
-      expect(style).toContain('var(--kerusi-element-fg');
     });
 
     describe('buttons', () => {

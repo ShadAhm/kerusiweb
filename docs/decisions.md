@@ -46,14 +46,14 @@ or follow its steps by hand.
 | [D14](#d14-read-only-maps-infer-clicks)                              | Read-only maps infer clicks from a configured click action | Accepted      |
 | [D15](#d15-events-and-seat-cards-ship-together)                      | Events and seat cards ship together                        | Accepted      |
 | [D16](#d16-the-zoom-and-full-screen-controls-are-styled-by-tokens)   | The zoom and full-screen controls are styled by tokens     | Accepted      |
-| [D17](#d17-a-seat-form-sets-the-default-outline-the-apps-shapes-win) | A seat form sets the default outline; the app's shapes win | Accepted      |
-| [D18](#d18-group-footprints-are-drawn-by-core-and-styled-by-tokens)  | Group footprints are drawn by core and styled by tokens    | Accepted      |
-| [D19](#d19-either-is-offered-on-the-shape-or-by-the-app)             | `either` is offered on the shape, or by the app            | Accepted      |
-| [D20](#d20-selection-stays-a-list-of-seat-ids)                       | `selection` stays a list of seat ids                       | Accepted      |
-| [D21](#d21-maxselection-counts-seats)                                | `maxSelection` counts seats                                | Accepted      |
-| [D22](#d22-companionmode-becomes-unitmode)                           | `companionMode` becomes `unitMode`                         | Accepted      |
-| [D23](#d23-new-validator-rules-use-the-reference-ids)                | New validator rules use the reference ids                  | Accepted      |
-| [D24](#d24-seat-form-outlines-are-drawn-in-house)                    | Seat form outlines are drawn in-house                      | Accepted      |
+| [D17](#d17-a-seat-form-sets-the-default-outline-the-apps-shapes-win) | A seat form sets the default outline; the app's shapes win | Shipped 4.0.0 |
+| [D18](#d18-group-footprints-are-drawn-by-core-and-styled-by-tokens)  | Group footprints are drawn by core and styled by tokens    | Shipped 4.0.0 |
+| [D19](#d19-either-is-offered-on-the-shape-or-by-the-app)             | `either` is offered on the shape, or by the app            | Shipped 4.0.0 |
+| [D20](#d20-selection-stays-a-list-of-seat-ids)                       | `selection` stays a list of seat ids                       | Shipped 4.0.0 |
+| [D21](#d21-maxselection-counts-seats)                                | `maxSelection` counts seats                                | Shipped 4.0.0 |
+| [D22](#d22-companionmode-becomes-unitmode)                           | `companionMode` becomes `unitMode`                         | Shipped 4.0.0 |
+| [D23](#d23-new-validator-rules-use-the-reference-ids)                | New validator rules use the reference ids                  | Shipped 4.0.0 |
+| [D24](#d24-seat-form-outlines-are-drawn-in-house)                    | Seat form outlines are drawn in-house                      | Shipped 4.0.0 |
 
 ---
 
@@ -299,7 +299,7 @@ restyled without `!important`, and inline styles cannot express `:hover`. Tokens
 keep one theming model across the library. 44px squares dominated the corner of
 the map on desktop, where the large target is not needed.
 
-## Furniture and booking units (planned)
+## Furniture and booking units (4.0.0)
 
 Made in [#50](https://github.com/ShadAhm/kerusiweb/issues/50), 2026-10-20. It
 covers Kerusi's seat forms, groups, booking modes and whole prices
@@ -312,7 +312,7 @@ the §4.9 resolution it already does for announcements.
 
 ### D17. A seat form sets the default outline; the app's shapes win
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.0.0
 - **Source:** [#50](https://github.com/ShadAhm/kerusiweb/issues/50)
 
 `SeatType.form` sets a seat's default outline. A `shape` from `seatStyle` or
@@ -325,7 +325,7 @@ not change.
 
 ### D18. Group footprints are drawn by core and styled by tokens
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.0.0
 - **Source:** [#50](https://github.com/ShadAhm/kerusiweb/issues/50)
 
 Core draws a group's footprint under its seats as
@@ -338,7 +338,7 @@ with the app, as in D11 and D16.
 
 ### D19. `either` is offered on the shape, or by the app
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.0.0
 - **Source:** [#50](https://github.com/ShadAhm/kerusiweb/issues/50)
 
 A tap on a seat takes its booking unit, as a tap takes a companion closure
@@ -354,7 +354,7 @@ switch, and anything clickable must be keyboard-reachable (WCAG 2.1.1).
 
 ### D20. `selection` stays a list of seat ids
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.0.0
 - **Source:** [#50](https://github.com/ShadAhm/kerusiweb/issues/50)
 
 The bindings' `selection` contract does not change. The change detail adds which
@@ -365,7 +365,7 @@ selected.
 
 ### D21. `maxSelection` counts seats
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.0.0
 - **Source:** [#50](https://github.com/ShadAhm/kerusiweb/issues/50)
 
 A unit bigger than the limit is refused with a new reason, `unit-too-large`.
@@ -375,7 +375,7 @@ today.
 
 ### D22. `companionMode` becomes `unitMode`
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.0.0
 - **Source:** [#50](https://github.com/ShadAhm/kerusiweb/issues/50)
 
 `companionMode` becomes `unitMode: 'auto' | 'seats'`, where `seats` is today's
@@ -386,7 +386,7 @@ today.
 
 ### D23. New validator rules use the reference ids
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.0.0
 - **Source:** [#50](https://github.com/ShadAhm/kerusiweb/issues/50)
 
 Rules the validator gains for forms, groups and booking modes use the reference
@@ -396,7 +396,7 @@ validator's ids, as D7 requires.
 
 ### D24. Seat form outlines are drawn in-house
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.0.0
 - **Source:** [#51](https://github.com/ShadAhm/kerusiweb/issues/51)
 
 Each registered seat form's outline is drawn in this repository, not taken from

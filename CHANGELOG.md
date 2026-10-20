@@ -6,8 +6,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-**Breaking: the next release is 4.0.0** of `@kerusiweb/core`,
-`@kerusiweb/angular` and `@kerusiweb/react`, for Kerusi
+## [4.0.0] - 2026-10-20
+
+**4.0.0, a breaking release** of `@kerusiweb/core`, `@kerusiweb/angular` and
+`@kerusiweb/react`, for Kerusi
 [rev 17](https://github.com/ShadAhm/kerusi/tree/spec-1.0.0-draft.17)
 (ShadAhm/kerusi#17, ShadAhm/kerusi#18): seat forms, groups, **booking units**
 and whole prices. Rev 17 retires `Seat.companions` for groups booked `whole`, and
@@ -970,6 +972,7 @@ Carried over from the legacy directive:
 - Rendering is per-instance (no global element id lookup), so multiple pickers
   can coexist on one page.
 
+[4.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v4.0.0
 [3.1.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v3.1.0
 [3.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v3.0.0
 [2.3.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v2.3.0

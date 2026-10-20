@@ -10,6 +10,10 @@ import { act, fireEvent, render } from '@testing-library/react';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  PARITY_FORMS_MAP,
+  PARITY_FORMS_SELECTION,
+  PARITY_FORMS_SIGNATURE,
+  PARITY_FORMS_STATE,
   PARITY_MAP,
   PARITY_SELECTION,
   PARITY_SIGNATURE,
@@ -1004,5 +1008,16 @@ describe('KerusiSeatmap SVG parity with the Angular binding', () => {
       <KerusiSeatmap map={PARITY_MAP} state={PARITY_STATE} selection={PARITY_SELECTION} />,
     ).container;
     expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(PARITY_SIGNATURE);
+  });
+
+  it('draws the seat forms exactly as the shared signature says', () => {
+    const el = render(
+      <KerusiSeatmap
+        map={PARITY_FORMS_MAP}
+        state={PARITY_FORMS_STATE}
+        selection={PARITY_FORMS_SELECTION}
+      />,
+    ).container;
+    expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(PARITY_FORMS_SIGNATURE);
   });
 });

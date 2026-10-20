@@ -9,6 +9,7 @@ import {
   LECTURE_THEATRE_MAP,
   LECTURE_THEATRE_STATE,
 } from './fixtures/lecture-theatre.kerusi.fixture.js';
+import { LOUNGE_MAP, LOUNGE_STATE } from './fixtures/lounge.kerusi.fixture.js';
 import { STADIUM_MAP, STADIUM_STATE } from './fixtures/stadium.kerusi.fixture.js';
 import { TOWN_HALL_MAP, TOWN_HALL_STATE } from './fixtures/town-hall.kerusi.fixture.js';
 import { TRAIN_MAP, TRAIN_SESSION, TRAIN_STATE } from './fixtures/train.kerusi.fixture.js';
@@ -84,6 +85,23 @@ export const SCENARIOS: readonly Scenario[] = [
     map: TRAIN_MAP,
     state: TRAIN_STATE,
     session: TRAIN_SESSION,
+  },
+  {
+    id: 'lounge',
+    name: 'Lounge',
+    domain: 'lounge',
+    blurb:
+      'One place of every registered seat form, untouched and turned, so a customer can ' +
+      'tell an armchair from a stool before choosing.',
+    highlights: [
+      'SeatType.form says what a place looks like (§4.7.1); chair is the default',
+      'Armchair, stool, recliner, beanbag, floor cushion and a wheelchair space',
+      'Sofa and bench describe one place: three sofa places, four on a pew',
+      'The same forms again, turned, to show an outline turns with its seat',
+      'A form is a drawing hint: it changes no price, neighbour or footprint',
+    ],
+    map: LOUNGE_MAP,
+    state: LOUNGE_STATE,
   },
   {
     id: 'stadium',

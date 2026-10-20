@@ -88,8 +88,27 @@ export interface SeatType {
   label?: LocalizedText;
   /** Suggested render color, hex. Non-normative hint. */
   color?: string;
+  /**
+   * What one place of this type looks like (§4.7.1); `"chair"` when absent. A
+   * drawing hint: it never affects price, adjacency or the footprint. Any other
+   * non-empty string is implementation-defined and drawn as a chair by a
+   * consumer that does not know it.
+   */
+  form?: SeatForm | (string & {});
   defaultPriceTier?: string;
 }
+
+/** The registered values of {@link SeatType.form} (§4.7.1). */
+export type SeatForm =
+  | 'chair'
+  | 'armchair'
+  | 'stool'
+  | 'recliner'
+  | 'beanbag'
+  | 'cushion'
+  | 'wheelchair-space'
+  | 'sofa'
+  | 'bench';
 
 /**
  * The form a row was laid out in, for editors (§4.2.3): exactly one of `line`,

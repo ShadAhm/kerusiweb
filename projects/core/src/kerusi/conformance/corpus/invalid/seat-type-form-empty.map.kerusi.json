@@ -1,0 +1,28 @@
+{
+  "kerusi": "1.0",
+  "id": "seat-type-form-empty",
+  "canvas": {
+    "width": 100,
+    "height": 100
+  },
+  "seatSize": 10,
+  "legend": [
+    {
+      "id": "standard",
+      "form": ""
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "seats": [
+        {
+          "id": "a",
+          "x": 10,
+          "y": 20,
+          "type": "standard"
+        }
+      ]
+    }
+  ]
+}

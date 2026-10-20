@@ -191,6 +191,8 @@ export interface RenderLegendEntry {
   id: string;
   label: string;
   color?: string;
+  /** `SeatType.form` as the document gave it (§4.7.1); absent means a chair. */
+  form?: string;
   /** The type's default tier, resolved (§4.7 → §4.8). */
   defaultTier?: PriceTier;
   /** That tier's price, for a legend that shows prices. */

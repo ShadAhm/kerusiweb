@@ -94,6 +94,7 @@ export function buildRenderModel(
       id: type.id,
       label: resolveLocalizedText(type.label, locale) ?? type.id,
       color: type.color,
+      form: type.form,
       defaultTier: map.priceTiers?.find((t) => t.id === type.defaultPriceTier),
       price,
       seatCount: typeCounts.get(type.id) ?? 0,

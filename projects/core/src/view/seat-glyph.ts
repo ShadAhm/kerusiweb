@@ -4,6 +4,7 @@ import {
   seatMarkerAnchor,
   seatOccupantPath,
   seatOccupantStroke,
+  seatFormShape,
   seatSelectedFrame,
   seatShapePath,
 } from '../render/seat-shapes.js';
@@ -154,7 +155,8 @@ export function resolveSeatGlyph(
     height: placed.height,
   };
   const markBox = selected ? coreBox(box) : box;
-  const shape = style?.shape;
+  // The app has the last word: its shape beats the document's form (D17).
+  const shape = style?.shape ?? seatFormShape(seat.type.form);
   const bodyD = seatShapePath(shape, box.x, box.y, box.width, box.height);
   const anchor = seatMarkerAnchor(shape);
   const textFill = seatTextFill(seat, selected, colors, typeColors, style);
@@ -214,15 +216,20 @@ export function resolveSeatGlyph(
 }
 
 /**
- * The outline for a legend type swatch drawn in its type's `shape`, on a
- * `size`-square box, or `undefined` to keep the flat square swatch: a type with
- * no shape, or the default `'seat'`, has nothing a square does not already say.
+ * The outline for a legend type swatch drawn in its type's `shape`, or in the
+ * outline its document `form` gives (D17), on a `size`-square box. `undefined`
+ * keeps the flat square swatch: a type with no shape, or the default `'seat'`,
+ * has nothing a square does not already say.
+ *
+ * Pass the legend entry's `form` so the legend shows what the map shows: a
+ * customer who reads "Armchair" in the legend should find an armchair on the map.
  */
 export function legendSwatchPath(
   typeStyle: KerusiSeatStyle | undefined,
   size: number,
+  form?: string,
 ): string | undefined {
-  const shape = typeStyle?.shape;
+  const shape = typeStyle?.shape ?? seatFormShape(form);
   return shape && shape !== 'seat' ? seatShapePath(shape, 0, 0, size, size) : undefined;
 }
 

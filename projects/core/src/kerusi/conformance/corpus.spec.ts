@@ -62,6 +62,8 @@ const VALID = [
   'delta-heartbeat.statedelta.kerusi.json',
   'delta-release.statedelta.kerusi.json',
   'flight-b738.map.kerusi.json',
+  'seat-form-implementation-defined.map.kerusi.json',
+  'seat-forms.map.kerusi.json',
   'session-mh123.session.kerusi.json',
   'stadium-court1.map.kerusi.json',
   'stage-only-section.map.kerusi.json',
@@ -131,6 +133,8 @@ const REJECTED: Record<string, string[]> = {
  * does not reimplement.
  */
 const ACCEPTED: Record<string, string> = {
+  'invalid/seat-type-form-empty.map.kerusi.json':
+    'an empty form is a schema constraint (minLength); §4.7.1 has a consumer draw any form it does not recognise as a chair, and never reject a document over one',
   'invalid/map-unknown-toplevel-field.map.kerusi.json':
     '§2 and §7 require a consumer to ignore members it does not recognize; rejecting this would be the non-conformance',
   'invalid/section-layout-removed.map.kerusi.json':

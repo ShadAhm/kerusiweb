@@ -11,6 +11,14 @@ suite rather than described in prose.
 | Commit   | `d16fd99`                                      |
 | Vendored | 2026-10-17                                     |
 
+Three files come from a later tag. `seat-forms.map.kerusi.json`,
+`seat-form-implementation-defined.map.kerusi.json` and
+`invalid/seat-type-form-empty.map.kerusi.json` are vendored from
+`spec-1.0.0-draft.17`, the revision that added `SeatType.form` (§4.7.1), because
+this library draws seat forms before it adopts the rest of that revision (groups
+and booking modes come with their own releases, D17 onwards). The rest of the
+corpus stays at rev 15 until then.
+
 To refresh after a spec revision: copy `examples/` over `corpus/`, run
 `npm run test:core`, and reconcile `corpus.spec.ts`. Every file has an explicit
 expectation there, and a coverage test fails on any file without one, so a new

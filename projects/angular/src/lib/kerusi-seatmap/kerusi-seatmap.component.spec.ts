@@ -11,6 +11,10 @@ import {
   seatBodyPath,
 } from '@kerusiweb/core';
 import {
+  PARITY_FORMS_MAP,
+  PARITY_FORMS_SELECTION,
+  PARITY_FORMS_SIGNATURE,
+  PARITY_FORMS_STATE,
   PARITY_MAP,
   PARITY_SELECTION,
   PARITY_SIGNATURE,
@@ -1003,5 +1007,14 @@ describe('KerusiSeatmapComponent SVG parity with the React binding', () => {
       selection: PARITY_SELECTION,
     });
     expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(PARITY_SIGNATURE);
+  });
+
+  it('draws the seat forms exactly as the shared signature says', () => {
+    const el = renderAlone({
+      map: PARITY_FORMS_MAP,
+      state: PARITY_FORMS_STATE,
+      selection: PARITY_FORMS_SELECTION,
+    });
+    expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(PARITY_FORMS_SIGNATURE);
   });
 });

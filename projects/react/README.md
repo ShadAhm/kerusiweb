@@ -293,12 +293,12 @@ When the choice lives in TypeScript (a recommendation, a search result, the
 document's own `Seat.metadata`), use `seatTypeStyles` for whole types and
 `seatStyle` for single seats. Both take a `KerusiSeatStyle`:
 
-| Field        | Type                          |                                                                                                                    |
-| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `fill`       | `string`                      | The seat's own colour, the same slot as `--kerusi-seat-fill`. Any CSS colour.                                      |
-| `labelColor` | `string`                      | The number's colour. Defaults to black or white for a hex `fill`; set it for any other kind of colour.             |
-| `className`  | `string \| readonly string[]` | Extra classes on the seat's `<g>`, for CSS that needs more than colour.                                            |
-| `shape`      | `KerusiSeatShape`             | The seat's outline: `'seat'` (default), `'square'`, `'rounded'`, `'circle'`, or a function. See [Shapes](#shapes). |
+| Field        | Type                          |                                                                                                                                      |
+| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `fill`       | `string`                      | The seat's own colour, the same slot as `--kerusi-seat-fill`. Any CSS colour.                                                        |
+| `labelColor` | `string`                      | The number's colour. Defaults to black or white for a hex `fill`; set it for any other kind of colour.                               |
+| `className`  | `string \| readonly string[]` | Extra classes on the seat's `<g>`, for CSS that needs more than colour.                                                              |
+| `shape`      | `KerusiSeatShape`             | The seat's outline: `'seat'` (default), `'square'`, `'rounded'`, `'circle'`, a seat form name, or a function. See [Shapes](#shapes). |
 
 ```tsx
 import type { SeatStyleFn, SeatTypeStyles } from '@kerusiweb/core';
@@ -342,20 +342,34 @@ A style's `shape` changes the seat's outline. It works in `seatTypeStyles` (a
 sofa type drawn rounded, say) and in `seatStyle`; for every seat at once, use
 `seatStyle={() => ({ shape: 'circle' })}`.
 
-| `shape`                    |                                                                             |
-| -------------------------- | --------------------------------------------------------------------------- |
-| `'seat'`                   | The default: square-ish at the front, tapered at the back.                  |
-| `'square'`                 | A square with the same slight corners as the seat's front.                  |
-| `'rounded'`                | A square with soft corners.                                                 |
-| `'circle'`                 | A circle filling the seat's box.                                            |
-| `(box: SeatBox) => string` | Your own closed path `d`, drawn inside `box` (`x`, `y`, `width`, `height`). |
+| `shape`                    |                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `'seat'`                   | The default: square-ish at the front, tapered at the back.                     |
+| `'square'`                 | A square with the same slight corners as the seat's front.                     |
+| `'rounded'`                | A square with soft corners.                                                    |
+| `'circle'`                 | A circle filling the seat's box.                                               |
+| `'armchair'`               | A tub chair seen from above: arms stand forward either side of a dipped front. |
+| `'stool'`                  | A round top with no back.                                                      |
+| `'recliner'`               | A narrow footrest at the front of a tapered body.                              |
+| `'beanbag'`                | A slumped pear, narrow at the front and heavy at the back.                     |
+| `'cushion'`                | A flat pillow with pinched corners.                                            |
+| `'wheelchair-space'`       | An open rim with nothing in it: a space, not a chair.                          |
+| `'sofa'`                   | One place on a sofa: a cushion between shoulders standing proud at the back.   |
+| `'bench'`                  | One place on a pew: a low, square-cornered slab.                               |
+| `(box: SeatBox) => string` | Your own closed path `d`, drawn inside `box` (`x`, `y`, `width`, `height`).    |
 
+- **A document's `form` picks the default shape.** `SeatType.form` (§4.7.1) draws
+  the preset of the same name, in the seat and in the legend, so an armchair
+  type looks like one with no styling at all. `chair`, a missing `form` and a
+  form this library does not know draw `'seat'`. A `shape` from `seatStyle` or
+  `seatTypeStyles` always wins over the document's form.
 - **Status marks follow the shape.** The wash, the selected frame and core, and
   a seat template's focus outline are all drawn in it, and the occupant figure
   and wheelchair marker sit inside every preset.
-- **Only `'seat'` shows which way a seat faces.** The other presets are
-  symmetric, so on rotated seats (a fanned theatre, a stadium bowl) that cue is
-  lost.
+- **`'seat'` and the form presets show which way a seat faces.** `'square'`,
+  `'rounded'` and `'circle'` are symmetric, so on rotated seats (a fanned
+  theatre, a stadium bowl) that cue is lost. Every form is drawn facing up at
+  `rotation` 0 and turns with its seat.
 - **A function shape must draw relative to the box it is given.** It is called
   once for the seat and again for the selected core's smaller box. Leave room
   for the occupant figure (the middle 44% of the width, from 15% to 86% of the

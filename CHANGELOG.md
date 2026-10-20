@@ -6,6 +6,25 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Seat forms (§4.7.1).** `SeatType.form` says what one place of a type looks
+  like, and the library now draws it: `armchair`, `stool`, `recliner`,
+  `beanbag`, `cushion`, `wheelchair-space`, `sofa` and `bench` each get their own
+  outline, in the seat and in the legend swatch. Each faces up at `rotation` 0
+  and turns with its seat, and every status cue (the held and booked wash and
+  figure, the selected frame and core, blocked, the focus outline and the
+  wheelchair marker) works on every form. `chair`, no `form` and a form the
+  library does not know draw the stock seat, so existing maps do not change
+  (D17). A `shape` from `seatStyle` or `seatTypeStyles` still wins over the
+  document's form. The outlines are drawn in-house (D24). Planned in #50, done in
+  #51.
+- `KerusiSeatShape` gains the form names as presets, so an app can use
+  `shape: 'armchair'` too, and core exports `seatFormShape`, `SeatForm` and
+  `KerusiSeatFormShape`. `RenderLegendEntry.form` carries the form, and
+  `legendSwatchPath` takes it as an optional third argument.
+- A "Lounge" scenario in both demos draws every form, untouched and turned.
+
 ## [3.1.0] - 2026-10-18
 
 **A minor release (3.1.0)** of `@kerusiweb/core`, `@kerusiweb/angular` and

@@ -530,3 +530,113 @@ describe('§5.3 sessions and document joins', () => {
     );
   });
 });
+
+describe('groups (§4.11)', () => {
+  /** Two seats side by side and a group over them. */
+  const groupMap = (groups: unknown): KerusiMap =>
+    ({
+      kerusi: '1.0',
+      id: 'g',
+      canvas: { width: 200, height: 100 },
+      seatSize: 20,
+      legend: [{ id: 'std' }],
+      sections: [
+        {
+          id: 's',
+          seats: [
+            { id: 'A', x: 40, y: 50, type: 'std' },
+            { id: 'B', x: 70, y: 50, type: 'std' },
+            { id: 'C', x: 160, y: 50, type: 'std' },
+          ],
+          groups,
+        },
+      ],
+    }) as KerusiMap;
+  const sofa = { id: 'sofa', kind: 'sofa', seats: ['A', 'B'] };
+  const rules = (groups: unknown) => checkKerusiMap(groupMap(groups)).map((v) => v.rule);
+
+  it('accepts a group, with or without a shape, and a group of one seat', () => {
+    expect(rules([sofa])).toEqual([]);
+    expect(rules([{ ...sofa, shape: { rect: { x: 55, y: 50, width: 60, height: 30 } } }])).toEqual(
+      [],
+    );
+    expect(rules([{ id: 'one', kind: 'table', seats: ['A'] }])).toEqual([]);
+    expect(rules(undefined)).toEqual([]);
+  });
+
+  it('requires an id, a kind and at least one seat', () => {
+    expect(rules([{ kind: 'sofa', seats: ['A'] }])).toEqual(['group-id']);
+    expect(rules([{ id: 'x', seats: ['A'] }])).toEqual(['group-kind']);
+    expect(rules([{ id: 'x', kind: 'sofa', seats: [] }])).toEqual(['group-seats']);
+    expect(rules([{ id: 'x', kind: 'sofa' }])).toEqual(['group-seats']);
+    expect(rules({ id: 'x' })).toEqual(['section-groups']);
+  });
+
+  it('rejects a seat that is not in the group’s own section', () => {
+    expect(rules([{ ...sofa, seats: ['A', 'ghost'] }])).toEqual(['group-seat-unresolved']);
+  });
+
+  it('rejects a seat in two groups, or listed twice, at the later listing', () => {
+    const violations = checkKerusiMap(
+      groupMap([sofa, { id: 'other', kind: 'table', seats: ['B', 'C'] }]),
+    );
+    expect(violations.map((v) => [v.rule, v.id, v.path])).toEqual([
+      ['group-seat-shared', 'other', 'sections[0].groups[1].seats[0]'],
+    ]);
+    expect(rules([{ ...sofa, seats: ['A', 'A'] }])).toEqual(['group-seat-shared']);
+  });
+
+  it('rejects a duplicate group id across the map', () => {
+    expect(rules([sofa, { id: 'sofa', kind: 'table', seats: ['C'] }])).toEqual([
+      'group-id-duplicate',
+    ]);
+  });
+
+  it('wants exactly one well-formed shape, centred on the canvas', () => {
+    const shaped = (shape: unknown) => rules([{ ...sofa, shape }]);
+    expect(shaped({})).toEqual(['group-shape-kind']);
+    expect(
+      shaped({ rect: { x: 1, y: 1, width: 1, height: 1 }, circle: { center: [1, 1], radius: 1 } }),
+    ).toEqual(['group-shape-kind']);
+    expect(shaped({ oval: {} })).toEqual(['group-shape-kind']);
+    expect(shaped({ circle: { center: [50, 50], radius: 0 } })).toEqual(['group-shape-invalid']);
+    expect(shaped({ circle: { center: [50], radius: 5 } })).toEqual(['group-shape-invalid']);
+    expect(shaped({ rect: { x: 50, y: 50, width: 0, height: 5 } })).toEqual([
+      'group-shape-invalid',
+    ]);
+    expect(shaped({ rect: { x: 50, y: 50, width: 5, height: 5, rotation: 'up' } })).toEqual([
+      'group-shape-invalid',
+    ]);
+    expect(shaped({ circle: { center: [500, 50], radius: 5 } })).toEqual([
+      'group-shape-outside-canvas',
+    ]);
+    // Only the centre must be on the canvas: a shape may hang over the edge.
+    expect(shaped({ circle: { center: [190, 50], radius: 40 } })).toEqual([
+      'group-shape-overlaps-seat',
+    ]);
+  });
+
+  it('warns, and does not reject, when a shape covers a seat outside its group', () => {
+    const violations = checkKerusiMap(
+      groupMap([{ ...sofa, shape: { rect: { x: 100, y: 50, width: 160, height: 30 } } }]),
+    );
+    expect(violations.map((v) => [v.rule, v.severity, v.id])).toEqual([
+      ['group-shape-overlaps-seat', 'warning', 'sofa'],
+    ]);
+    expect(() =>
+      validateKerusiMap(
+        groupMap([{ ...sofa, shape: { rect: { x: 100, y: 50, width: 160, height: 30 } } }]),
+      ),
+    ).not.toThrow();
+  });
+
+  it('does not warn about the group’s own seats, or a shape that only touches a seat', () => {
+    expect(rules([{ ...sofa, shape: { rect: { x: 55, y: 50, width: 60, height: 30 } } }])).toEqual(
+      [],
+    );
+    // C's footprint starts at x 150: a rect ending exactly there touches, not overlaps.
+    expect(
+      rules([{ ...sofa, shape: { rect: { x: 100, y: 50, width: 100, height: 30 } } }]),
+    ).toEqual([]);
+  });
+});

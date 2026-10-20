@@ -1,6 +1,12 @@
 import { Bounds } from '../kerusi/kerusi-map.model.js';
 import { elementStyle } from './element-shapes.js';
-import { RenderElement, RenderMap, RenderSeat, RenderSection } from './render-model.js';
+import {
+  RenderElement,
+  RenderGroup,
+  RenderMap,
+  RenderSeat,
+  RenderSection,
+} from './render-model.js';
 
 /**
  * Map geometry: turning a `RenderMap` into placed rectangles on its canvas.
@@ -48,11 +54,51 @@ export interface PlacedElement {
   rotation: number;
 }
 
-/** One section's placed seats and elements. */
+/**
+ * A group's footprint as drawn (§4.11), mirrored with the canvas in RTL. A
+ * `rect` is placed as an element is: `x`/`y` its top-left before rotation,
+ * turned about its centre. A `circle` is its centre and radius.
+ */
+export type PlacedGroupShape =
+  | {
+      kind: 'rect';
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      centerX: number;
+      centerY: number;
+      /** Degrees about the centre, clockwise on screen; negated when mirrored. */
+      rotation: number;
+    }
+  | { kind: 'circle'; centerX: number; centerY: number; radius: number };
+
+/** A group with its footprint and the seats placed on it. */
+export interface PlacedGroup {
+  group: RenderGroup;
+  /** Absent when the document gives the group no (well-formed) shape. */
+  shape?: PlacedGroupShape;
+  /**
+   * The group's seats in the order its `Group.seats` lists them: the order a
+   * screen reader meets them in, so a table's seat 1 comes before its seat 2.
+   */
+  seats: readonly PlacedSeat[];
+}
+
+/** One section's placed seats, elements and groups. */
 export interface PlacedSection {
   section: RenderSection;
+  /** Every seat in the section, in row-then-position order (the order of the render model). */
   seats: readonly PlacedSeat[];
   elements: readonly PlacedElement[];
+  /** Every group, in document order. A group's footprint is drawn under all the seats. */
+  groups: readonly PlacedGroup[];
+  /**
+   * The seats a binding draws outside any group wrapper, in `seats` order: those
+   * in no group, and those in a group with no label (a `role="group"` with no
+   * name says nothing). The rest are drawn inside their group's wrapper.
+   */
+  loose: readonly PlacedSeat[];
   /**
    * `RenderSection.bounds` as drawn: mirrored with everything else in RTL, so
    * a binding can zoom to it or put a label at its top-left as is.
@@ -103,13 +149,25 @@ export function computeMapLayout(map: RenderMap, options: MapLayoutOptions = {})
   const turn = (rotation: number | undefined) =>
     (options.rtl ? -(rotation ?? 0) : (rotation ?? 0)) + 0;
 
-  const sections = map.sections.map((section) => {
+  const sections = map.sections.map((section): PlacedSection => {
     const bounds = mirrorBounds(section.bounds, options.rtl ? width : undefined);
+    const seats = section.seats.map((seat) =>
+      placeSeat(seat, mirror(seat.x), seat.y, turn(seat.rotation)),
+    );
+    const placedById = new Map(seats.map((placed) => [placed.seat.id, placed]));
+    const groups = section.groups.map((group) => ({
+      group,
+      shape: placeGroupShape(group, mirror, turn),
+      seats: group.seatIds
+        .map((id) => placedById.get(id))
+        .filter((placed): placed is PlacedSeat => placed !== undefined),
+    }));
+    const wrapped = new Set(groups.filter((g) => g.group.label).flatMap((g) => g.seats));
     return {
       section,
-      seats: section.seats.map((seat) =>
-        placeSeat(seat, mirror(seat.x), seat.y, turn(seat.rotation)),
-      ),
+      seats,
+      groups,
+      loose: seats.filter((placed) => !wrapped.has(placed)),
       elements: section.elements.map((element) =>
         placeElement(
           element,
@@ -125,6 +183,31 @@ export function computeMapLayout(map: RenderMap, options: MapLayoutOptions = {})
   });
 
   return { width, height, sections };
+}
+
+function placeGroupShape(
+  group: RenderGroup,
+  mirror: (x: number) => number,
+  turn: (rotation: number | undefined) => number,
+): PlacedGroupShape | undefined {
+  const shape = group.shape;
+  if (!shape) {
+    return undefined;
+  }
+  const centerX = mirror(shape.x);
+  if (shape.kind === 'circle') {
+    return { kind: 'circle', centerX, centerY: shape.y, radius: shape.radius };
+  }
+  return {
+    kind: 'rect',
+    x: centerX - shape.width / 2,
+    y: shape.y - shape.height / 2,
+    width: shape.width,
+    height: shape.height,
+    centerX,
+    centerY: shape.y,
+    rotation: turn(shape.rotation),
+  };
 }
 
 function placeSeat(

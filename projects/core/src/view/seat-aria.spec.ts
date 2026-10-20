@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { KerusiMap, Seat } from '../kerusi/kerusi-map.model.js';
+import { Group, KerusiMap, Seat } from '../kerusi/kerusi-map.model.js';
 import { KerusiState } from '../kerusi/kerusi-state.model.js';
 import { buildRenderModel } from '../render/build-render-model.js';
-import { disallowedAnnouncement, seatAriaLabel } from './seat-aria.js';
+import {
+  DEFAULT_SEAT_ARIA_STRINGS,
+  disallowedAnnouncement,
+  SeatAriaStrings,
+  seatAriaLabel,
+} from './seat-aria.js';
 
 const mapWith = (seat: Seat): KerusiMap => ({
   kerusi: '1.0',
@@ -152,6 +157,47 @@ describe('disallowedAnnouncement', () => {
     );
     expect(disallowedAnnouncement(seat(), 'companion-unavailable')).toContain(
       'must be booked with a seat that is unavailable',
+    );
+  });
+});
+
+describe('seatAriaLabel for a seat in a group (§4.11)', () => {
+  const groupMap = (label?: string): KerusiMap => ({
+    ...mapWith(BASE),
+    sections: [
+      {
+        id: 'cabin',
+        rows: [{ id: '12', label: '12' }],
+        seats: [BASE],
+        groups: [{ id: 'g', kind: 'table', label, seats: ['12A'], shape: undefined } as Group],
+      },
+    ],
+  });
+  const seatOf = (label?: string) => buildRenderModel(groupMap(label)).seatsById.get('12A')!;
+
+  it('says the group in place of the row: "Table 3, seat A"', () => {
+    expect(seatAriaLabel(seatOf('Table 3'), 'en')).toMatch(/^Table 3, seat A, Business class,/);
+  });
+
+  it('keeps the row for a group with no label, which names nothing', () => {
+    expect(seatAriaLabel(seatOf(undefined), 'en')).toMatch(/^Row 12, seat A, Business class,/);
+  });
+
+  it('takes the wording from the strings a caller supplies, and falls back to English without one', () => {
+    const strings: SeatAriaStrings = {
+      ...DEFAULT_SEAT_ARIA_STRINGS,
+      groupSeat: (group, seat) => `${seat} at ${group}`,
+    };
+    expect(seatAriaLabel(seatOf('Table 3'), 'en', strings)).toMatch(/^A at Table 3, Business/);
+
+    // A caller written before groups existed supplies no `groupSeat`.
+    const { groupSeat: _omitted, ...before } = DEFAULT_SEAT_ARIA_STRINGS;
+    expect(seatAriaLabel(seatOf('Table 3'), 'en', before)).toMatch(/^Table 3, seat A, Business/);
+  });
+
+  it('names the group when a selection is refused too', () => {
+    expect(disallowedAnnouncement(seatOf('Table 3'), 'booked')).toBe(
+      'Table 3, seat A is already booked.',
     );
   });
 });

@@ -65,6 +65,18 @@ export interface KerusiSeatmapColors {
   elementMutedBg?: string;
   elementMutedFg?: string;
 
+  /**
+   * A group's footprint (§4.11): the tabletop, sofa or pew under its seats. The
+   * body takes `groupFill` and `groupStroke`; the marks on it (a cloth, a sofa's
+   * back and arms) take `groupDetail`. Keep them quiet next to the seats: the
+   * held and booked wash, the occupant figure and the selected frame are all
+   * drawn over them. A piece can also be tinted by kind with
+   * `--kerusi-group-{kind}-fill` (and `-stroke`, `-detail`).
+   */
+  groupFill?: string;
+  groupStroke?: string;
+  groupDetail?: string;
+
   /** The keyboard focus ring. */
   focusRing?: string;
   /** Behind the seating area. `transparent` by default. */
@@ -88,6 +100,9 @@ export const DEFAULT_KERUSI_COLORS: Required<KerusiSeatmapColors> = {
   elementAccentFg: '#ffffff',
   elementMutedBg: '#eef1f6',
   elementMutedFg: '#6b7385',
+  groupFill: '#ece4d6',
+  groupStroke: '#c2b59a',
+  groupDetail: '#ddd1bb',
   focusRing: '#1b1f27',
   backdrop: 'transparent',
 };

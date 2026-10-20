@@ -222,6 +222,8 @@ Every key of `KerusiSeatmapColors` has a property, kebab-cased:
 | `elementBg` / `elementFg`             | `--kerusi-element-bg` / `--kerusi-element-fg`               |
 | `elementAccentBg` / `elementAccentFg` | `--kerusi-element-accent-bg` / `--kerusi-element-accent-fg` |
 | `elementMutedBg` / `elementMutedFg`   | `--kerusi-element-muted-bg` / `--kerusi-element-muted-fg`   |
+| `groupFill` / `groupStroke`           | `--kerusi-group-fill` / `--kerusi-group-stroke`             |
+| `groupDetail`                         | `--kerusi-group-detail`                                     |
 | `focusRing`                           | `--kerusi-focus-ring`                                       |
 | `backdrop`                            | `--kerusi-backdrop`                                         |
 
@@ -376,6 +378,55 @@ sofa type drawn rounded, say) and in `seatStyle`; for every seat at once, use
   height) and keep the top-right corner filled for the wheelchair marker.
 - **The legend draws a shaped type in its shape.** Types without a `shape`, and
   every status swatch, keep their usual swatches.
+
+### Groups: tables, sofas and pews
+
+A Kerusi section can name **groups** (§4.11): the chairs round a table, the
+places on a sofa or pew, a booth. A group lists its seats, says what `kind` of
+piece it is, and may give the piece a footprint, a `rect` or a `circle`, that
+the map draws under its seats. Without one, a round table is a ring of chairs
+with nothing in the middle.
+
+```json
+{
+  "id": "table-3",
+  "kind": "table",
+  "label": "Table 3",
+  "seats": ["T3-1", "T3-2", "T3-3", "T3-4"],
+  "shape": { "circle": { "center": [300, 240], "radius": 48 } }
+}
+```
+
+- **Drawn under the seats.** Each footprint is a
+  `<g class="kerusi-group kerusi-group--{kind}" data-group-id data-group-kind>`
+  inside its section's `<g>`. `table`, `sofa`, `loveseat`, `pew`, `bench` and
+  `booth` have a look of their own (a cloth, a back and arms, slats); any other
+  kind, `box` and `companion` included, draws as its plain shape. A group with
+  no shape draws nothing extra. A `rect` is centred on its `x`/`y` and turned
+  like an element, and its front is its top edge, so a sofa's back is its
+  bottom edge.
+- **Styled by tokens.** The footprint takes `--kerusi-group-fill`,
+  `--kerusi-group-stroke` and `--kerusi-group-detail` (the cloth, back and arms),
+  then `colors.groupFill`, `colors.groupStroke` and `colors.groupDetail`. A
+  kind can override any of them: `--kerusi-group-table-fill`,
+  `--kerusi-group-sofa-detail`, and so on. Keep them quiet next to the seats,
+  because the held and booked wash, the figure and the selected frame are drawn
+  over them.
+- **Not interactive.** A footprint is decoration: it is hidden from assistive
+  technology and takes no pointer, so a press on a tabletop selects nothing and
+  a drag across it still pans. Seat hit-testing, the tab stop and the arrow keys
+  are the same as without groups.
+- **Announced.** A group with a `label` wraps its seats in a
+  `<g class="kerusi-group-seats" role="group" aria-label="Table 3">`, and each
+  of its seats is announced by it: "Table 3, seat 4, Guest, ...". Words come from
+  `ariaStrings.groupSeat`, which is optional; leave it out and the English
+  default is used. A group with no label has no name to give, so its seats are
+  drawn like any other. A seat's hover and click card context carries its
+  `group`.
+- **Mirrors and hides with its section.** In right-to-left a footprint mirrors
+  with the canvas (D3), and a hidden section hides its groups (D4).
+
+This draws and names groups only. Booking a group whole is a separate release.
 
 ### Custom seat content
 

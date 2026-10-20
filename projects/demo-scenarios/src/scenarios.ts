@@ -9,6 +9,7 @@ import {
   LECTURE_THEATRE_MAP,
   LECTURE_THEATRE_STATE,
 } from './fixtures/lecture-theatre.kerusi.fixture.js';
+import { BANQUET_MAP, BANQUET_STATE } from './fixtures/banquet.kerusi.fixture.js';
 import { LOUNGE_MAP, LOUNGE_STATE } from './fixtures/lounge.kerusi.fixture.js';
 import { STADIUM_MAP, STADIUM_STATE } from './fixtures/stadium.kerusi.fixture.js';
 import { TOWN_HALL_MAP, TOWN_HALL_STATE } from './fixtures/town-hall.kerusi.fixture.js';
@@ -99,9 +100,27 @@ export const SCENARIOS: readonly Scenario[] = [
       'Sofa and bench describe one place: three sofa places, four on a pew',
       'The same forms again, turned, to show an outline turns with its seat',
       'A form is a drawing hint: it changes no price, neighbour or footprint',
+      'The sofa and two pews are groups (§4.11): each names its places and draws the piece under them',
     ],
     map: LOUNGE_MAP,
     state: LOUNGE_STATE,
+  },
+  {
+    id: 'banquet',
+    name: 'Banquet',
+    domain: 'banquet',
+    blurb:
+      'Six round tables of eight and a head table. Each table is a group with a ' +
+      'footprint, so a tabletop sits under its chairs.',
+    highlights: [
+      "Section.groups names a table's seats and gives it a circle footprint (§4.11)",
+      'The head table is a rect group, with its places along its front',
+      'Every chair is rotated to face the middle of its table (§4.3.1)',
+      'A seat is announced by its table: "Table 3, seat 4"',
+      'The footprint is decoration: a press on a tabletop selects nothing',
+    ],
+    map: BANQUET_MAP,
+    state: BANQUET_STATE,
   },
   {
     id: 'stadium',

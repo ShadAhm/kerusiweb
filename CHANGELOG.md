@@ -24,6 +24,29 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `KerusiSeatFormShape`. `RenderLegendEntry.form` carries the form, and
   `legendSwatchPath` takes it as an optional third argument.
 - A "Lounge" scenario in both demos draws every form, untouched and turned.
+- **Groups (§4.11).** `Section.groups` names a table, sofa, love seat, pew, bench
+  or booth and the seats at it, and the map now draws the piece. A group's
+  `shape` (a `rect`, centred and turned as an element is, or a `circle`) is drawn
+  under its seats as `<g class="kerusi-group kerusi-group--{kind}">`, with a look
+  of its own for `table`, `sofa`, `loveseat`, `pew`, `bench` and `booth` and a
+  plain shape for any other kind. Styled by the `--kerusi-group-fill`,
+  `--kerusi-group-stroke` and `--kerusi-group-detail` tokens, per kind with
+  `--kerusi-group-{kind}-*`, and by the new `colors.groupFill`, `groupStroke` and
+  `groupDetail` (D18). A footprint is decoration: hidden from assistive
+  technology and not a pointer target, so a press on a tabletop selects nothing.
+  A group with a `label` wraps its seats in a `role="group"` of that name, and a
+  seat in it is announced "Table 3, seat 4" (`ariaStrings.groupSeat`, optional).
+  The hover and click card context gains `group`. Mirrored in right-to-left (D3),
+  hidden with its section (D4). The validator gains the group rules with the
+  reference ids (D7, D23): `group-seat-unresolved`, `group-seat-shared`,
+  `group-id-duplicate` and `group-shape-outside-canvas`, a
+  `group-shape-overlaps-seat` warning, and `group-id`, `group-kind`,
+  `group-seats`, `group-shape-kind` and `group-shape-invalid` for what the
+  schemas own. Core exports `Group`, `GroupKind`, `GroupShape`, `RenderGroup`,
+  `PlacedGroup`, `groupFootprint` and `resolveGroupGlyph`. Done in #52, planned
+  in #50.
+- A "Banquet" scenario in both demos has round tables, and the Lounge's sofa and
+  pews are groups.
 
 ## [3.1.0] - 2026-10-18
 

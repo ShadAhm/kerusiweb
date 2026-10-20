@@ -141,3 +141,87 @@ export function footprintsOverlap(p: Footprint, q: Footprint): boolean {
   }
   return true;
 }
+
+/**
+ * A rectangle centred on `x`/`y`, turned by `theta` radians: a group's `rect`
+ * shape (§4.11). `hw` and `hh` are its half sides.
+ */
+export interface TurnedRect {
+  x: number;
+  y: number;
+  hw: number;
+  hh: number;
+  theta: number;
+}
+
+/** A group's `circle` shape (§4.11). */
+export interface Disc {
+  x: number;
+  y: number;
+  radius: number;
+}
+
+const footprintRect = (f: Footprint): TurnedRect => ({
+  x: f.x,
+  y: f.y,
+  hw: f.size / 2,
+  hh: f.size / 2,
+  theta: f.theta,
+});
+
+/**
+ * Whether a group's `rect` shape overlaps a seat footprint, by the separating
+ * axis theorem over the edge normals of both. Shapes that only touch do not
+ * overlap (§4.11).
+ */
+export function rectOverlapsFootprint(r: TurnedRect, f: Footprint): boolean {
+  const q = footprintRect(f);
+  const dx = q.x - r.x;
+  const dy = q.y - r.y;
+  const tolerance = 1e-9 * Math.max(r.hw, r.hh, q.hw, q.hh);
+  const reach = (t: TurnedRect, axis: number) =>
+    t.hw * Math.abs(Math.cos(t.theta - axis)) + t.hh * Math.abs(Math.sin(t.theta - axis));
+  for (const axis of [r.theta, r.theta + Math.PI / 2, q.theta, q.theta + Math.PI / 2]) {
+    const gap = Math.abs(dx * Math.cos(axis) + dy * Math.sin(axis));
+    if (gap >= reach(r, axis) + reach(q, axis) - tolerance) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Whether a group's `circle` shape overlaps a seat footprint: the footprint's
+ * nearest point to the circle's centre lies strictly inside the circle.
+ * Touching is not overlapping (§4.11).
+ */
+export function discOverlapsFootprint(c: Disc, f: Footprint): boolean {
+  const { hw, hh } = footprintRect(f);
+  const dx = c.x - f.x;
+  const dy = c.y - f.y;
+  const lx = dx * Math.cos(-f.theta) - dy * Math.sin(-f.theta);
+  const ly = dx * Math.sin(-f.theta) + dy * Math.cos(-f.theta);
+  const nx = Math.max(-hw, Math.min(hw, lx));
+  const ny = Math.max(-hh, Math.min(hh, ly));
+  return Math.hypot(lx - nx, ly - ny) < c.radius - 1e-9 * Math.max(c.radius, hw, hh);
+}
+
+/** A turned rectangle for a group's `rect` shape, `rotation` in degrees; `undefined` when malformed. */
+export function turnedRectOf(rect: {
+  x?: unknown;
+  y?: unknown;
+  width?: unknown;
+  height?: unknown;
+  rotation?: unknown;
+}): TurnedRect | undefined {
+  if (![rect.x, rect.y, rect.width, rect.height].every(isNum)) {
+    return undefined;
+  }
+  return {
+    x: rect.x as number,
+    y: rect.y as number,
+    hw: (rect.width as number) / 2,
+    hh: (rect.height as number) / 2,
+    theta: rad(isNum(rect.rotation) ? rect.rotation : 0),
+  };
+}

@@ -14,8 +14,10 @@ import {
   elementTextFill,
   KerusiSeatmapColors,
   PlacedElement,
+  PlacedGroup,
   PlacedSeat,
   PlacedSection,
+  resolveGroupGlyph,
   resolveSeatGlyph,
   resolveSeatStyle,
   screenPath,
@@ -131,6 +133,39 @@ export class KerusiSectionComponent {
         glyph: resolveSeatGlyph(placed, selected, colors, typeColors, style),
       };
     });
+  });
+
+  /** The seats drawn outside any group wrapper: in no group, or in one with no label. */
+  protected readonly looseSeats = computed(() => {
+    const loose = new Set(this.layout().loose);
+    return this.seats().filter((entry) => loose.has(entry.placed));
+  });
+
+  /**
+   * Each group's footprint, resolved once per change of layout or theme. A group
+   * with no shape has none and draws nothing of its own.
+   */
+  protected readonly groups = computed(() => {
+    const colors = this.colors();
+    return this.layout().groups.map((placed) => ({
+      placed,
+      glyph: resolveGroupGlyph(placed, colors),
+    }));
+  });
+
+  /**
+   * A group's seats, wrapped in a `role="group"` named by the group's label so a
+   * screen reader says which table a seat is at. Only a group with a label and
+   * seats gets one: an unnamed group says nothing.
+   */
+  protected readonly groupedSeats = computed(() => {
+    const byId = new Map(this.seats().map((entry) => [entry.placed.seat.id, entry]));
+    return this.layout()
+      .groups.filter((group: PlacedGroup) => group.group.label && group.seats.length > 0)
+      .map((group) => ({
+        group: group.group,
+        entries: group.seats.map((placed) => byId.get(placed.seat.id)!),
+      }));
   });
 
   /** The section's single tab stop; every other seat is reachable by arrow key. */

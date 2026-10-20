@@ -1,0 +1,231 @@
+{
+  "kerusi": "1.0",
+  "id": "group-kinds",
+  "canvas": {
+    "width": 440,
+    "height": 380
+  },
+  "seatSize": 40,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "seats": [
+        {
+          "id": "table-1",
+          "x": 60,
+          "y": 80,
+          "type": "standard"
+        },
+        {
+          "id": "table-2",
+          "x": 100,
+          "y": 80,
+          "type": "standard"
+        },
+        {
+          "id": "sofa-1",
+          "x": 160,
+          "y": 80,
+          "type": "standard"
+        },
+        {
+          "id": "sofa-2",
+          "x": 200,
+          "y": 80,
+          "type": "standard"
+        },
+        {
+          "id": "loveseat-1",
+          "x": 260,
+          "y": 80,
+          "type": "standard"
+        },
+        {
+          "id": "loveseat-2",
+          "x": 300,
+          "y": 80,
+          "type": "standard"
+        },
+        {
+          "id": "pew-1",
+          "x": 360,
+          "y": 80,
+          "type": "standard"
+        },
+        {
+          "id": "pew-2",
+          "x": 400,
+          "y": 80,
+          "type": "standard"
+        },
+        {
+          "id": "bench-1",
+          "x": 60,
+          "y": 200,
+          "type": "standard"
+        },
+        {
+          "id": "bench-2",
+          "x": 100,
+          "y": 200,
+          "type": "standard"
+        },
+        {
+          "id": "booth-1",
+          "x": 160,
+          "y": 200,
+          "type": "standard"
+        },
+        {
+          "id": "booth-2",
+          "x": 200,
+          "y": 200,
+          "type": "standard"
+        },
+        {
+          "id": "box-1",
+          "x": 260,
+          "y": 200,
+          "type": "standard"
+        },
+        {
+          "id": "box-2",
+          "x": 300,
+          "y": 200,
+          "type": "standard"
+        },
+        {
+          "id": "companion-1",
+          "x": 360,
+          "y": 200,
+          "type": "standard"
+        },
+        {
+          "id": "companion-2",
+          "x": 400,
+          "y": 200,
+          "type": "standard"
+        },
+        {
+          "id": "solo",
+          "x": 60,
+          "y": 320,
+          "type": "standard"
+        }
+      ],
+      "groups": [
+        {
+          "id": "table",
+          "kind": "table",
+          "seats": ["table-1", "table-2"],
+          "shape": {
+            "circle": {
+              "center": [80, 120],
+              "radius": 24
+            }
+          }
+        },
+        {
+          "id": "sofa",
+          "kind": "sofa",
+          "seats": ["sofa-1", "sofa-2"],
+          "shape": {
+            "rect": {
+              "x": 180,
+              "y": 80,
+              "width": 88,
+              "height": 48,
+              "rotation": 0
+            }
+          }
+        },
+        {
+          "id": "loveseat",
+          "kind": "loveseat",
+          "seats": ["loveseat-1", "loveseat-2"],
+          "shape": {
+            "rect": {
+              "x": 280,
+              "y": 80,
+              "width": 88,
+              "height": 48,
+              "rotation": 0
+            }
+          }
+        },
+        {
+          "id": "pew",
+          "kind": "pew",
+          "seats": ["pew-1", "pew-2"],
+          "shape": {
+            "rect": {
+              "x": 380,
+              "y": 80,
+              "width": 88,
+              "height": 48,
+              "rotation": 0
+            }
+          }
+        },
+        {
+          "id": "bench",
+          "kind": "bench",
+          "seats": ["bench-1", "bench-2"],
+          "shape": {
+            "rect": {
+              "x": 80,
+              "y": 200,
+              "width": 88,
+              "height": 48,
+              "rotation": 0
+            }
+          }
+        },
+        {
+          "id": "booth",
+          "kind": "booth",
+          "seats": ["booth-1", "booth-2"],
+          "shape": {
+            "rect": {
+              "x": 180,
+              "y": 200,
+              "width": 88,
+              "height": 48,
+              "rotation": 0
+            }
+          }
+        },
+        {
+          "id": "box",
+          "kind": "box",
+          "seats": ["box-1", "box-2"],
+          "shape": {
+            "rect": {
+              "x": 280,
+              "y": 200,
+              "width": 88,
+              "height": 48,
+              "rotation": 0
+            }
+          }
+        },
+        {
+          "id": "companion",
+          "kind": "companion",
+          "seats": ["companion-1", "companion-2"]
+        },
+        {
+          "id": "lone-table",
+          "kind": "table",
+          "label": "A table with one chair left",
+          "seats": ["solo"]
+        }
+      ]
+    }
+  ]
+}

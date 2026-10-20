@@ -1,0 +1,40 @@
+{
+  "kerusi": "1.0",
+  "id": "group-no-seats",
+  "canvas": {
+    "width": 400,
+    "height": 200
+  },
+  "seatSize": 40,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "seats": [
+        {
+          "id": "a",
+          "x": 100,
+          "y": 100,
+          "type": "standard"
+        },
+        {
+          "id": "b",
+          "x": 140,
+          "y": 100,
+          "type": "standard"
+        }
+      ],
+      "groups": [
+        {
+          "id": "g",
+          "kind": "table",
+          "seats": []
+        }
+      ]
+    }
+  ]
+}

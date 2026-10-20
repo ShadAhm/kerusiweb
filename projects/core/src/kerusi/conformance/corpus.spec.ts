@@ -62,6 +62,7 @@ const VALID = [
   'delta-heartbeat.statedelta.kerusi.json',
   'delta-release.statedelta.kerusi.json',
   'flight-b738.map.kerusi.json',
+  'group-kinds.map.kerusi.json',
   'seat-form-implementation-defined.map.kerusi.json',
   'seat-forms.map.kerusi.json',
   'session-mh123.session.kerusi.json',
@@ -80,10 +81,12 @@ const VALID = [
  */
 const SEMANTIC: Record<string, string[]> = {
   'validator-only/asymmetric-companions.map.kerusi.json': ['companion-symmetry'],
+  'validator-only/dangling-group-seat.map.kerusi.json': ['group-seat-unresolved'],
   'validator-only/dangling-price-tier.map.kerusi.json': ['seat-pricetier-reference'],
   'validator-only/dangling-row.map.kerusi.json': ['seat-row-reference'],
   'validator-only/dangling-seat-type.map.kerusi.json': ['seat-type-reference'],
   'validator-only/duplicate-element-ids.map.kerusi.json': ['element-id-duplicate'],
+  'validator-only/duplicate-group-ids.map.kerusi.json': ['group-id-duplicate'],
   'validator-only/duplicate-price-tier-ids.map.kerusi.json': ['price-tier-id-duplicate'],
   'validator-only/duplicate-row-col.map.kerusi.json': ['seat-row-col-duplicate'],
   'validator-only/duplicate-row-ids.map.kerusi.json': ['row-id-duplicate'],
@@ -93,6 +96,8 @@ const SEMANTIC: Record<string, string[]> = {
   'validator-only/element-outside-canvas.map.kerusi.json': ['element-outside-canvas'],
   'validator-only/mixed-currencies.map.kerusi.json': ['single-currency'],
   'validator-only/row-shape-cols-reversed.map.kerusi.json': ['row-shape-cols-reversed'],
+  'validator-only/group-shape-outside-canvas.map.kerusi.json': ['group-shape-outside-canvas'],
+  'validator-only/seat-in-two-groups.map.kerusi.json': ['group-seat-shared'],
   'validator-only/seat-outside-canvas.map.kerusi.json': ['seat-outside-canvas'],
 };
 
@@ -103,6 +108,9 @@ const REJECTED: Record<string, string[]> = {
   'invalid/delta-missing-changes.statedelta.kerusi.json': ['delta-changes'],
   'invalid/element-no-position.map.kerusi.json': ['element-position'],
   'invalid/element-zero-width.map.kerusi.json': ['element-size-invalid'],
+  'invalid/group-no-seats.map.kerusi.json': ['group-seats'],
+  'invalid/group-shape-two-kinds.map.kerusi.json': ['group-shape-kind'],
+  'invalid/group-shape-zero-radius.map.kerusi.json': ['group-shape-invalid'],
   'invalid/map-bad-version.map.kerusi.json': ['map-version-unsupported'],
   'invalid/map-missing-canvas.map.kerusi.json': ['map-canvas'],
   'invalid/map-missing-legend.map.kerusi.json': ['map-legend'],

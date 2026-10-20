@@ -371,3 +371,134 @@ export const PARITY_FORMS_SIGNATURE = `<svg class="kerusi-seatmap__svg" focusabl
     <g aria-disabled="false" aria-label="Seat B4, Sofa place, no price, available." aria-pressed="false" class="kerusi-seat kerusi-seat--available" data-seat-id="B4" data-seat-status="available" data-seat-type="sofa" data-section-id="lounge" role="button" tabindex="-1">
       <path class="kerusi-seat__box" d="M 282.4 124 A 3.2 3.2 0 0 1 285.6 120.8 L 314.4 120.8 A 3.2 3.2 0 0 1 317.6 124 L 317.6 143.6 A 1.2 1.2 0 0 0 318.8 144.8 L 318.8 144.8 A 1.2 1.2 0 0 1 320 146 L 320 156 A 4 4 0 0 1 316 160 L 284 160 A 4 4 0 0 1 280 156 L 280 146 A 1.2 1.2 0 0 1 281.2 144.8 L 281.2 144.8 A 1.2 1.2 0 0 0 282.4 143.6 Z" style="fill: var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))">
       <text class="kerusi-seat__label" dominant-baseline="central" font-size="16" stroke-width="0" style="fill: var(--kerusi-seat-label, var(--kerusi-available-fg, #123a08)); stroke: none" text-anchor="middle" x="300" y="140">B4`;
+
+/**
+ * Groups (§4.11), in every combination the bindings draw: a labelled round
+ * table, a labelled pew turned a quarter, a love seat with a shape but no label
+ * (so its seats are drawn loose), a labelled companion set with no shape (so
+ * only its wrapper is drawn), and a seat in no group (#52).
+ */
+export const PARITY_GROUPS_MAP: KerusiMap = {
+  kerusi: '1.0',
+  id: 'groups',
+  canvas: { width: 400, height: 240 },
+  seatSize: 30,
+  legend: [{ id: 'std', label: 'Standard' }],
+  sections: [
+    {
+      id: 'lounge',
+      seats: [
+        { id: 'T1', label: '1', x: 100, y: 48, rotation: 180, type: 'std' },
+        { id: 'T2', label: '2', x: 152, y: 100, rotation: 270, type: 'std' },
+        { id: 'T3', label: '3', x: 100, y: 152, type: 'std' },
+        { id: 'T4', label: '4', x: 48, y: 100, rotation: 90, type: 'std' },
+        { id: 'L1', label: '1', x: 225, y: 60, type: 'std' },
+        { id: 'L2', label: '2', x: 255, y: 60, type: 'std' },
+        { id: 'P1', label: '1', x: 330, y: 120, rotation: 90, type: 'std' },
+        { id: 'P2', label: '2', x: 330, y: 150, rotation: 90, type: 'std' },
+        { id: 'P3', label: '3', x: 330, y: 180, rotation: 90, type: 'std' },
+        { id: 'C1', label: '1', x: 60, y: 210, type: 'std' },
+        { id: 'C2', label: '2', x: 95, y: 210, type: 'std' },
+        { id: 'LONE', x: 200, y: 200, type: 'std' },
+      ],
+      groups: [
+        {
+          id: 'table-3',
+          kind: 'table',
+          label: 'Table 3',
+          seats: ['T1', 'T2', 'T3', 'T4'],
+          shape: { circle: { center: [100, 100], radius: 36 } },
+        },
+        {
+          id: 'loveseat',
+          kind: 'loveseat',
+          seats: ['L1', 'L2'],
+          shape: { rect: { x: 240, y: 60, width: 70, height: 40 } },
+        },
+        {
+          id: 'pew-1',
+          kind: 'pew',
+          label: 'Pew 1',
+          seats: ['P1', 'P2', 'P3'],
+          shape: { rect: { x: 330, y: 150, width: 110, height: 40, rotation: 90 } },
+        },
+        { id: 'pair', kind: 'companion', label: 'Wheelchair and companion', seats: ['C1', 'C2'] },
+      ],
+    },
+  ],
+};
+
+export const PARITY_GROUPS_STATE: KerusiState = {
+  kerusi: '1.0',
+  mapId: 'groups',
+  updatedAt: '2026-10-20T09:00:00Z',
+  seats: { T2: { status: 'booked' }, P2: { status: 'held' }, L1: { status: 'blocked' } },
+};
+
+export const PARITY_GROUPS_SELECTION: readonly string[] = ['T1', 'P3'];
+
+/** What {@link svgSignature} gives for {@link PARITY_GROUPS_MAP}; see the note at the top. */
+export const PARITY_GROUPS_SIGNATURE = `<svg class="kerusi-seatmap__svg" focusable="false" preserveAspectRatio="xMidYMid meet" role="presentation" style="--kerusi-focus-ring-input: #1b1f27; max-width: 400px" viewBox="0 0 400 240">
+  <rect height="240" style="fill: var(--kerusi-backdrop, transparent)" width="400" x="0" y="0">
+  <g aria-label="lounge" class="kerusi-section" data-section-id="lounge" role="group">
+    <g aria-hidden="true" class="kerusi-group kerusi-group--table" data-group-id="table-3" data-group-kind="table">
+      <path class="kerusi-group__body" d="M 64 100 A 36 36 0 1 1 136 100 A 36 36 0 1 1 64 100 Z" style="fill: var(--kerusi-group-table-fill, var(--kerusi-group-fill, #ece4d6)); stroke: var(--kerusi-group-table-stroke, var(--kerusi-group-stroke, #c2b59a))">
+      <path class="kerusi-group__detail" d="M 70.912 100 A 29.088 29.088 0 1 1 129.088 100 A 29.088 29.088 0 1 1 70.912 100 Z" style="fill: var(--kerusi-group-table-detail, var(--kerusi-group-detail, #ddd1bb))">
+    <g aria-hidden="true" class="kerusi-group kerusi-group--loveseat" data-group-id="loveseat" data-group-kind="loveseat">
+      <path class="kerusi-group__body" d="M 209 40 L 271 40 A 4 4 0 0 1 275 44 L 275 76 A 4 4 0 0 1 271 80 L 209 80 A 4 4 0 0 1 205 76 L 205 44 A 4 4 0 0 1 209 40 Z" style="fill: var(--kerusi-group-loveseat-fill, var(--kerusi-group-fill, #ece4d6)); stroke: var(--kerusi-group-loveseat-stroke, var(--kerusi-group-stroke, #c2b59a))">
+      <path class="kerusi-group__detail" d="M 209 69.6 L 271 69.6 A 4 4 0 0 1 275 73.6 L 275 76 A 4 4 0 0 1 271 80 L 209 80 A 4 4 0 0 1 205 76 L 205 73.6 A 4 4 0 0 1 209 69.6 Z" style="fill: var(--kerusi-group-loveseat-detail, var(--kerusi-group-detail, #ddd1bb))">
+      <path class="kerusi-group__detail" d="M 209 40 L 209.4 40 A 4 4 0 0 1 213.4 44 L 213.4 70.8 A 4 4 0 0 1 209.4 74.8 L 209 74.8 A 4 4 0 0 1 205 70.8 L 205 44 A 4 4 0 0 1 209 40 Z" style="fill: var(--kerusi-group-loveseat-detail, var(--kerusi-group-detail, #ddd1bb))">
+      <path class="kerusi-group__detail" d="M 270.6 40 L 271 40 A 4 4 0 0 1 275 44 L 275 70.8 A 4 4 0 0 1 271 74.8 L 270.6 74.8 A 4 4 0 0 1 266.6 70.8 L 266.6 44 A 4 4 0 0 1 270.6 40 Z" style="fill: var(--kerusi-group-loveseat-detail, var(--kerusi-group-detail, #ddd1bb))">
+      <path class="kerusi-group__detail" d="M 239.16 48.4 L 240.84 48.4 L 240.84 69.6 L 239.16 69.6 Z" style="fill: var(--kerusi-group-loveseat-detail, var(--kerusi-group-detail, #ddd1bb))">
+    <g aria-hidden="true" class="kerusi-group kerusi-group--pew" data-group-id="pew-1" data-group-kind="pew" transform="rotate(90 330 150)">
+      <path class="kerusi-group__body" d="M 279 130 L 381 130 A 4 4 0 0 1 385 134 L 385 166 A 4 4 0 0 1 381 170 L 279 170 A 4 4 0 0 1 275 166 L 275 134 A 4 4 0 0 1 279 130 Z" style="fill: var(--kerusi-group-pew-fill, var(--kerusi-group-fill, #ece4d6)); stroke: var(--kerusi-group-pew-stroke, var(--kerusi-group-stroke, #c2b59a))">
+      <path class="kerusi-group__detail" d="M 277 162 L 383 162 A 2 2 0 0 1 385 164 L 385 168 A 2 2 0 0 1 383 170 L 277 170 A 2 2 0 0 1 275 168 L 275 164 A 2 2 0 0 1 277 162 Z" style="fill: var(--kerusi-group-pew-detail, var(--kerusi-group-detail, #ddd1bb))">
+      <path class="kerusi-group__detail" d="M 277 130 L 277.95 130 A 2 2 0 0 1 279.95 132 L 279.95 168 A 2 2 0 0 1 277.95 170 L 277 170 A 2 2 0 0 1 275 168 L 275 132 A 2 2 0 0 1 277 130 Z" style="fill: var(--kerusi-group-pew-detail, var(--kerusi-group-detail, #ddd1bb))">
+      <path class="kerusi-group__detail" d="M 382.05 130 L 383 130 A 2 2 0 0 1 385 132 L 385 168 A 2 2 0 0 1 383 170 L 382.05 170 A 2 2 0 0 1 380.05 168 L 380.05 132 A 2 2 0 0 1 382.05 130 Z" style="fill: var(--kerusi-group-pew-detail, var(--kerusi-group-detail, #ddd1bb))">
+    <g aria-label="Table 3" class="kerusi-group-seats" data-group-id="table-3" role="group">
+      <g aria-disabled="false" aria-label="Table 3, seat 1, Standard, no price, available." aria-pressed="true" class="kerusi-seat kerusi-seat--available kerusi-seat--selected" data-seat-id="T1" data-seat-status="available" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1" transform="rotate(180 100 48)">
+        <path class="kerusi-seat__box" d="M 85.286 35.383 A 2.4 2.4 0 0 1 87.4 33 L 112.6 33 A 2.4 2.4 0 0 1 114.714 35.383 L 112.615 52.873 A 10.2 10.2 0 0 1 101.2 63 L 98.8 63 A 10.2 10.2 0 0 1 87.385 52.873 Z" style="fill: var(--kerusi-selected-bg, #7854af)">
+        <path class="kerusi-seat__core" d="M 88.229 37.906 A 1.92 1.92 0 0 1 89.92 36 L 110.08 36 A 1.92 1.92 0 0 1 111.771 37.906 L 110.092 51.898 A 8.16 8.16 0 0 1 100.96 60 L 99.04 60 A 8.16 8.16 0 0 1 89.908 51.898 Z" style="fill: var(--kerusi-selected-fg, #f3ecff)">
+        <path class="kerusi-seat__occupant kerusi-seat__occupant--selected" d="M 96.28 43.2 a 3.72 3.72 0 1 1 7.44 0 a 3.72 3.72 0 1 1 -7.44 0 Z M 94.72 56.64 C 94.72 49.92 96.64 48 100 48 C 103.36 48 105.28 49.92 105.28 56.64 Z" stroke-width="1.2000000000000002" style="fill: var(--kerusi-selected-bg, #7854af); stroke: none">
+        <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="2.64" style="fill: var(--kerusi-selected-bg, #7854af); stroke: var(--kerusi-selected-fg, #f3ecff)" text-anchor="middle" transform="rotate(-180 100 48)" x="100" y="48">1
+      <g aria-disabled="true" aria-label="Table 3, seat 2, Standard, no price, booked, unavailable." aria-pressed="false" class="kerusi-seat kerusi-seat--booked kerusi-seat--unselectable" data-seat-id="T2" data-seat-status="booked" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1" transform="rotate(270 152 100)">
+        <path class="kerusi-seat__box" d="M 137.286 87.383 A 2.4 2.4 0 0 1 139.4 85 L 164.6 85 A 2.4 2.4 0 0 1 166.714 87.383 L 164.615 104.873 A 10.2 10.2 0 0 1 153.2 115 L 150.8 115 A 10.2 10.2 0 0 1 139.385 104.873 Z" style="fill: var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))">
+        <path class="kerusi-seat__wash" d="M 137.286 87.383 A 2.4 2.4 0 0 1 139.4 85 L 164.6 85 A 2.4 2.4 0 0 1 166.714 87.383 L 164.615 104.873 A 10.2 10.2 0 0 1 153.2 115 L 150.8 115 A 10.2 10.2 0 0 1 139.385 104.873 Z" style="fill: var(--kerusi-booked-bg, #5e0c17)">
+        <path class="kerusi-seat__occupant kerusi-seat__occupant--booked" d="M 147.35 94 a 4.65 4.65 0 1 1 9.3 0 a 4.65 4.65 0 1 1 -9.3 0 Z M 145.4 110.8 C 145.4 102.4 147.8 100 152 100 C 156.2 100 158.6 102.4 158.6 110.8 Z" stroke-width="1.5" style="fill: var(--kerusi-booked-fg, #ffc9d0); stroke: none">
+        <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="0" style="fill: var(--kerusi-seat-label, var(--kerusi-available-fg, #123a08)); stroke: none" text-anchor="middle" transform="rotate(-270 152 100)" x="152" y="100">2
+      <g aria-disabled="false" aria-label="Table 3, seat 3, Standard, no price, available." aria-pressed="false" class="kerusi-seat kerusi-seat--available" data-seat-id="T3" data-seat-status="available" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1">
+        <path class="kerusi-seat__box" d="M 85.286 139.383 A 2.4 2.4 0 0 1 87.4 137 L 112.6 137 A 2.4 2.4 0 0 1 114.714 139.383 L 112.615 156.873 A 10.2 10.2 0 0 1 101.2 167 L 98.8 167 A 10.2 10.2 0 0 1 87.385 156.873 Z" style="fill: var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))">
+        <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="0" style="fill: var(--kerusi-seat-label, var(--kerusi-available-fg, #123a08)); stroke: none" text-anchor="middle" x="100" y="152">3
+      <g aria-disabled="false" aria-label="Table 3, seat 4, Standard, no price, available." aria-pressed="false" class="kerusi-seat kerusi-seat--available" data-seat-id="T4" data-seat-status="available" data-seat-type="std" data-section-id="lounge" role="button" tabindex="0" transform="rotate(90 48 100)">
+        <path class="kerusi-seat__box" d="M 33.286 87.383 A 2.4 2.4 0 0 1 35.4 85 L 60.6 85 A 2.4 2.4 0 0 1 62.714 87.383 L 60.615 104.873 A 10.2 10.2 0 0 1 49.2 115 L 46.8 115 A 10.2 10.2 0 0 1 35.385 104.873 Z" style="fill: var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))">
+        <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="0" style="fill: var(--kerusi-seat-label, var(--kerusi-available-fg, #123a08)); stroke: none" text-anchor="middle" transform="rotate(-90 48 100)" x="48" y="100">4
+    <g aria-label="Pew 1" class="kerusi-group-seats" data-group-id="pew-1" role="group">
+      <g aria-disabled="false" aria-label="Pew 1, seat 1, Standard, no price, available." aria-pressed="false" class="kerusi-seat kerusi-seat--available" data-seat-id="P1" data-seat-status="available" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1" transform="rotate(90 330 120)">
+        <path class="kerusi-seat__box" d="M 315.286 107.383 A 2.4 2.4 0 0 1 317.4 105 L 342.6 105 A 2.4 2.4 0 0 1 344.714 107.383 L 342.615 124.873 A 10.2 10.2 0 0 1 331.2 135 L 328.8 135 A 10.2 10.2 0 0 1 317.385 124.873 Z" style="fill: var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))">
+        <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="0" style="fill: var(--kerusi-seat-label, var(--kerusi-available-fg, #123a08)); stroke: none" text-anchor="middle" transform="rotate(-90 330 120)" x="330" y="120">1
+      <g aria-disabled="true" aria-label="Pew 1, seat 2, Standard, no price, on hold, unavailable." aria-pressed="false" class="kerusi-seat kerusi-seat--held kerusi-seat--unselectable" data-seat-id="P2" data-seat-status="held" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1" transform="rotate(90 330 150)">
+        <path class="kerusi-seat__box" d="M 315.286 137.383 A 2.4 2.4 0 0 1 317.4 135 L 342.6 135 A 2.4 2.4 0 0 1 344.714 137.383 L 342.615 154.873 A 10.2 10.2 0 0 1 331.2 165 L 328.8 165 A 10.2 10.2 0 0 1 317.385 154.873 Z" style="fill: var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))">
+        <path class="kerusi-seat__wash" d="M 315.286 137.383 A 2.4 2.4 0 0 1 317.4 135 L 342.6 135 A 2.4 2.4 0 0 1 344.714 137.383 L 342.615 154.873 A 10.2 10.2 0 0 1 331.2 165 L 328.8 165 A 10.2 10.2 0 0 1 317.385 154.873 Z" style="fill: var(--kerusi-held-bg, #4a3500)">
+        <path class="kerusi-seat__occupant kerusi-seat__occupant--held" d="M 325.35 144 a 4.65 4.65 0 1 1 9.3 0 a 4.65 4.65 0 1 1 -9.3 0 Z M 323.4 160.8 C 323.4 152.4 325.8 150 330 150 C 334.2 150 336.6 152.4 336.6 160.8 Z" stroke-width="1.5" style="fill: none; stroke: var(--kerusi-held-fg, #ffe1a8)">
+        <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="0" style="fill: var(--kerusi-seat-label, var(--kerusi-available-fg, #123a08)); stroke: none" text-anchor="middle" transform="rotate(-90 330 150)" x="330" y="150">2
+      <g aria-disabled="false" aria-label="Pew 1, seat 3, Standard, no price, available." aria-pressed="true" class="kerusi-seat kerusi-seat--available kerusi-seat--selected" data-seat-id="P3" data-seat-status="available" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1" transform="rotate(90 330 180)">
+        <path class="kerusi-seat__box" d="M 315.286 167.383 A 2.4 2.4 0 0 1 317.4 165 L 342.6 165 A 2.4 2.4 0 0 1 344.714 167.383 L 342.615 184.873 A 10.2 10.2 0 0 1 331.2 195 L 328.8 195 A 10.2 10.2 0 0 1 317.385 184.873 Z" style="fill: var(--kerusi-selected-bg, #7854af)">
+        <path class="kerusi-seat__core" d="M 318.229 169.906 A 1.92 1.92 0 0 1 319.92 168 L 340.08 168 A 1.92 1.92 0 0 1 341.771 169.906 L 340.092 183.898 A 8.16 8.16 0 0 1 330.96 192 L 329.04 192 A 8.16 8.16 0 0 1 319.908 183.898 Z" style="fill: var(--kerusi-selected-fg, #f3ecff)">
+        <path class="kerusi-seat__occupant kerusi-seat__occupant--selected" d="M 326.28 175.2 a 3.72 3.72 0 1 1 7.44 0 a 3.72 3.72 0 1 1 -7.44 0 Z M 324.72 188.64 C 324.72 181.92 326.64 180 330 180 C 333.36 180 335.28 181.92 335.28 188.64 Z" stroke-width="1.2000000000000002" style="fill: var(--kerusi-selected-bg, #7854af); stroke: none">
+        <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="2.64" style="fill: var(--kerusi-selected-bg, #7854af); stroke: var(--kerusi-selected-fg, #f3ecff)" text-anchor="middle" transform="rotate(-90 330 180)" x="330" y="180">3
+    <g aria-label="Wheelchair and companion" class="kerusi-group-seats" data-group-id="pair" role="group">
+      <g aria-disabled="false" aria-label="Wheelchair and companion, seat 1, Standard, no price, available." aria-pressed="false" class="kerusi-seat kerusi-seat--available" data-seat-id="C1" data-seat-status="available" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1">
+        <path class="kerusi-seat__box" d="M 45.286 197.383 A 2.4 2.4 0 0 1 47.4 195 L 72.6 195 A 2.4 2.4 0 0 1 74.714 197.383 L 72.615 214.873 A 10.2 10.2 0 0 1 61.2 225 L 58.8 225 A 10.2 10.2 0 0 1 47.385 214.873 Z" style="fill: var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))">
+        <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="0" style="fill: var(--kerusi-seat-label, var(--kerusi-available-fg, #123a08)); stroke: none" text-anchor="middle" x="60" y="210">1
+      <g aria-disabled="false" aria-label="Wheelchair and companion, seat 2, Standard, no price, available." aria-pressed="false" class="kerusi-seat kerusi-seat--available" data-seat-id="C2" data-seat-status="available" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1">
+        <path class="kerusi-seat__box" d="M 80.286 197.383 A 2.4 2.4 0 0 1 82.4 195 L 107.6 195 A 2.4 2.4 0 0 1 109.714 197.383 L 107.615 214.873 A 10.2 10.2 0 0 1 96.2 225 L 93.8 225 A 10.2 10.2 0 0 1 82.385 214.873 Z" style="fill: var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))">
+        <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="0" style="fill: var(--kerusi-seat-label, var(--kerusi-available-fg, #123a08)); stroke: none" text-anchor="middle" x="95" y="210">2
+    <g aria-disabled="false" aria-label="Seat LONE, Standard, no price, available." aria-pressed="false" class="kerusi-seat kerusi-seat--available" data-seat-id="LONE" data-seat-status="available" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1">
+      <path class="kerusi-seat__box" d="M 185.286 187.383 A 2.4 2.4 0 0 1 187.4 185 L 212.6 185 A 2.4 2.4 0 0 1 214.714 187.383 L 212.615 204.873 A 10.2 10.2 0 0 1 201.2 215 L 198.8 215 A 10.2 10.2 0 0 1 187.385 204.873 Z" style="fill: var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))">
+      <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="0" style="fill: var(--kerusi-seat-label, var(--kerusi-available-fg, #123a08)); stroke: none" text-anchor="middle" x="200" y="200">LONE
+    <g aria-disabled="true" aria-label="Seat 1, Standard, no price, blocked by the venue, unavailable." aria-pressed="false" class="kerusi-seat kerusi-seat--blocked kerusi-seat--unselectable" data-seat-id="L1" data-seat-status="blocked" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1">
+      <path class="kerusi-seat__box" d="M 210.286 47.383 A 2.4 2.4 0 0 1 212.4 45 L 237.6 45 A 2.4 2.4 0 0 1 239.714 47.383 L 237.615 64.873 A 10.2 10.2 0 0 1 226.2 75 L 223.8 75 A 10.2 10.2 0 0 1 212.385 64.873 Z" style="fill: var(--kerusi-blocked-bg, #5a616e)">
+      <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="0" style="fill: var(--kerusi-blocked-fg, #d2d7df); stroke: none" text-anchor="middle" x="225" y="60">1
+    <g aria-disabled="false" aria-label="Seat 2, Standard, no price, available." aria-pressed="false" class="kerusi-seat kerusi-seat--available" data-seat-id="L2" data-seat-status="available" data-seat-type="std" data-section-id="lounge" role="button" tabindex="-1">
+      <path class="kerusi-seat__box" d="M 240.286 47.383 A 2.4 2.4 0 0 1 242.4 45 L 267.6 45 A 2.4 2.4 0 0 1 269.714 47.383 L 267.615 64.873 A 10.2 10.2 0 0 1 256.2 75 L 253.8 75 A 10.2 10.2 0 0 1 242.385 64.873 Z" style="fill: var(--kerusi-seat-fill, var(--kerusi-available-bg, #76d75d))">
+      <text class="kerusi-seat__label" dominant-baseline="central" font-size="12" stroke-width="0" style="fill: var(--kerusi-seat-label, var(--kerusi-available-fg, #123a08)); stroke: none" text-anchor="middle" x="255" y="60">2`;

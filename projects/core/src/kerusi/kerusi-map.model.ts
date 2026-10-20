@@ -295,8 +295,55 @@ export interface Section {
   seats: Seat[];
   /** Non-bookable features: screens, stages, aisles, stairs. */
   elements?: Element[];
+  /**
+   * Furniture, and sets of seats that belong together (§4.11): a table, a sofa,
+   * a pew. A seat is in at most one group, and a group does not span sections.
+   */
+  groups?: Group[];
   metadata?: Record<string, unknown>;
 }
+
+/**
+ * A piece of furniture, or a set of seats that belong together (§4.11): the
+ * places on a sofa or pew, the chairs round a table, a booth. It MAY give the
+ * piece a footprint of its own, which the canonical view draws under the
+ * group's seats.
+ *
+ * `booking`, `wholePrice` and `wholePriceTier` (§4.9.1, §4.12) are not modelled
+ * here yet: a consumer ignores members it does not recognize (§2).
+ */
+export interface Group {
+  /** REQUIRED. Unique within the KerusiMap (§4.6). */
+  id: string;
+  /**
+   * REQUIRED. What the group is: one of {@link GroupKind}, or an
+   * implementation-defined value. Informational: it chooses how a renderer draws
+   * the piece and how a consumer names its seats ("Table 3, seat 4"), and never
+   * affects price, validation or booking.
+   */
+  kind: GroupKind | (string & {});
+  /** e.g. "Table 3", "Pew 12". */
+  label?: LocalizedText;
+  /** REQUIRED. `Seat.id` values in this group's own section, each once. At least one. */
+  seats: string[];
+  /** The piece's own footprint, drawn under its seats. Canvas units (§4.5). */
+  shape?: GroupShape;
+  metadata?: Record<string, unknown>;
+}
+
+/** The registered values of {@link Group.kind} (§4.11). */
+export type GroupKind =
+  'table' | 'sofa' | 'loveseat' | 'pew' | 'bench' | 'booth' | 'box' | 'companion';
+
+/**
+ * A group's footprint (§4.11): exactly one of a `rect`, centred on its `x`/`y`
+ * and turned by `rotation` degrees clockwise exactly as an element is (§4.4.1),
+ * or a `circle` of positive `radius` round `center`. Its centre MUST lie on the
+ * canvas.
+ */
+export type GroupShape =
+  | { rect: { x: number; y: number; width: number; height: number; rotation?: number } }
+  | { circle: { center: Point; radius: number } };
 
 /** The top-level static seat-map document (§4). */
 export interface KerusiMap {

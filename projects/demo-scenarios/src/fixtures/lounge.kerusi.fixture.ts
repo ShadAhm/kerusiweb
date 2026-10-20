@@ -11,6 +11,12 @@ import { KerusiMap, KerusiState, Seat, SeatForm } from '@kerusiweb/core';
  *
  * A `form` is only a drawing hint (§4.7.1): it changes no price, no neighbour
  * and no footprint, which is why two types here share a price tier.
+ *
+ * The sofa and the two pews are also groups (§4.11): each names its places and
+ * draws the piece under them. A pew is as many `bench` places as people it holds,
+ * and a group's shape is a footprint the seats sit on, centred on its `x`/`y` and
+ * turned like an element. Its front is the top edge at rotation 0, so a sofa's
+ * back is its bottom edge, and the turned pew's back is its left.
  */
 
 /** Every form, in the order the legend lists them. `standard` declares none. */
@@ -108,6 +114,29 @@ export const LOUNGE_MAP: KerusiMap = {
         ...places('S', 'sofa', 3, 80, 270, 42, 0),
         ...places('P', 'bench', 4, 80, 350, 42, 0),
         ...places('W', 'bench', 4, 500, 260, 0, 42, 90),
+      ],
+      groups: [
+        {
+          id: 'sofa',
+          kind: 'sofa',
+          label: 'Sofa',
+          seats: ['S1', 'S2', 'S3'],
+          shape: { rect: { x: 122, y: 270, width: 152, height: 60 } },
+        },
+        {
+          id: 'pew-1',
+          kind: 'pew',
+          label: 'Pew 1',
+          seats: ['P1', 'P2', 'P3', 'P4'],
+          shape: { rect: { x: 143, y: 350, width: 176, height: 54 } },
+        },
+        {
+          id: 'pew-2',
+          kind: 'pew',
+          label: 'Pew 2',
+          seats: ['W1', 'W2', 'W3', 'W4'],
+          shape: { rect: { x: 500, y: 323, width: 176, height: 54, rotation: 90 } },
+        },
       ],
     },
   ],

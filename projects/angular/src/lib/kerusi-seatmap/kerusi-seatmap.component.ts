@@ -701,6 +701,7 @@ export class KerusiSeatmapComponent {
     return seat
       ? {
           seat,
+          group: seat.group,
           selected: this.selectionSet().has(seat.id),
           trigger: this.hoverState().cardTrigger === 'focus' ? 'focus' : 'hover',
           close: () => this.feedHover({ type: 'escape' }),
@@ -712,6 +713,7 @@ export class KerusiSeatmapComponent {
     return seat
       ? {
           seat,
+          group: seat.group,
           selected: this.selectionSet().has(seat.id),
           trigger: 'click',
           close: () => this.closeClick(true),

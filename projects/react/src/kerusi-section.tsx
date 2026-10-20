@@ -3,6 +3,7 @@ import {
   elementFill,
   elementStyle,
   elementTextFill,
+  resolveGroupGlyph,
   resolveSeatGlyph,
   resolveSeatStyle,
   screenPath,
@@ -10,6 +11,7 @@ import {
 import type {
   KerusiSeatmapColors,
   PlacedElement,
+  PlacedGroup,
   PlacedSeat,
   PlacedSection,
   SeatGlyph,
@@ -111,6 +113,32 @@ export function KerusiSection({
 }: KerusiSectionProps) {
   const section = layout.section;
   const anchor = layout.labelAnchor;
+
+  const seatNode = (placed: PlacedSeat) => (
+    <SectionSeat
+      key={placed.seat.id}
+      placed={placed}
+      selected={selection.has(placed.seat.id)}
+      tabStop={placed.seat.id === focusedSeatId}
+      ariaLabel={ariaLabels.get(placed.seat.id) ?? placed.seat.label}
+      colors={colors}
+      typeColors={typeColors}
+      seatTypeStyles={seatTypeStyles}
+      seatStyle={seatStyle}
+      renderSeat={renderSeat}
+      interactive={interactive}
+      clickable={clickable}
+      reachable={reachable}
+      describedById={describedBy?.seatId === placed.seat.id ? describedBy.id : undefined}
+      onSeatActivate={onSeatActivate}
+      onSeatFocused={onSeatFocused}
+      onSeatBlurred={onSeatBlurred}
+      onSeatKeyDown={onSeatKeyDown}
+      onSeatPointer={onSeatPointer}
+      registerSeat={registerSeat}
+    />
+  );
+
   return (
     <g
       className="kerusi-section"
@@ -140,29 +168,62 @@ export function KerusiSection({
         <SectionElement key={placed.element.id} placed={placed} colors={colors} />
       ))}
 
-      {layout.seats.map((placed) => (
-        <SectionSeat
-          key={placed.seat.id}
-          placed={placed}
-          selected={selection.has(placed.seat.id)}
-          tabStop={placed.seat.id === focusedSeatId}
-          ariaLabel={ariaLabels.get(placed.seat.id) ?? placed.seat.label}
-          colors={colors}
-          typeColors={typeColors}
-          seatTypeStyles={seatTypeStyles}
-          seatStyle={seatStyle}
-          renderSeat={renderSeat}
-          interactive={interactive}
-          clickable={clickable}
-          reachable={reachable}
-          describedById={describedBy?.seatId === placed.seat.id ? describedBy.id : undefined}
-          onSeatActivate={onSeatActivate}
-          onSeatFocused={onSeatFocused}
-          onSeatBlurred={onSeatBlurred}
-          onSeatKeyDown={onSeatKeyDown}
-          onSeatPointer={onSeatPointer}
-          registerSeat={registerSeat}
-        />
+      {/* Group footprints next, still under every seat. They are decoration
+          for the eye: hidden from assistive technology, and no pointer target,
+          so a press on a tabletop selects nothing (D18). */}
+      {layout.groups.map((placed) => (
+        <SectionGroup key={placed.group.id} placed={placed} colors={colors} />
+      ))}
+
+      {/* A group's seats sit in a role="group" named by its label, so a screen
+          reader says which table it is in. A group with no label has no name to
+          give, so its seats are drawn loose, like a seat in no group. */}
+      {layout.groups
+        .filter((placed) => placed.group.label && placed.seats.length > 0)
+        .map((placed) => (
+          <g
+            key={placed.group.id}
+            className="kerusi-group-seats"
+            role="group"
+            aria-label={placed.group.label}
+            data-group-id={placed.group.id}
+          >
+            {placed.seats.map(seatNode)}
+          </g>
+        ))}
+
+      {layout.loose.map(seatNode)}
+    </g>
+  );
+}
+
+// --- groups -----------------------------------------------------------------
+
+/** One group's footprint: its outline, then the marks on it. Nothing for a group with no shape. */
+function SectionGroup({
+  placed,
+  colors,
+}: {
+  placed: PlacedGroup;
+  colors: Required<KerusiSeatmapColors>;
+}) {
+  const glyph = resolveGroupGlyph(placed, colors);
+  if (!glyph) return null;
+  return (
+    <g
+      className={glyph.className}
+      aria-hidden="true"
+      data-group-id={glyph.id}
+      data-group-kind={glyph.kind}
+      transform={glyph.transform ?? undefined}
+    >
+      <path
+        className="kerusi-group__body"
+        d={glyph.body.d}
+        style={{ fill: glyph.body.fill, stroke: glyph.body.stroke }}
+      />
+      {glyph.details.map((detail, i) => (
+        <path key={i} className="kerusi-group__detail" d={detail.d} style={{ fill: detail.fill }} />
       ))}
     </g>
   );

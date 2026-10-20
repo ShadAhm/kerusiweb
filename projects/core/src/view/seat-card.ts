@@ -1,4 +1,4 @@
-import type { RenderSeat } from '../render/render-model.js';
+import type { RenderGroup, RenderSeat } from '../render/render-model.js';
 import { seatDataAttributes } from './seat-glyph.js';
 
 /**
@@ -45,6 +45,8 @@ export interface SeatClick {
 export interface KerusiSeatCardContext {
   /** Everything the document knows about the seat, already resolved. */
   seat: RenderSeat;
+  /** The group the seat is in (§4.11): its table, sofa or pew. Absent for a seat in none. */
+  group?: RenderGroup;
   /** Whether the seat is in the current selection. */
   selected: boolean;
   /** What opened the card. */

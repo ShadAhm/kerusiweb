@@ -3,6 +3,7 @@ import {
   Bounds,
   Canvas,
   Element,
+  Group,
   Money,
   PriceTier,
   Seat,
@@ -87,8 +88,44 @@ export interface RenderSeat {
   /** Whether this seat may currently be picked, per the caller's rules. */
   selectable: boolean;
 
+  /**
+   * The group this seat belongs to (§4.11): the table, sofa or pew it sits at.
+   * Absent for a seat in no group.
+   */
+  group?: RenderGroup;
+
   /** The originating document object, for callers that need `metadata`. */
   source: Seat;
+}
+
+/**
+ * A group's footprint (§4.11), in canvas units. A `rect` is centred on `x`/`y`
+ * and turned by `rotation` degrees clockwise, exactly as an element is; a
+ * `circle` is drawn round its centre.
+ */
+export type RenderGroupShape =
+  | { kind: 'rect'; x: number; y: number; width: number; height: number; rotation?: number }
+  | { kind: 'circle'; x: number; y: number; radius: number };
+
+/**
+ * A piece of furniture or a set of seats that belong together (§4.11), resolved:
+ * its label localized, its seats checked against the section, its shape read
+ * into one of two forms.
+ */
+export interface RenderGroup {
+  /** `Group.id`: unique across the map. */
+  id: string;
+  /** `Group.kind`: "table" | "sofa" | "loveseat" | "pew" | "bench" | "booth" | "box" | "companion" | ... */
+  kind: string;
+  /** `Group.label` localized: "Table 3", "Pew 12". */
+  label?: string;
+  /** The section the group's seats are in. */
+  sectionId: string;
+  /** The ids of the group's seats that exist in its section, in document order. */
+  seatIds: readonly string[];
+  /** The footprint, when the document gives a well-formed one. */
+  shape?: RenderGroupShape;
+  source: Group;
 }
 
 export interface RenderElement {
@@ -155,6 +192,8 @@ export interface RenderSection {
   seats: readonly RenderSeat[];
   /** Non-bookable features (§4.4). */
   elements: readonly RenderElement[];
+  /** Furniture and sets of seats that belong together (§4.11), in document order. */
+  groups: readonly RenderGroup[];
   /**
    * `Section.directions` localized (§4.10) — what an axis means in the physical
    * world. Informational only: nothing in this library reads it to decide
@@ -191,6 +230,8 @@ export interface RenderLegendEntry {
   id: string;
   label: string;
   color?: string;
+  /** `SeatType.form` as the document gave it (§4.7.1); absent means a chair. */
+  form?: string;
   /** The type's default tier, resolved (§4.7 → §4.8). */
   defaultTier?: PriceTier;
   /** That tier's price, for a legend that shows prices. */

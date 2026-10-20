@@ -1,0 +1,228 @@
+{
+  "kerusi": "1.0",
+  "id": "seat-forms",
+  "name": "Lounge",
+  "canvas": {
+    "width": 560,
+    "height": 360
+  },
+  "seatSize": 40,
+  "legend": [
+    {
+      "id": "standard",
+      "label": "Standard",
+      "defaultPriceTier": "regular"
+    },
+    {
+      "id": "chair",
+      "label": "Chair",
+      "form": "chair",
+      "defaultPriceTier": "regular"
+    },
+    {
+      "id": "armchair",
+      "label": "Armchair",
+      "form": "armchair",
+      "defaultPriceTier": "premium"
+    },
+    {
+      "id": "stool",
+      "label": "Stool",
+      "form": "stool",
+      "defaultPriceTier": "regular"
+    },
+    {
+      "id": "recliner",
+      "label": "Recliner",
+      "form": "recliner",
+      "defaultPriceTier": "premium"
+    },
+    {
+      "id": "beanbag",
+      "label": "Beanbag",
+      "form": "beanbag",
+      "defaultPriceTier": "regular"
+    },
+    {
+      "id": "cushion",
+      "label": "Floor cushion",
+      "form": "cushion",
+      "defaultPriceTier": "regular"
+    },
+    {
+      "id": "wheelchair-space",
+      "label": "Wheelchair space",
+      "form": "wheelchair-space",
+      "defaultPriceTier": "regular"
+    },
+    {
+      "id": "sofa",
+      "label": "Sofa place",
+      "form": "sofa",
+      "defaultPriceTier": "premium"
+    },
+    {
+      "id": "bench",
+      "label": "Pew place",
+      "form": "bench",
+      "defaultPriceTier": "regular"
+    }
+  ],
+  "priceTiers": [
+    {
+      "id": "regular",
+      "price": {
+        "amount": 2500,
+        "currency": "MYR"
+      }
+    },
+    {
+      "id": "premium",
+      "price": {
+        "amount": 4500,
+        "currency": "MYR"
+      }
+    }
+  ],
+  "sections": [
+    {
+      "id": "lounge",
+      "elements": [
+        {
+          "id": "stage",
+          "kind": "stage",
+          "label": "Stage",
+          "x": 280,
+          "y": 40,
+          "width": 400,
+          "height": 40
+        }
+      ],
+      "seats": [
+        {
+          "id": "S1",
+          "row": "A",
+          "col": 1,
+          "x": 40,
+          "y": 120,
+          "type": "standard"
+        },
+        {
+          "id": "A2",
+          "row": "A",
+          "col": 2,
+          "x": 100,
+          "y": 120,
+          "type": "chair"
+        },
+        {
+          "id": "A3",
+          "row": "A",
+          "col": 3,
+          "x": 160,
+          "y": 120,
+          "type": "armchair"
+        },
+        {
+          "id": "A4",
+          "row": "A",
+          "col": 4,
+          "x": 220,
+          "y": 120,
+          "type": "stool"
+        },
+        {
+          "id": "A5",
+          "row": "A",
+          "col": 5,
+          "x": 280,
+          "y": 120,
+          "type": "recliner"
+        },
+        {
+          "id": "A6",
+          "row": "A",
+          "col": 6,
+          "x": 340,
+          "y": 120,
+          "type": "beanbag"
+        },
+        {
+          "id": "A7",
+          "row": "A",
+          "col": 7,
+          "x": 400,
+          "y": 120,
+          "type": "cushion"
+        },
+        {
+          "id": "A8",
+          "row": "A",
+          "col": 8,
+          "x": 460,
+          "y": 120,
+          "type": "wheelchair-space",
+          "accessibility": {
+            "wheelchairAccessible": true
+          }
+        },
+        {
+          "id": "B1",
+          "row": "B",
+          "col": 1,
+          "x": 100,
+          "y": 220,
+          "type": "sofa"
+        },
+        {
+          "id": "B2",
+          "row": "B",
+          "col": 2,
+          "x": 140,
+          "y": 220,
+          "type": "sofa"
+        },
+        {
+          "id": "B3",
+          "row": "B",
+          "col": 3,
+          "x": 180,
+          "y": 220,
+          "type": "sofa"
+        },
+        {
+          "id": "C1",
+          "row": "C",
+          "col": 1,
+          "x": 100,
+          "y": 300,
+          "type": "bench"
+        },
+        {
+          "id": "C2",
+          "row": "C",
+          "col": 2,
+          "x": 140,
+          "y": 300,
+          "type": "bench"
+        },
+        {
+          "id": "C3",
+          "row": "C",
+          "col": 3,
+          "x": 180,
+          "y": 300,
+          "type": "bench"
+        },
+        {
+          "id": "C4",
+          "row": "C",
+          "col": 4,
+          "x": 220,
+          "y": 300,
+          "type": "bench"
+        }
+      ]
+    }
+  ]
+}

@@ -9,6 +9,7 @@
  */
 
 export * from './control-strings.js';
+export * from './group-glyph.js';
 export * from './kerusi-seat-style.js';
 export * from './kerusi-seatmap-colors.js';
 export * from './rtl.js';

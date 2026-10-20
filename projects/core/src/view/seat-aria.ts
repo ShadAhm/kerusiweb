@@ -18,6 +18,11 @@ import { DisallowedReason } from './selection.js';
 export interface SeatAriaStrings {
   rowSeat: (row: string, seat: string) => string;
   seatOnly: (seat: string) => string;
+  /**
+   * A seat in a group that has a label (§4.11): "Table 3, seat 4". Says where the
+   * seat is in place of its row. Omitted, the English default is used.
+   */
+  groupSeat?: (group: string, seat: string) => string;
   /** Said when an aisle runs beside the seat (§4.3.5: a skipped `col`). */
   besideAisle: string;
   noPrice: string;
@@ -39,6 +44,7 @@ export interface SeatAriaStrings {
 export const DEFAULT_SEAT_ARIA_STRINGS: SeatAriaStrings = {
   rowSeat: (row, seat) => `Row ${row}, seat ${seat}`,
   seatOnly: (seat) => `Seat ${seat}`,
+  groupSeat: (group, seat) => `${group}, seat ${seat}`,
   besideAisle: 'next to an aisle',
   noPrice: 'no price',
   available: 'available',
@@ -79,9 +85,7 @@ export function seatAriaLabel(
 ): string {
   const parts: string[] = [];
 
-  parts.push(
-    seat.rowLabel ? strings.rowSeat(seat.rowLabel, seat.label) : strings.seatOnly(seat.label),
-  );
+  parts.push(seatWhere(seat, strings));
   if (seat.besideAisle) {
     parts.push(strings.besideAisle);
   }
@@ -101,6 +105,19 @@ export function seatAriaLabel(
   }
 
   return parts.filter(Boolean).join(', ') + '.';
+}
+
+/**
+ * Where a seat is: at its group when the group has a label ("Table 3, seat 4"),
+ * else in its row, else by its own number. A group names the piece the seat is
+ * on, which is a better place to say than a row that may be a ring round a table.
+ */
+function seatWhere(seat: RenderSeat, strings: SeatAriaStrings): string {
+  if (seat.group?.label) {
+    const groupSeat = strings.groupSeat ?? DEFAULT_SEAT_ARIA_STRINGS.groupSeat!;
+    return groupSeat(seat.group.label, seat.label);
+  }
+  return seat.rowLabel ? strings.rowSeat(seat.rowLabel, seat.label) : strings.seatOnly(seat.label);
 }
 
 function statusPhrase(seat: RenderSeat, locale: string, strings: SeatAriaStrings): string {
@@ -160,8 +177,5 @@ export function disallowedAnnouncement(
   reason: DisallowedReason,
   strings: SeatAriaStrings = DEFAULT_SEAT_ARIA_STRINGS,
 ): string {
-  const where = seat.rowLabel
-    ? strings.rowSeat(seat.rowLabel, seat.label)
-    : strings.seatOnly(seat.label);
-  return `${where} ${strings.disallowed[reason]}.`;
+  return `${seatWhere(seat, strings)} ${strings.disallowed[reason]}.`;
 }

@@ -6,6 +6,7 @@ import {
   KerusiSeatShape,
   SeatBox,
   seatBodyPath,
+  seatFormShape,
   seatOccupantPath,
   seatSelectedFrame,
   seatShapePath,
@@ -24,6 +25,7 @@ import {
   seatTextFill,
   seatWashFill,
 } from './kerusi-seatmap-colors.js';
+import { KerusiSeatStyle } from './kerusi-seat-style.js';
 import {
   legendSwatchPath,
   resolveSeatGlyph,
@@ -374,5 +376,109 @@ describe('legendSwatchPath', () => {
     expect(legendSwatchPath({ fill: '#123456' }, 16)).toBeUndefined();
     expect(legendSwatchPath({ shape: 'seat' }, 16)).toBeUndefined();
     expect(legendSwatchPath({ shape: 'circle' }, 16)).toBe(seatShapePath('circle', 0, 0, 16, 16));
+  });
+});
+
+describe('seat forms in the glyph (D17)', () => {
+  const FORM_MAP: KerusiMap = {
+    kerusi: '1.0',
+    id: 'forms',
+    canvas: { width: 100, height: 100 },
+    seatSize: 8,
+    legend: [
+      { id: 'plain' },
+      { id: 'chair', form: 'chair' },
+      { id: 'arm', form: 'armchair' },
+      { id: 'odd', form: 'hammock' },
+      { id: 'space', form: 'wheelchair-space' },
+    ],
+    sections: [
+      {
+        id: 's',
+        seats: [
+          { id: 'P', x: 10, y: 10, type: 'plain' },
+          { id: 'C', x: 30, y: 10, type: 'chair' },
+          { id: 'A', x: 50, y: 10, type: 'arm', rotation: 90 },
+          { id: 'O', x: 70, y: 10, type: 'odd' },
+          { id: 'W', x: 90, y: 10, type: 'space', accessibility: { wheelchairAccessible: true } },
+        ],
+      },
+    ],
+  };
+  const FORM_STATE: KerusiState = {
+    kerusi: '1.0',
+    mapId: 'forms',
+    updatedAt: '2026-10-01T00:00:00Z',
+    seats: { A: { status: 'booked' }, W: { status: 'held' } },
+  };
+
+  const glyphOf = (id: string, selected = false, style?: KerusiSeatStyle) => {
+    const layout = computeMapLayout(buildRenderModel(FORM_MAP, FORM_STATE));
+    const seat = layout.sections[0].seats.find((p) => p.seat.id === id)!;
+    return resolveSeatGlyph(seat, selected, colors, true, style);
+  };
+
+  it('draws a chair, a type with no form and an unknown form as the stock seat', () => {
+    for (const id of ['P', 'C', 'O']) {
+      const glyph = glyphOf(id);
+      expect(glyph.body.d, id).toBe(
+        seatBodyPath(glyph.box.x, glyph.box.y, glyph.box.width, glyph.box.height),
+      );
+    }
+  });
+
+  it('draws the form’s outline, and washes and cores it in the same outline', () => {
+    const booked = glyphOf('A');
+    const { x, y, width, height } = booked.box;
+    expect(booked.body.d).toBe(seatShapePath('armchair', x, y, width, height));
+    expect(booked.wash?.d).toBe(booked.body.d);
+
+    const selected = glyphOf('A', true);
+    const m = selected.markBox;
+    expect(selected.core?.d).toBe(seatShapePath('armchair', m.x, m.y, m.width, m.height));
+  });
+
+  it('leaves the seat’s box alone: a form changes no footprint (§4.7.1)', () => {
+    const arm = glyphOf('A').box;
+    const plain = glyphOf('P').box;
+    expect([arm.width, arm.height]).toEqual([plain.width, plain.height]);
+  });
+
+  it('keeps the wheelchair marker where the form’s outline has room for it', () => {
+    const glyph = glyphOf('W');
+    const anchor = { x: 0.84, y: 0.16 };
+    expect(glyph.wheelchair?.cx).toBeCloseTo(glyph.markBox.x + glyph.markBox.width * anchor.x);
+    expect(glyph.wheelchair?.cy).toBeCloseTo(glyph.markBox.y + glyph.markBox.height * anchor.y);
+  });
+
+  it('lets the app’s shape win over the document’s form', () => {
+    const glyph = glyphOf('A', false, { shape: 'circle' });
+    const { x, y, width, height } = glyph.box;
+    expect(glyph.body.d).toBe(seatShapePath('circle', x, y, width, height));
+  });
+
+  it('keys a legend swatch with its form, and an app shape still wins', () => {
+    expect(legendSwatchPath(undefined, 16, 'armchair')).toBe(
+      seatShapePath('armchair', 0, 0, 16, 16),
+    );
+    expect(legendSwatchPath({ shape: 'circle' }, 16, 'armchair')).toBe(
+      seatShapePath('circle', 0, 0, 16, 16),
+    );
+    // A chair, no form and an unknown form keep the flat square.
+    expect(legendSwatchPath(undefined, 16, 'chair')).toBeUndefined();
+    expect(legendSwatchPath(undefined, 16)).toBeUndefined();
+    expect(legendSwatchPath(undefined, 16, 'hammock')).toBeUndefined();
+  });
+
+  it('carries the form onto the legend entry', () => {
+    const model = buildRenderModel(FORM_MAP, FORM_STATE);
+    expect(model.legend.map((entry) => entry.form)).toEqual([
+      undefined,
+      'chair',
+      'armchair',
+      'hammock',
+      'wheelchair-space',
+    ]);
+    expect(seatFormShape(model.legend[2]!.form)).toBe('armchair');
   });
 });

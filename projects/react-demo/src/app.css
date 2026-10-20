@@ -670,6 +670,12 @@ main {
   --kerusi-element-muted-bg: #1a202a;
   --kerusi-element-muted-fg: #6f7a8c;
 
+  /* Table tops, sofas and pews sit under the seats, so they stay a shade off the
+     page and let the status marks drawn over them keep their contrast. */
+  --kerusi-group-fill: #2b3342;
+  --kerusi-group-stroke: #475266;
+  --kerusi-group-detail: #353f50;
+
   --kerusi-focus-ring: #ffffff;
 }
 

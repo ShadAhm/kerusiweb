@@ -213,7 +213,13 @@ export function useSeatCards(options: UseSeatCardsOptions): SeatCards {
     seat: RenderSeat,
     trigger: KerusiSeatCardContext['trigger'],
     close: () => void,
-  ): KerusiSeatCardContext => ({ seat, selected: selection.has(seat.id), trigger, close });
+  ): KerusiSeatCardContext => ({
+    seat,
+    group: seat.group,
+    selected: selection.has(seat.id),
+    trigger,
+    close,
+  });
 
   const clickContent =
     renderClickCard && clickSeat

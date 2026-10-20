@@ -11,6 +11,14 @@ import {
   seatBodyPath,
 } from '@kerusiweb/core';
 import {
+  PARITY_FORMS_MAP,
+  PARITY_GROUPS_MAP,
+  PARITY_GROUPS_SELECTION,
+  PARITY_GROUPS_SIGNATURE,
+  PARITY_GROUPS_STATE,
+  PARITY_FORMS_SELECTION,
+  PARITY_FORMS_SIGNATURE,
+  PARITY_FORMS_STATE,
   PARITY_MAP,
   PARITY_SELECTION,
   PARITY_SIGNATURE,
@@ -995,7 +1003,110 @@ describe('KerusiSeatmapComponent custom seat content', () => {
   });
 });
 
+describe('KerusiSeatmapComponent groups (§4.11)', () => {
+  const draw = (extra: Record<string, unknown> = {}) =>
+    renderAlone({ map: PARITY_GROUPS_MAP, state: PARITY_GROUPS_STATE, ...extra });
+
+  it('draws each group with a shape under every seat, hidden from assistive technology', () => {
+    const el = draw();
+    const footprints = [...el.querySelectorAll('g.kerusi-group')];
+    expect(footprints.map((g) => g.getAttribute('data-group-id'))).toEqual([
+      'table-3',
+      'loveseat',
+      'pew-1',
+    ]);
+    expect(footprints.map((g) => g.getAttribute('data-group-kind'))).toEqual([
+      'table',
+      'loveseat',
+      'pew',
+    ]);
+    expect(footprints.every((g) => g.getAttribute('aria-hidden') === 'true')).toBe(true);
+    // The group with no shape draws nothing of its own.
+    expect(el.querySelector('g.kerusi-group[data-group-id="pair"]')).toBeNull();
+
+    const firstSeat = el.querySelector('g.kerusi-seat')!;
+    for (const footprint of footprints) {
+      expect(
+        footprint.compareDocumentPosition(firstSeat) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
+
+  it('puts a labelled group’s seats in a role="group" named by its label', () => {
+    const wrapper = draw().querySelector('g.kerusi-group-seats[data-group-id="table-3"]')!;
+    expect(wrapper.getAttribute('role')).toBe('group');
+    expect(wrapper.getAttribute('aria-label')).toBe('Table 3');
+    expect(
+      [...wrapper.querySelectorAll('[data-seat-id]')].map((s) => s.getAttribute('data-seat-id')),
+    ).toEqual(['T1', 'T2', 'T3', 'T4']);
+  });
+
+  it('draws a group with no label’s seats loose, as it does a seat in no group', () => {
+    const el = draw();
+    for (const id of ['L1', 'L2', 'LONE']) {
+      expect(el.querySelector(`[data-seat-id="${id}"]`)!.closest('.kerusi-group-seats')).toBeNull();
+    }
+    // A labelled group with no shape still names its seats.
+    const pair = el.querySelector('g.kerusi-group-seats[data-group-id="pair"]')!;
+    expect(pair.getAttribute('aria-label')).toBe('Wheelchair and companion');
+  });
+
+  it('announces a seat by its group: "Table 3, seat 1"', () => {
+    const el = draw();
+    expect(el.querySelector('[data-seat-id="T1"]')!.getAttribute('aria-label')).toMatch(
+      /^Table 3, seat 1, Standard,/,
+    );
+    expect(el.querySelector('[data-seat-id="LONE"]')!.getAttribute('aria-label')).toMatch(
+      /^Seat LONE, Standard,/,
+    );
+  });
+
+  it('selects nothing when a footprint is pressed: it is not a seat', () => {
+    const el = draw();
+    const pressed = () => el.querySelectorAll('[aria-pressed="true"]').length;
+    el.querySelector('g.kerusi-group--table .kerusi-group__body')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true }),
+    );
+    el.querySelector('g.kerusi-group-seats[data-group-id="table-3"]')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true }),
+    );
+    expect(pressed()).toBe(0);
+  });
+
+  it('hides a hidden section’s groups with it (D4)', () => {
+    const el = draw({ sectionOverrides: { lounge: { hidden: true } } });
+    expect(el.querySelector('.kerusi-group, .kerusi-group-seats')).toBeNull();
+  });
+
+  it('mirrors a footprint with the canvas in right-to-left (D3)', () => {
+    const body = (el: HTMLElement) =>
+      el.querySelector('g.kerusi-group--table .kerusi-group__body')!.getAttribute('d');
+    expect(body(draw())).toMatch(/^M 64 100 /);
+    expect(body(draw({ rtl: true }))).toMatch(/^M 264 100 /);
+    const pew = (el: HTMLElement) =>
+      el.querySelector('g.kerusi-group--pew')!.getAttribute('transform');
+    expect(pew(draw())).toBe('rotate(90 330 150)');
+    expect(pew(draw({ rtl: true }))).toBe('rotate(-90 70 150)');
+  });
+
+  it('adds nothing to a map with no groups', () => {
+    const el = renderAlone({ map: VENUE });
+    expect(el.querySelector('.kerusi-group, .kerusi-group-seats')).toBeNull();
+  });
+});
+
 describe('KerusiSeatmapComponent SVG parity with the React binding', () => {
+  it('draws groups exactly as the shared signature says', () => {
+    const el = renderAlone({
+      map: PARITY_GROUPS_MAP,
+      state: PARITY_GROUPS_STATE,
+      selection: PARITY_GROUPS_SELECTION,
+    });
+    expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(
+      PARITY_GROUPS_SIGNATURE,
+    );
+  });
+
   it('draws the town hall exactly as the shared signature says', () => {
     const el = renderAlone({
       map: PARITY_MAP,
@@ -1003,5 +1114,14 @@ describe('KerusiSeatmapComponent SVG parity with the React binding', () => {
       selection: PARITY_SELECTION,
     });
     expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(PARITY_SIGNATURE);
+  });
+
+  it('draws the seat forms exactly as the shared signature says', () => {
+    const el = renderAlone({
+      map: PARITY_FORMS_MAP,
+      state: PARITY_FORMS_STATE,
+      selection: PARITY_FORMS_SELECTION,
+    });
+    expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(PARITY_FORMS_SIGNATURE);
   });
 });

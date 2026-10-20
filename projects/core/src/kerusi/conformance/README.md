@@ -1,6 +1,6 @@
 # Conformance corpus
 
-`corpus/` is a verbatim copy of the example documents published with the Kerusi
+`corpus/` is a copy of the example documents published with the Kerusi
 standard, vendored so this library's verdict on each can be asserted in the test
 suite rather than described in prose.
 
@@ -10,6 +10,17 @@ suite rather than described in prose.
 | Spec     | v1.0.0-draft, rev 15 (`spec-1.0.0-draft.15`)   |
 | Commit   | `d16fd99`                                      |
 | Vendored | 2026-10-17                                     |
+
+Some files come from a later tag, `spec-1.0.0-draft.17`, because this library
+adopts that revision a piece at a time (D17 onwards). Vendored from it so far:
+the seat form fixtures (`seat-forms`, `seat-form-implementation-defined` and
+`invalid/seat-type-form-empty`, §4.7.1) and the group fixtures (`group-kinds`,
+`invalid/group-*`, `validator-only/*group*` and `validator-only/seat-in-two-groups`,
+§4.11). Booking modes and whole prices come with their own release. The rest of
+the corpus stays at rev 15 until then.
+
+Only whitespace differs from the source: the repository runs Prettier over the
+corpus along with everything else.
 
 To refresh after a spec revision: copy `examples/` over `corpus/`, run
 `npm run test:core`, and reconcile `corpus.spec.ts`. Every file has an explicit

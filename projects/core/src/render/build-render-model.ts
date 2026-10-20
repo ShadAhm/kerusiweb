@@ -1,4 +1,12 @@
-import { Bounds, Canvas, KerusiMap, RowMeta, Seat, Section } from '../kerusi/kerusi-map.model.js';
+import {
+  Bounds,
+  Canvas,
+  Group,
+  KerusiMap,
+  RowMeta,
+  Seat,
+  Section,
+} from '../kerusi/kerusi-map.model.js';
 import { KerusiState } from '../kerusi/kerusi-state.model.js';
 import { areNeighbours, seatSizeOf } from '../kerusi/kerusi-geometry.js';
 import { resolveLocalizedText, resolveMapLocale } from '../kerusi/kerusi-locale.js';
@@ -7,6 +15,8 @@ import { orderRowMeta } from '../kerusi/kerusi-rows.js';
 import {
   RenderDirection,
   RenderElement,
+  RenderGroup,
+  RenderGroupShape,
   RenderLegendEntry,
   RenderMap,
   RenderRow,
@@ -94,6 +104,7 @@ export function buildRenderModel(
       id: type.id,
       label: resolveLocalizedText(type.label, locale) ?? type.id,
       color: type.color,
+      form: type.form,
       defaultTier: map.priceTiers?.find((t) => t.id === type.defaultPriceTier),
       price,
       seatCount: typeCounts.get(type.id) ?? 0,
@@ -133,7 +144,18 @@ interface BuildContext {
 
 function buildSection(section: Section, ctx: BuildContext): RenderSection {
   const seatSize = seatSizeOf({ seatSize: ctx.seatSize }, section) ?? ctx.seatSize;
-  const rows = buildRows(section, seatSize, ctx);
+  const groups = buildGroups(section, ctx);
+  const groupBySeat = new Map<string, RenderGroup>();
+  for (const group of groups) {
+    for (const id of group.seatIds) {
+      // A seat is in at most one group (§4.11); an invalid document that lists
+      // one twice keeps its first group.
+      if (!groupBySeat.has(id)) {
+        groupBySeat.set(id, group);
+      }
+    }
+  }
+  const rows = buildRows(section, seatSize, ctx, groupBySeat);
   const seats = rows.flatMap((r) => r.seats);
   const elements = buildElements(section, seatSize);
   const declared = isBounds(section.bounds) ? section.bounds : undefined;
@@ -144,11 +166,12 @@ function buildSection(section: Section, ctx: BuildContext): RenderSection {
     seatSize,
     // A section with nothing in it and no declared bounds has no extent of its
     // own; the whole canvas is the least surprising thing to zoom to.
-    bounds: declared ?? contentBounds(seats, elements) ?? { x: 0, y: 0, ...ctx.canvas },
+    bounds: declared ?? contentBounds(seats, elements, groups) ?? { x: 0, y: 0, ...ctx.canvas },
     boundsDeclared: declared !== undefined,
     rows,
     seats,
     elements,
+    groups,
     directions: buildDirections(section, ctx.locale),
     source: section,
   };
@@ -187,7 +210,12 @@ function buildDirections(section: Section, locale: string): RenderDirection[] | 
  * exactly those the seats name, in first-appearance order — a document that
  * declares no row metadata still renders in the order its author wrote it.
  */
-function buildRows(section: Section, seatSize: number, ctx: BuildContext): RenderRow[] {
+function buildRows(
+  section: Section,
+  seatSize: number,
+  ctx: BuildContext,
+  groupBySeat: ReadonlyMap<string, RenderGroup>,
+): RenderRow[] {
   const byRowKey = new Map<string, Seat[]>();
   const firstSeen = new Map<string, number>();
 
@@ -228,7 +256,14 @@ function buildRows(section: Section, seatSize: number, ctx: BuildContext): Rende
       label,
       index: rowIndex,
       seats: seats.map((seat) =>
-        buildSeat(seat, section, { rowIndex, rowLabel: label, seatSize }, aisles.has(seat), ctx),
+        buildSeat(
+          seat,
+          section,
+          { rowIndex, rowLabel: label, seatSize },
+          aisles.has(seat),
+          groupBySeat.get(seat.id),
+          ctx,
+        ),
       ),
       empty: seats.length === 0,
     };
@@ -286,6 +321,7 @@ function buildSeat(
   section: Section,
   row: { rowIndex: number; rowLabel?: string; seatSize: number },
   besideAisle: boolean,
+  group: RenderGroup | undefined,
   ctx: BuildContext,
 ): RenderSeat {
   const type = ctx.legendById.get(seat.type) ?? { id: seat.type };
@@ -321,6 +357,7 @@ function buildSeat(
     status: status?.status ?? 'available',
     holdExpires: status?.holdExpires,
     selectable: false,
+    group,
     source: seat,
   };
 
@@ -351,16 +388,89 @@ function buildElements(section: Section, seatSize: number): RenderElement[] {
 }
 
 /**
- * The box around a section's seat and element footprints, each turned by its
- * rotation. `undefined` for a section with nothing in it.
+ * Reads a section's groups (§4.11). A group lists seats of its own section by
+ * id; one that does not resolve is dropped here (the validator reports it), so a
+ * model built from an invalid document still holds only real seats. A shape that
+ * is not one well-formed `rect` or `circle` is left out, not guessed at.
+ */
+function buildGroups(section: Section, ctx: BuildContext): RenderGroup[] {
+  if (!Array.isArray(section.groups)) {
+    return [];
+  }
+  const seatIds = new Set((section.seats ?? []).map((s) => s.id));
+  return section.groups
+    .filter((group): group is Group => !!group && typeof group === 'object')
+    .map((group) => ({
+      id: group.id,
+      kind: group.kind,
+      label: resolveLocalizedText(group.label, ctx.locale),
+      sectionId: section.id,
+      seatIds: (Array.isArray(group.seats) ? group.seats : []).filter((id) => seatIds.has(id)),
+      shape: buildGroupShape(group),
+      source: group,
+    }));
+}
+
+function buildGroupShape(group: Group): RenderGroupShape | undefined {
+  const shape: unknown = group.shape;
+  if (!shape || typeof shape !== 'object') {
+    return undefined;
+  }
+  const { rect, circle } = shape as {
+    rect?: Record<string, unknown>;
+    circle?: Record<string, unknown>;
+  };
+  if (rect && !circle) {
+    const { x, y, width, height, rotation } = rect;
+    return isFiniteNumber(x) && isFiniteNumber(y) && isPositive(width) && isPositive(height)
+      ? {
+          kind: 'rect',
+          x,
+          y,
+          width,
+          height,
+          rotation: isFiniteNumber(rotation) ? rotation : undefined,
+        }
+      : undefined;
+  }
+  if (circle && !rect) {
+    const { center, radius } = circle;
+    return Array.isArray(center) &&
+      center.length === 2 &&
+      center.every(isFiniteNumber) &&
+      isPositive(radius)
+      ? { kind: 'circle', x: center[0] as number, y: center[1] as number, radius }
+      : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * The box around a section's seat, element and group footprints, each turned by
+ * its rotation. `undefined` for a section with nothing in it.
  */
 function contentBounds(
   seats: readonly RenderSeat[],
   elements: readonly RenderElement[],
+  groups: readonly RenderGroup[],
 ): Bounds | undefined {
   const boxes = [
     ...seats.map((s) => rotatedBox(s.x, s.y, s.size, s.size, s.rotation)),
     ...elements.map((e) => rotatedBox(e.x, e.y, e.width, e.height, e.rotation)),
+    ...groups.flatMap((g) =>
+      !g.shape
+        ? []
+        : g.shape.kind === 'rect'
+          ? [rotatedBox(g.shape.x, g.shape.y, g.shape.width, g.shape.height, g.shape.rotation)]
+          : [
+              {
+                left: g.shape.x - g.shape.radius,
+                top: g.shape.y - g.shape.radius,
+                right: g.shape.x + g.shape.radius,
+                bottom: g.shape.y + g.shape.radius,
+              },
+            ],
+    ),
   ];
   if (boxes.length === 0) {
     return undefined;

@@ -106,7 +106,7 @@ export class KerusiLegendComponent {
 
   /** The swatch outline for a type styled with its own shape; `undefined` keeps the square. */
   protected typeShape(entry: RenderLegendEntry): string | undefined {
-    return legendSwatchPath(this.seatTypeStyles()?.[entry.id], this.glyphSize);
+    return legendSwatchPath(this.seatTypeStyles()?.[entry.id], this.glyphSize, entry.form);
   }
 
   protected swatchText(entry: RenderLegendEntry): string {

@@ -10,6 +10,20 @@
   user-select: none;
 }
 
+/* A group's footprint, under its seats (D18). Paint comes from the
+   `--kerusi-group-*` tokens and the `colors` input, bound inline from core; this
+   only keeps the piece out of hit-testing, so a press on a tabletop selects
+   nothing and a drag across it still pans, and keeps the outline a crisp
+   hairline at every zoom. */
+.kerusi-group {
+  pointer-events: none;
+}
+
+.kerusi-group__body {
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
 .kerusi-seat {
   cursor: pointer;
   outline: none;

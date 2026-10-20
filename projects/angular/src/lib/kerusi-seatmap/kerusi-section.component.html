@@ -67,6 +67,31 @@
   }
 }
 
+<!-- Group footprints next, still under every seat. They are decoration for the
+     eye: hidden from assistive technology, and no pointer target, so a press on
+     a tabletop selects nothing (D18). -->
+@for (entry of groups(); track entry.placed.group.id) {
+  @if (entry.glyph; as footprint) {
+    <svg:g
+      [class]="footprint.className"
+      aria-hidden="true"
+      [attr.data-group-id]="footprint.id"
+      [attr.data-group-kind]="footprint.kind"
+      [attr.transform]="footprint.transform"
+    >
+      <svg:path
+        class="kerusi-group__body"
+        [attr.d]="footprint.body.d"
+        [style.fill]="footprint.body.fill"
+        [style.stroke]="footprint.body.stroke"
+      />
+      @for (detail of footprint.details; track $index) {
+        <svg:path class="kerusi-group__detail" [attr.d]="detail.d" [style.fill]="detail.fill" />
+      }
+    </svg:g>
+  }
+}
+
 <!-- The stock seat drawing. A template rather than inline markup so that a
      custom seat template can render it too, as `defaultContent`. Its `svg:`
      prefixes create its elements in the SVG namespace wherever it is stamped. -->
@@ -128,7 +153,8 @@
   }
 </ng-template>
 
-@for (entry of seats(); track entry.placed.seat.id) {
+<!-- One seat, whether it stands in a group's wrapper or loose. -->
+<ng-template #seatRef let-entry>
   @let placed = entry.placed;
   @let glyph = entry.glyph;
   @let ctx =
@@ -169,4 +195,24 @@
       <ng-container *ngTemplateOutlet="stockSeat; context: { $implicit: ctx }" />
     }
   </svg:g>
+</ng-template>
+
+<!-- A group's seats sit in a role="group" named by its label, so a screen reader
+     says which table it is at. A group with no label has no name to give, so its
+     seats are drawn loose, like a seat in no group. -->
+@for (grouped of groupedSeats(); track grouped.group.id) {
+  <svg:g
+    class="kerusi-group-seats"
+    role="group"
+    [attr.aria-label]="grouped.group.label"
+    [attr.data-group-id]="grouped.group.id"
+  >
+    @for (entry of grouped.entries; track entry.placed.seat.id) {
+      <ng-container *ngTemplateOutlet="seatRef; context: { $implicit: entry }" />
+    }
+  </svg:g>
+}
+
+@for (entry of looseSeats(); track entry.placed.seat.id) {
+  <ng-container *ngTemplateOutlet="seatRef; context: { $implicit: entry }" />
 }

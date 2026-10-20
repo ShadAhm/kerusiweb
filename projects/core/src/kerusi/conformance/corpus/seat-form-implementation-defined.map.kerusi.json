@@ -1,0 +1,36 @@
+{
+  "kerusi": "1.0",
+  "id": "seat-form-implementation-defined",
+  "name": "Garden",
+  "canvas": {
+    "width": 200,
+    "height": 100
+  },
+  "seatSize": 40,
+  "legend": [
+    {
+      "id": "hammock",
+      "label": "Hammock",
+      "form": "hammock"
+    }
+  ],
+  "sections": [
+    {
+      "id": "garden",
+      "seats": [
+        {
+          "id": "H1",
+          "x": 60,
+          "y": 50,
+          "type": "hammock"
+        },
+        {
+          "id": "H2",
+          "x": 140,
+          "y": 50,
+          "type": "hammock"
+        }
+      ]
+    }
+  ]
+}

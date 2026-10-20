@@ -5,6 +5,8 @@ import type { RefObject } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   PARITY_CARD_SIGNATURE,
+  PARITY_GROUPS_MAP,
+  PARITY_GROUPS_STATE,
   PARITY_MAP,
   PARITY_STATE,
   svgSignature,
@@ -468,6 +470,18 @@ describe('KerusiSeatmap: seat hover, click and cards', () => {
         </button>
       </div>
     );
+
+    it('hands the card the seat’s group, when it has one (§4.11)', () => {
+      mount({
+        map: PARITY_GROUPS_MAP,
+        state: PARITY_GROUPS_STATE,
+        renderClickCard: (ctx) => <span>{ctx.group?.label ?? 'no group'}</span>,
+      });
+      click(seat('T1'));
+      expect(card('click')).toHaveTextContent('Table 3');
+      click(seat('LONE'));
+      expect(card('click')).toHaveTextContent('no group');
+    });
 
     it('opens on a click, as a non-modal dialog labelled by the seat', () => {
       mount({ renderClickCard: clickCard });

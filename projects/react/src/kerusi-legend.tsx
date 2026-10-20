@@ -106,7 +106,7 @@ export function KerusiLegend({
             {types.map((entry) => {
               const price = entry.price ? formatMoney(entry.price, locale) : '';
               const typeStyle = seatTypeStyles?.[entry.id];
-              const shapePath = legendSwatchPath(typeStyle, GLYPH_SIZE);
+              const shapePath = legendSwatchPath(typeStyle, GLYPH_SIZE, entry.form);
               const swatchFill = legendSwatchFill(entry, colors, typeColors, typeStyle);
               return (
                 <li key={entry.id} className="kerusi-legend__item" data-seat-type={entry.id}>

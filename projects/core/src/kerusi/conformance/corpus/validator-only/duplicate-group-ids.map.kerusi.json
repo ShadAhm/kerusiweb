@@ -1,0 +1,52 @@
+{
+  "kerusi": "1.0",
+  "id": "duplicate-group-ids",
+  "canvas": {
+    "width": 400,
+    "height": 200
+  },
+  "seatSize": 40,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "sections": [
+    {
+      "id": "s1",
+      "seats": [
+        {
+          "id": "a",
+          "x": 100,
+          "y": 100,
+          "type": "standard"
+        }
+      ],
+      "groups": [
+        {
+          "id": "g",
+          "kind": "table",
+          "seats": ["a"]
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "seats": [
+        {
+          "id": "b",
+          "x": 300,
+          "y": 100,
+          "type": "standard"
+        }
+      ],
+      "groups": [
+        {
+          "id": "g",
+          "kind": "table",
+          "seats": ["b"]
+        }
+      ]
+    }
+  ]
+}

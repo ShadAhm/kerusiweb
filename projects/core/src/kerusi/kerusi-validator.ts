@@ -1,7 +1,15 @@
 import { Element, KerusiMap, RowMeta, Seat, Section } from './kerusi-map.model.js';
 import { KerusiSession, KerusiState, KerusiStateDelta, SeatStatus } from './kerusi-state.model.js';
 import { resolveSeatPrice } from './kerusi-price.js';
-import { Footprint, footprintOf, footprintsOverlap, seatSizeOf } from './kerusi-geometry.js';
+import {
+  Footprint,
+  discOverlapsFootprint,
+  footprintOf,
+  footprintsOverlap,
+  rectOverlapsFootprint,
+  seatSizeOf,
+  turnedRectOf,
+} from './kerusi-geometry.js';
 import { error, errorsOf, KerusiViolation, warning } from './kerusi-violation.js';
 
 export { errorsOf } from './kerusi-violation.js';
@@ -258,6 +266,10 @@ export function validateDocumentSet(docs: {
  *  - Every `Seat.companions[]` entry resolves to another seat in the SAME
  *    section, and the relationship is symmetric (§4.6).
  *  - Every row shape is exactly one well-formed line, arc or circle (§4.2.3).
+ *  - Every group has an `id`, a `kind` and at least one seat; each seat it lists
+ *    is a seat of its own section and in no other group, and listed once; its
+ *    shape, when given, is exactly one well-formed `rect` or `circle` whose
+ *    centre is on the canvas (§4.11).
  *  - Every `Element` has the required `id` and `kind` (§4.4).
  *  - All resolved currencies across the map are identical (§4.9).
  *
@@ -266,7 +278,8 @@ export function validateDocumentSet(docs: {
  * rejected, for lacking `canvas` and `seatSize`.
  *
  * Advisory findings never throw: overlapping seats (§4.3.1), seats outside
- * their section's `bounds` (§4.1), an unknown `transferArmrest`. Use
+ * their section's `bounds` (§4.1), a group shape over a seat outside the group
+ * (§4.11), an unknown `transferArmrest`. Use
  * {@link checkKerusiMap} to see them.
  */
 export function validateKerusiMap(map: KerusiMap): KerusiMap {
@@ -397,6 +410,13 @@ function collectMapViolations(map: KerusiMap): KerusiViolation[] {
         'across the whole KerusiMap (§4.6).',
     ),
     ...duplicateIds(
+      sections.flatMap((s) => (Array.isArray(s.groups) ? s.groups : [])),
+      'group-id-duplicate',
+      (id) =>
+        `Group id "${id}" is declared more than once; group ids must be unique across ` +
+        'the whole KerusiMap (§4.6).',
+    ),
+    ...duplicateIds(
       map.legend,
       'seat-type-id-duplicate',
       (id) => `Seat type id "${id}" is declared more than once in the legend (§4.6).`,
@@ -419,7 +439,11 @@ function collectMapViolations(map: KerusiMap): KerusiViolation[] {
     );
   }
 
-  violations.push(...collectSeatOverlapWarnings(map), ...collectSectionBoundsWarnings(map));
+  violations.push(
+    ...collectSeatOverlapWarnings(map),
+    ...collectSectionBoundsWarnings(map),
+    ...collectGroupShapeWarnings(map),
+  );
 
   return violations;
 }
@@ -641,7 +665,193 @@ function collectSectionViolations(
   // §4.4 elements.
   violations.push(...collectElementViolations(section, ctx, path));
 
+  // §4.11 groups.
+  violations.push(...collectGroupViolations(section, seatIds, ctx, path));
+
   return violations;
+}
+
+const GROUP_SHAPE_KINDS = ['rect', 'circle'] as const;
+
+/**
+ * §4.11: each group has an `id`, a `kind` and at least one seat. Every seat it
+ * lists must be a seat of the group's own section, and in at most one group (a
+ * seat listed a second time is reported at the later listing). A shape, when
+ * given, is exactly one well-formed `rect` or `circle`, placed on the canvas by
+ * its centre as an element is.
+ */
+function collectGroupViolations(
+  section: Section,
+  seatIds: ReadonlySet<string>,
+  ctx: MapContext,
+  path: string,
+): KerusiViolation[] {
+  if (section.groups === undefined) {
+    return [];
+  }
+  if (!Array.isArray(section.groups)) {
+    return [
+      error(
+        'section-groups',
+        `Section "${section.id}" has "groups" that is not an array (§4.11).`,
+        {
+          id: section.id,
+          path: `${path}.groups`,
+        },
+      ),
+    ];
+  }
+
+  const violations: KerusiViolation[] = [];
+  const owner = new Map<string, string>();
+
+  section.groups.forEach((group, g) => {
+    const groupPath = `${path}.groups[${g}]`;
+    if (!isObject(group)) {
+      violations.push(
+        error('group-shape', 'A group is missing or not an object (§4.11).', { path: groupPath }),
+      );
+      return;
+    }
+    const id = typeof group.id === 'string' ? group.id : undefined;
+    if (!id) {
+      violations.push(
+        error('group-id', `A group in section "${section.id}" is missing the required "id".`, {
+          path: groupPath,
+        }),
+      );
+    }
+    if (typeof group.kind !== 'string' || group.kind === '') {
+      violations.push(
+        error('group-kind', `Group "${id}" is missing the required "kind" (§4.11).`, {
+          id,
+          path: groupPath,
+        }),
+      );
+    }
+
+    if (!Array.isArray(group.seats) || group.seats.length === 0) {
+      violations.push(
+        error('group-seats', `Group "${id}" lists no seats; a group holds at least one (§4.11).`, {
+          id,
+          path: `${groupPath}.seats`,
+        }),
+      );
+    } else {
+      group.seats.forEach((seatId, n) => {
+        const seatPath = `${groupPath}.seats[${n}]`;
+        if (!seatIds.has(seatId)) {
+          violations.push(
+            error(
+              'group-seat-unresolved',
+              `Group "${id}" lists seat "${seatId}", which is not a seat in section ` +
+                `"${section.id}" (§4.6, §4.11).`,
+              { id, path: seatPath },
+            ),
+          );
+          return;
+        }
+        const first = owner.get(seatId);
+        if (first !== undefined) {
+          violations.push(
+            error(
+              'group-seat-shared',
+              `Group "${id}" lists seat "${seatId}", which is already listed at ${first}; ` +
+                'a seat belongs to at most one group (§4.6, §4.11).',
+              { id, path: seatPath },
+            ),
+          );
+          return;
+        }
+        owner.set(seatId, seatPath);
+      });
+    }
+
+    if (group.shape !== undefined) {
+      violations.push(...collectGroupShapeViolations(group.shape, id, ctx, `${groupPath}.shape`));
+    }
+  });
+
+  return violations;
+}
+
+/**
+ * §4.11: exactly one of `rect` (centre `x`/`y`, positive `width` and `height`,
+ * optional `rotation`) or `circle` (a two-number `center` and a positive
+ * `radius`), with its centre on the canvas.
+ */
+function collectGroupShapeViolations(
+  shape: unknown,
+  id: string | undefined,
+  ctx: MapContext,
+  path: string,
+): KerusiViolation[] {
+  const kinds = isObject(shape) ? GROUP_SHAPE_KINDS.filter((k) => k in shape) : [];
+  if (!isObject(shape) || kinds.length !== 1) {
+    return [
+      error(
+        'group-shape-kind',
+        `Group "${id}" has a shape that is not exactly one of rect or circle (§4.11).`,
+        { id, path },
+      ),
+    ];
+  }
+
+  let centre: { x: number; y: number; at: string } | undefined;
+  if (kinds[0] === 'rect') {
+    const rect = shape['rect'];
+    if (
+      !isObject(rect) ||
+      ![rect['x'], rect['y']].every(isNum) ||
+      !isPositive(rect['width']) ||
+      !isPositive(rect['height']) ||
+      (rect['rotation'] !== undefined && !isNum(rect['rotation']))
+    ) {
+      return [
+        error(
+          'group-shape-invalid',
+          `Group "${id}" has a rect shape that needs a numeric x and y, a positive width ` +
+            'and height, and a numeric rotation when it has one (§4.11).',
+          { id, path: `${path}.rect` },
+        ),
+      ];
+    }
+    centre = { x: rect['x'] as number, y: rect['y'] as number, at: `${path}.rect` };
+  } else {
+    const circle = shape['circle'];
+    if (!isObject(circle) || !isPoint(circle['center']) || !isPositive(circle['radius'])) {
+      return [
+        error(
+          'group-shape-invalid',
+          `Group "${id}" has a circle shape that needs a two-number center and a positive ` +
+            'radius (§4.11).',
+          { id, path: `${path}.circle` },
+        ),
+      ];
+    }
+    const [x, y] = circle['center'] as [number, number];
+    centre = { x, y, at: `${path}.circle.center` };
+  }
+
+  if (!ctx.canvas) {
+    return [];
+  }
+  const outside: string[] = [];
+  if (centre.x < 0 || centre.x > ctx.canvas.width) {
+    outside.push(`x ${centre.x} (0 to ${ctx.canvas.width})`);
+  }
+  if (centre.y < 0 || centre.y > ctx.canvas.height) {
+    outside.push(`y ${centre.y} (0 to ${ctx.canvas.height})`);
+  }
+  return outside.length === 0
+    ? []
+    : [
+        error(
+          'group-shape-outside-canvas',
+          `Group "${id}" has its shape's centre outside the canvas: ${outside.join(', ')} (§4.11).`,
+          { id, path: centre.at },
+        ),
+      ];
 }
 
 /**
@@ -907,6 +1117,68 @@ function collectSeatOverlapWarnings(map: KerusiMap): KerusiViolation[] {
     }
   }
   return reported.sort((a, b) => a.order - b.order).map((r) => r.violation);
+}
+
+/**
+ * §4.11: a validator SHOULD report a group's shape that overlaps a seat outside
+ * the group. A seat may overlap its own group's shape (a chair pulled up to a
+ * table, a place on a sofa), and that is not reported. Every section shares the
+ * one canvas, so a seat in another section can be under a shape too.
+ */
+function collectGroupShapeWarnings(map: KerusiMap): KerusiViolation[] {
+  const seats: { id: string; f: Footprint }[] = [];
+  for (const section of map.sections) {
+    const size = seatSizeOf(map, section);
+    if (!isObject(section) || !Array.isArray(section.seats) || !isPositive(size)) {
+      continue;
+    }
+    for (const seat of section.seats) {
+      if (isNum(seat?.x) && isNum(seat?.y)) {
+        seats.push({ id: seat.id, f: footprintOf(seat, size) });
+      }
+    }
+  }
+
+  const violations: KerusiViolation[] = [];
+  map.sections.forEach((section, s) => {
+    if (!isObject(section) || !Array.isArray(section.groups)) {
+      return;
+    }
+    section.groups.forEach((group, g) => {
+      const shape: unknown = isObject(group) ? group.shape : undefined;
+      if (!isObject(shape)) {
+        return;
+      }
+      let overlaps: ((f: Footprint) => boolean) | undefined;
+      const rect = isObject(shape['rect']) ? turnedRectOf(shape['rect']) : undefined;
+      const circle = shape['circle'];
+      if (rect) {
+        overlaps = (f) => rectOverlapsFootprint(rect, f);
+      } else if (isObject(circle) && isPoint(circle['center']) && isNum(circle['radius'])) {
+        const [x, y] = circle['center'] as [number, number];
+        const disc = { x, y, radius: circle['radius'] };
+        overlaps = (f) => discOverlapsFootprint(disc, f);
+      }
+      if (!overlaps) {
+        return;
+      }
+      const own = new Set(Array.isArray(group.seats) ? group.seats : []);
+      for (const seat of seats) {
+        if (own.has(seat.id) || !overlaps(seat.f)) {
+          continue;
+        }
+        violations.push(
+          warning(
+            'group-shape-overlaps-seat',
+            `The shape of group "${group.id}" overlaps seat "${seat.id}", which is not in the ` +
+              'group (§4.11).',
+            { id: group.id, path: `sections[${s}].groups[${g}].shape` },
+          ),
+        );
+      }
+    });
+  });
+  return violations;
 }
 
 /**

@@ -209,6 +209,8 @@ Every key of `KerusiSeatmapColors` has a property, kebab-cased:
 | `elementBg` / `elementFg`             | `--kerusi-element-bg` / `--kerusi-element-fg`               |
 | `elementAccentBg` / `elementAccentFg` | `--kerusi-element-accent-bg` / `--kerusi-element-accent-fg` |
 | `elementMutedBg` / `elementMutedFg`   | `--kerusi-element-muted-bg` / `--kerusi-element-muted-fg`   |
+| `groupFill` / `groupStroke`           | `--kerusi-group-fill` / `--kerusi-group-stroke`             |
+| `groupDetail`                         | `--kerusi-group-detail`                                     |
 | `focusRing`                           | `--kerusi-focus-ring`                                       |
 | `backdrop`                            | `--kerusi-backdrop`                                         |
 
@@ -313,12 +315,12 @@ When the choice lives in TypeScript (a recommendation, a search result, the
 document's own `Seat.metadata`), use `seatTypeStyles` for whole types and
 `seatStyle` for single seats. Both take a `KerusiSeatStyle`:
 
-| Field        | Type                          |                                                                                                                    |
-| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `fill`       | `string`                      | The seat's own colour, the same slot as `--kerusi-seat-fill`. Any CSS colour.                                      |
-| `labelColor` | `string`                      | The number's colour. Defaults to black or white for a hex `fill`; set it for any other kind of colour.             |
-| `className`  | `string \| readonly string[]` | Extra classes on the seat's `<g>`, for CSS that needs more than colour.                                            |
-| `shape`      | `KerusiSeatShape`             | The seat's outline: `'seat'` (default), `'square'`, `'rounded'`, `'circle'`, or a function. See [Shapes](#shapes). |
+| Field        | Type                          |                                                                                                                                      |
+| ------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `fill`       | `string`                      | The seat's own colour, the same slot as `--kerusi-seat-fill`. Any CSS colour.                                                        |
+| `labelColor` | `string`                      | The number's colour. Defaults to black or white for a hex `fill`; set it for any other kind of colour.                               |
+| `className`  | `string \| readonly string[]` | Extra classes on the seat's `<g>`, for CSS that needs more than colour.                                                              |
+| `shape`      | `KerusiSeatShape`             | The seat's outline: `'seat'` (default), `'square'`, `'rounded'`, `'circle'`, a seat form name, or a function. See [Shapes](#shapes). |
 
 ```ts
 import { SeatStyleFn, SeatTypeStyles } from '@kerusiweb/core';
@@ -367,26 +369,89 @@ A style's `shape` changes the seat's outline. It works in `seatTypeStyles` (a
 sofa type drawn rounded, say) and in `seatStyle`; for every seat at once, use
 `[seatStyle]="circle"` with `circle: SeatStyleFn = () => ({ shape: 'circle' })`.
 
-| `shape`                    |                                                                             |
-| -------------------------- | --------------------------------------------------------------------------- |
-| `'seat'`                   | The default: square-ish at the front, tapered at the back.                  |
-| `'square'`                 | A square with the same slight corners as the seat's front.                  |
-| `'rounded'`                | A square with soft corners.                                                 |
-| `'circle'`                 | A circle filling the seat's box.                                            |
-| `(box: SeatBox) => string` | Your own closed path `d`, drawn inside `box` (`x`, `y`, `width`, `height`). |
+| `shape`                    |                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `'seat'`                   | The default: square-ish at the front, tapered at the back.                     |
+| `'square'`                 | A square with the same slight corners as the seat's front.                     |
+| `'rounded'`                | A square with soft corners.                                                    |
+| `'circle'`                 | A circle filling the seat's box.                                               |
+| `'armchair'`               | A tub chair seen from above: arms stand forward either side of a dipped front. |
+| `'stool'`                  | A round top with no back.                                                      |
+| `'recliner'`               | A narrow footrest at the front of a tapered body.                              |
+| `'beanbag'`                | A slumped pear, narrow at the front and heavy at the back.                     |
+| `'cushion'`                | A flat pillow with pinched corners.                                            |
+| `'wheelchair-space'`       | An open rim with nothing in it: a space, not a chair.                          |
+| `'sofa'`                   | One place on a sofa: a cushion between shoulders standing proud at the back.   |
+| `'bench'`                  | One place on a pew: a low, square-cornered slab.                               |
+| `(box: SeatBox) => string` | Your own closed path `d`, drawn inside `box` (`x`, `y`, `width`, `height`).    |
 
+- **A document's `form` picks the default shape.** `SeatType.form` (§4.7.1) draws
+  the preset of the same name, in the seat and in the legend, so an armchair
+  type looks like one with no styling at all. `chair`, a missing `form` and a
+  form this library does not know draw `'seat'`. A `shape` from `seatStyle` or
+  `seatTypeStyles` always wins over the document's form.
 - **Status marks follow the shape.** The wash, the selected frame and core, and
   a seat template's focus outline are all drawn in it, and the occupant figure
   and wheelchair marker sit inside every preset.
-- **Only `'seat'` shows which way a seat faces.** The other presets are
-  symmetric, so on rotated seats (a fanned theatre, a stadium bowl) that cue is
-  lost.
+- **`'seat'` and the form presets show which way a seat faces.** `'square'`,
+  `'rounded'` and `'circle'` are symmetric, so on rotated seats (a fanned
+  theatre, a stadium bowl) that cue is lost. Every form is drawn facing up at
+  `rotation` 0 and turns with its seat.
 - **A function shape must draw relative to the box it is given.** It is called
   once for the seat and again for the selected core's smaller box. Leave room
   for the occupant figure (the middle 44% of the width, from 15% to 86% of the
   height) and keep the top-right corner filled for the wheelchair marker.
 - **The legend draws a shaped type in its shape.** Types without a `shape`, and
   every status swatch, keep their usual swatches.
+
+### Groups: tables, sofas and pews
+
+A Kerusi section can name **groups** (§4.11): the chairs round a table, the
+places on a sofa or pew, a booth. A group lists its seats, says what `kind` of
+piece it is, and may give the piece a footprint, a `rect` or a `circle`, that
+the map draws under its seats. Without one, a round table is a ring of chairs
+with nothing in the middle.
+
+```json
+{
+  "id": "table-3",
+  "kind": "table",
+  "label": "Table 3",
+  "seats": ["T3-1", "T3-2", "T3-3", "T3-4"],
+  "shape": { "circle": { "center": [300, 240], "radius": 48 } }
+}
+```
+
+- **Drawn under the seats.** Each footprint is a
+  `<g class="kerusi-group kerusi-group--{kind}" data-group-id data-group-kind>`
+  inside its section's `<g>`. `table`, `sofa`, `loveseat`, `pew`, `bench` and
+  `booth` have a look of their own (a cloth, a back and arms, slats); any other
+  kind, `box` and `companion` included, draws as its plain shape. A group with
+  no shape draws nothing extra. A `rect` is centred on its `x`/`y` and turned
+  like an element, and its front is its top edge, so a sofa's back is its
+  bottom edge.
+- **Styled by tokens.** The footprint takes `--kerusi-group-fill`,
+  `--kerusi-group-stroke` and `--kerusi-group-detail` (the cloth, back and arms),
+  then `colors.groupFill`, `colors.groupStroke` and `colors.groupDetail`. A
+  kind can override any of them: `--kerusi-group-table-fill`,
+  `--kerusi-group-sofa-detail`, and so on. Keep them quiet next to the seats,
+  because the held and booked wash, the figure and the selected frame are drawn
+  over them.
+- **Not interactive.** A footprint is decoration: it is hidden from assistive
+  technology and takes no pointer, so a press on a tabletop selects nothing and
+  a drag across it still pans. Seat hit-testing, the tab stop and the arrow keys
+  are the same as without groups.
+- **Announced.** A group with a `label` wraps its seats in a
+  `<g class="kerusi-group-seats" role="group" aria-label="Table 3">`, and each
+  of its seats is announced by it: "Table 3, seat 4, Guest, ...". Words come from
+  `ariaStrings.groupSeat`, which is optional; leave it out and the English
+  default is used. A group with no label has no name to give, so its seats are
+  drawn like any other. A seat's hover and click card context carries its
+  `group`.
+- **Mirrors and hides with its section.** In right-to-left a footprint mirrors
+  with the canvas (D3), and a hidden section hides its groups (D4).
+
+This draws and names groups only. Booking a group whole is a separate release.
 
 ### Custom seat content
 

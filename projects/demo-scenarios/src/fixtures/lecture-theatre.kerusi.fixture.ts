@@ -102,12 +102,12 @@ const ROW_COUNTS: [string, number][] = [
 ];
 
 // The back row's two aisle seats are wheelchair-accessible, each with its
-// required companion seat beside it (§4.3.4/§4.6).
+// required companion seat beside it (§4.3.4), the two a group booked whole
+// (§4.11, §4.12).
 const backRow = row('F', 5, ROW_COUNTS[5][1], 'standard');
 backRow[0] = {
   ...backRow[0],
   type: 'accessible',
-  companions: ['F2'],
   attributes: ['aisle'],
   accessibility: {
     wheelchairAccessible: true,
@@ -116,12 +116,9 @@ backRow[0] = {
     companionRequired: true,
   },
 };
-backRow[1] = { ...backRow[1], companions: ['F1'] };
-backRow[21] = { ...backRow[21], companions: ['F23'] };
 backRow[22] = {
   ...backRow[22],
   type: 'accessible',
-  companions: ['F22'],
   attributes: ['aisle'],
   accessibility: {
     wheelchairAccessible: true,
@@ -194,6 +191,10 @@ export const LECTURE_THEATRE_MAP: KerusiMap = {
           row(id, index, count, 'standard'),
         ),
         ...backRow,
+      ],
+      groups: [
+        { id: 'F-bay-left', kind: 'companion', seats: ['F1', 'F2'], booking: 'whole' },
+        { id: 'F-bay-right', kind: 'companion', seats: ['F22', 'F23'], booking: 'whole' },
       ],
     },
   ],

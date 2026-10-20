@@ -445,6 +445,51 @@ main {
   font-size: 0.85rem;
 }
 
+/* The app's own "hire the whole venue" button (D19): a whole unit with no
+   shape on the map to press. */
+.whole-unit {
+  display: block;
+  width: 100%;
+  margin: 0 0 0.6rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.whole-unit:hover {
+  border-color: var(--accent);
+}
+
+.whole-unit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.whole-unit[aria-pressed='true'] {
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.whole-unit:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* A whole table or room in the selection: its name, then its whole price. */
+.seat-list--wholes {
+  margin-bottom: 0.5rem;
+}
+
+.seat-list.seat-list--wholes li {
+  grid-template-columns: 1fr auto;
+}
+
 .seat-list {
   margin: 0;
   padding: 0;

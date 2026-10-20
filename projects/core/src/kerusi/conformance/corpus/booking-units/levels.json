@@ -1,0 +1,653 @@
+{
+  "description": "Each booking mode at each level, set by the document and by a session: a map with two sections, one holding a love seat booked whole.",
+  "map": {
+    "kerusi": "1.0",
+    "id": "levels",
+    "canvas": {
+      "width": 400,
+      "height": 200
+    },
+    "seatSize": 40,
+    "legend": [
+      {
+        "id": "standard",
+        "defaultPriceTier": "t"
+      }
+    ],
+    "priceTiers": [
+      {
+        "id": "t",
+        "price": {
+          "amount": 1000,
+          "currency": "MYR"
+        }
+      },
+      {
+        "id": "pair",
+        "price": {
+          "amount": 1800,
+          "currency": "MYR"
+        }
+      }
+    ],
+    "wholePrice": {
+      "amount": 5000,
+      "currency": "MYR"
+    },
+    "sections": [
+      {
+        "id": "s1",
+        "seats": [
+          {
+            "id": "a",
+            "x": 60,
+            "y": 60,
+            "type": "standard"
+          },
+          {
+            "id": "b",
+            "x": 100,
+            "y": 60,
+            "type": "standard"
+          },
+          {
+            "id": "c",
+            "x": 140,
+            "y": 60,
+            "type": "standard"
+          },
+          {
+            "id": "d",
+            "x": 180,
+            "y": 60,
+            "type": "standard"
+          }
+        ],
+        "groups": [
+          {
+            "id": "g1",
+            "kind": "loveseat",
+            "seats": ["a", "b"],
+            "booking": "whole",
+            "wholePrice": {
+              "amount": 1500,
+              "currency": "MYR"
+            }
+          }
+        ]
+      },
+      {
+        "id": "s2",
+        "wholePriceTier": "pair",
+        "seats": [
+          {
+            "id": "e",
+            "x": 60,
+            "y": 140,
+            "type": "standard"
+          },
+          {
+            "id": "f",
+            "x": 100,
+            "y": 140,
+            "type": "standard"
+          }
+        ]
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "name": "the document alone: the love seat is booked whole, everything else seat by seat",
+      "session": null,
+      "units": [
+        {
+          "level": "group",
+          "id": "g1",
+          "seats": ["a", "b"]
+        },
+        {
+          "level": "seat",
+          "id": "c",
+          "seats": ["c"]
+        },
+        {
+          "level": "seat",
+          "id": "d",
+          "seats": ["d"]
+        },
+        {
+          "level": "seat",
+          "id": "e",
+          "seats": ["e"]
+        },
+        {
+          "level": "seat",
+          "id": "f",
+          "seats": ["f"]
+        }
+      ],
+      "wholeUnits": [],
+      "selections": [
+        {
+          "seats": ["a"],
+          "valid": false
+        },
+        {
+          "seats": [],
+          "valid": false
+        },
+        {
+          "seats": ["zz"],
+          "valid": false
+        },
+        {
+          "seats": ["a", "b"],
+          "valid": true,
+          "total": {
+            "amount": 1500,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "group",
+              "id": "g1"
+            }
+          ]
+        },
+        {
+          "seats": ["a", "b", "c"],
+          "valid": true,
+          "total": {
+            "amount": 2500,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "group",
+              "id": "g1"
+            }
+          ]
+        },
+        {
+          "seats": ["c"],
+          "valid": true,
+          "total": {
+            "amount": 1000,
+            "currency": "MYR"
+          },
+          "pricedWhole": []
+        },
+        {
+          "seats": ["e", "f"],
+          "valid": true,
+          "total": {
+            "amount": 2000,
+            "currency": "MYR"
+          },
+          "pricedWhole": []
+        }
+      ]
+    },
+    {
+      "name": "a session turns the love seat back into two seats; its whole price no longer applies",
+      "session": {
+        "kerusi": "1.0",
+        "id": "e",
+        "mapId": "levels",
+        "bookingModes": {
+          "groups": {
+            "g1": "seats"
+          }
+        }
+      },
+      "units": [
+        {
+          "level": "seat",
+          "id": "a",
+          "seats": ["a"]
+        },
+        {
+          "level": "seat",
+          "id": "b",
+          "seats": ["b"]
+        },
+        {
+          "level": "seat",
+          "id": "c",
+          "seats": ["c"]
+        },
+        {
+          "level": "seat",
+          "id": "d",
+          "seats": ["d"]
+        },
+        {
+          "level": "seat",
+          "id": "e",
+          "seats": ["e"]
+        },
+        {
+          "level": "seat",
+          "id": "f",
+          "seats": ["f"]
+        }
+      ],
+      "wholeUnits": [],
+      "selections": [
+        {
+          "seats": ["a"],
+          "valid": true,
+          "total": {
+            "amount": 1000,
+            "currency": "MYR"
+          },
+          "pricedWhole": []
+        },
+        {
+          "seats": ["a", "b"],
+          "valid": true,
+          "total": {
+            "amount": 2000,
+            "currency": "MYR"
+          },
+          "pricedWhole": []
+        }
+      ]
+    },
+    {
+      "name": "either on a group: seat by seat, or the whole group",
+      "session": {
+        "kerusi": "1.0",
+        "id": "e",
+        "mapId": "levels",
+        "bookingModes": {
+          "groups": {
+            "g1": "either"
+          }
+        }
+      },
+      "units": [
+        {
+          "level": "seat",
+          "id": "a",
+          "seats": ["a"]
+        },
+        {
+          "level": "seat",
+          "id": "b",
+          "seats": ["b"]
+        },
+        {
+          "level": "seat",
+          "id": "c",
+          "seats": ["c"]
+        },
+        {
+          "level": "seat",
+          "id": "d",
+          "seats": ["d"]
+        },
+        {
+          "level": "seat",
+          "id": "e",
+          "seats": ["e"]
+        },
+        {
+          "level": "seat",
+          "id": "f",
+          "seats": ["f"]
+        }
+      ],
+      "wholeUnits": [
+        {
+          "level": "group",
+          "id": "g1",
+          "seats": ["a", "b"]
+        }
+      ],
+      "selections": [
+        {
+          "seats": ["a"],
+          "valid": true,
+          "total": {
+            "amount": 1000,
+            "currency": "MYR"
+          },
+          "pricedWhole": []
+        },
+        {
+          "seats": ["a", "b"],
+          "valid": true,
+          "total": {
+            "amount": 1500,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "group",
+              "id": "g1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "an outer whole over an inner either: the section is one unit, and the group offers nothing of its own",
+      "session": {
+        "kerusi": "1.0",
+        "id": "e",
+        "mapId": "levels",
+        "bookingModes": {
+          "sections": {
+            "s1": "whole"
+          },
+          "groups": {
+            "g1": "either"
+          }
+        }
+      },
+      "units": [
+        {
+          "level": "section",
+          "id": "s1",
+          "seats": ["a", "b", "c", "d"]
+        },
+        {
+          "level": "seat",
+          "id": "e",
+          "seats": ["e"]
+        },
+        {
+          "level": "seat",
+          "id": "f",
+          "seats": ["f"]
+        }
+      ],
+      "wholeUnits": [],
+      "selections": [
+        {
+          "seats": ["a", "b"],
+          "valid": false
+        },
+        {
+          "seats": ["a", "b", "c", "d"],
+          "valid": true,
+          "total": {
+            "amount": 3500,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "group",
+              "id": "g1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "the whole map booked whole: one unit, the venue",
+      "session": {
+        "kerusi": "1.0",
+        "id": "e",
+        "mapId": "levels",
+        "bookingModes": {
+          "map": "whole"
+        }
+      },
+      "units": [
+        {
+          "level": "map",
+          "id": "levels",
+          "seats": ["a", "b", "c", "d", "e", "f"]
+        }
+      ],
+      "wholeUnits": [],
+      "selections": [
+        {
+          "seats": ["a", "b", "c", "d"],
+          "valid": false
+        },
+        {
+          "seats": ["a", "b", "c", "d", "e", "f"],
+          "valid": true,
+          "total": {
+            "amount": 5000,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "map",
+              "id": "levels"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "venue hire offered over a section booked whole",
+      "session": {
+        "kerusi": "1.0",
+        "id": "e",
+        "mapId": "levels",
+        "bookingModes": {
+          "map": "either",
+          "sections": {
+            "s1": "whole"
+          }
+        }
+      },
+      "units": [
+        {
+          "level": "section",
+          "id": "s1",
+          "seats": ["a", "b", "c", "d"]
+        },
+        {
+          "level": "seat",
+          "id": "e",
+          "seats": ["e"]
+        },
+        {
+          "level": "seat",
+          "id": "f",
+          "seats": ["f"]
+        }
+      ],
+      "wholeUnits": [
+        {
+          "level": "map",
+          "id": "levels",
+          "seats": ["a", "b", "c", "d", "e", "f"]
+        }
+      ],
+      "selections": [
+        {
+          "seats": ["a", "b", "c", "d"],
+          "valid": true,
+          "total": {
+            "amount": 3500,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "group",
+              "id": "g1"
+            }
+          ]
+        },
+        {
+          "seats": ["a", "b", "c", "d", "e", "f"],
+          "valid": true,
+          "total": {
+            "amount": 5000,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "map",
+              "id": "levels"
+            }
+          ]
+        },
+        {
+          "seats": ["e"],
+          "valid": true,
+          "total": {
+            "amount": 1000,
+            "currency": "MYR"
+          },
+          "pricedWhole": []
+        }
+      ]
+    },
+    {
+      "name": "venue hire offered while the love seat stays a pair",
+      "session": {
+        "kerusi": "1.0",
+        "id": "e",
+        "mapId": "levels",
+        "bookingModes": {
+          "map": "either"
+        }
+      },
+      "units": [
+        {
+          "level": "group",
+          "id": "g1",
+          "seats": ["a", "b"]
+        },
+        {
+          "level": "seat",
+          "id": "c",
+          "seats": ["c"]
+        },
+        {
+          "level": "seat",
+          "id": "d",
+          "seats": ["d"]
+        },
+        {
+          "level": "seat",
+          "id": "e",
+          "seats": ["e"]
+        },
+        {
+          "level": "seat",
+          "id": "f",
+          "seats": ["f"]
+        }
+      ],
+      "wholeUnits": [
+        {
+          "level": "map",
+          "id": "levels",
+          "seats": ["a", "b", "c", "d", "e", "f"]
+        }
+      ],
+      "selections": [
+        {
+          "seats": ["a", "b", "c", "d", "e", "f"],
+          "valid": true,
+          "total": {
+            "amount": 5000,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "map",
+              "id": "levels"
+            }
+          ]
+        },
+        {
+          "seats": ["a", "b", "e", "f"],
+          "valid": true,
+          "total": {
+            "amount": 3500,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "group",
+              "id": "g1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "either on a section with a whole price tier",
+      "session": {
+        "kerusi": "1.0",
+        "id": "e",
+        "mapId": "levels",
+        "bookingModes": {
+          "sections": {
+            "s2": "either"
+          }
+        }
+      },
+      "units": [
+        {
+          "level": "group",
+          "id": "g1",
+          "seats": ["a", "b"]
+        },
+        {
+          "level": "seat",
+          "id": "c",
+          "seats": ["c"]
+        },
+        {
+          "level": "seat",
+          "id": "d",
+          "seats": ["d"]
+        },
+        {
+          "level": "seat",
+          "id": "e",
+          "seats": ["e"]
+        },
+        {
+          "level": "seat",
+          "id": "f",
+          "seats": ["f"]
+        }
+      ],
+      "wholeUnits": [
+        {
+          "level": "section",
+          "id": "s2",
+          "seats": ["e", "f"]
+        }
+      ],
+      "selections": [
+        {
+          "seats": ["e"],
+          "valid": true,
+          "total": {
+            "amount": 1000,
+            "currency": "MYR"
+          },
+          "pricedWhole": []
+        },
+        {
+          "seats": ["e", "f"],
+          "valid": true,
+          "total": {
+            "amount": 1800,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "section",
+              "id": "s2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

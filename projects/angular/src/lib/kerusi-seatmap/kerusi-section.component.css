@@ -24,6 +24,38 @@
   vector-effect: non-scaling-stroke;
 }
 
+/* A footprint that books its group whole: an `either` table's top (D19). It
+   takes the pointer, unlike any other footprint, and shows it can be pressed:
+   a heavier outline on hover and while the table is booked whole (that outline
+   takes the selected colour, bound inline), and the focus ring on its own path,
+   because the body's stroke is bound inline and a rule here cannot repaint it. */
+.kerusi-group--whole {
+  pointer-events: auto;
+  cursor: pointer;
+  outline: none;
+}
+
+.kerusi-group--whole.kerusi-group--unavailable {
+  cursor: not-allowed;
+}
+
+.kerusi-group--whole:hover .kerusi-group__body,
+.kerusi-group--selected .kerusi-group__body {
+  stroke-width: 2px;
+}
+
+.kerusi-group__focus {
+  fill: none;
+  stroke: none;
+  pointer-events: none;
+}
+
+.kerusi-group--whole:focus-visible .kerusi-group__focus {
+  stroke: var(--kerusi-focus-ring, var(--kerusi-focus-ring-input, currentColor));
+  stroke-width: 2.5px;
+  vector-effect: non-scaling-stroke;
+}
+
 .kerusi-seat {
   cursor: pointer;
   outline: none;
@@ -31,6 +63,14 @@
 
 .kerusi-seat--unselectable {
   cursor: not-allowed;
+}
+
+/* Available by its own status, but booked only with a seat that is taken: the
+   other half of a sold love seat, the free chairs at a table sold whole with one
+   chair held (§4.12.3). The standard asks for it to be shown unavailable, so it
+   recedes, keeping its own colour. */
+.kerusi-seat--unit-blocked {
+  opacity: 0.45;
 }
 
 .kerusi-seat__label,

@@ -61,9 +61,10 @@ const MAP: KerusiMap = {
           type: 'standard',
           accessibility: { wheelchairAccessible: true },
         },
-        { id: 'L1', x: 70, y: 10, type: 'standard', companions: ['L2'] },
-        { id: 'L2', x: 80, y: 10, type: 'standard', companions: ['L1'] },
+        { id: 'L1', x: 70, y: 10, type: 'standard' },
+        { id: 'L2', x: 80, y: 10, type: 'standard' },
       ],
+      groups: [{ id: 'pair', kind: 'loveseat', seats: ['L1', 'L2'], booking: 'whole' }],
     },
   ],
 };
@@ -191,7 +192,13 @@ describe('seatClassName', () => {
       'kerusi-seat kerusi-seat--available kerusi-seat--selected kerusi-seat--wheelchair',
     );
     expect(seatClassName(placed('L1').seat, false)).toBe(
-      'kerusi-seat kerusi-seat--held kerusi-seat--unselectable kerusi-seat--companion',
+      'kerusi-seat kerusi-seat--held kerusi-seat--unselectable kerusi-seat--unit',
+    );
+    // Available by its own rules, but its other half is booked (§4.12.3).
+    expect(
+      seatClassName(placed('L1', { ...STATE, seats: { L2: { status: 'booked' } } }).seat, false),
+    ).toBe(
+      'kerusi-seat kerusi-seat--available kerusi-seat--unselectable kerusi-seat--unit-blocked kerusi-seat--unit',
     );
   });
 });

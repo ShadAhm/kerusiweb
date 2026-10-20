@@ -3,12 +3,12 @@ import { KerusiMap, KerusiSession, KerusiState } from '@kerusiweb/core';
 /**
  * A cinema hall of straight rows split by two aisles into a left wing, a
  * center block, and a right wing — the classic printed seating chart, not a
- * curved auditorium. The back row is love seats, linked in symmetric
- * `companions` pairs so they book together.
+ * curved auditorium. The back row is love seats, each a group booked whole
+ * (§4.11, §4.12) so its two places book together.
  *
  * Exercises: seats on a regular lattice, aisles as skipped `col`s (§4.3.5),
  * open space in front of row A for the screen and its throw, price tiers,
- * companions, and all four availability states.
+ * groups booked whole, and all four availability states.
  */
 
 /**
@@ -134,7 +134,6 @@ export const CINEMA_MAP: KerusiMap = {
           col: 1,
           ...cell(1, LINE.E),
           type: 'wheelchair',
-          companions: ['E2'],
           attributes: ['aisle'],
           accessibility: {
             wheelchairAccessible: true,
@@ -150,7 +149,6 @@ export const CINEMA_MAP: KerusiMap = {
           col: 2,
           ...cell(2, LINE.E),
           type: 'premium',
-          companions: ['E1'],
         },
         { id: 'E3', label: '3', row: 'E', col: 4, ...cell(4, LINE.E), type: 'premium' },
         { id: 'E4', label: '4', row: 'E', col: 5, ...cell(5, LINE.E), type: 'premium' },
@@ -164,7 +162,6 @@ export const CINEMA_MAP: KerusiMap = {
           col: 10,
           ...cell(10, LINE.E),
           type: 'premium',
-          companions: ['E9'],
         },
         {
           id: 'E9',
@@ -173,7 +170,6 @@ export const CINEMA_MAP: KerusiMap = {
           col: 11,
           ...cell(11, LINE.E),
           type: 'wheelchair',
-          companions: ['E8'],
           attributes: ['aisle'],
           accessibility: {
             wheelchairAccessible: true,
@@ -182,7 +178,7 @@ export const CINEMA_MAP: KerusiMap = {
             companionRequired: true,
           },
         },
-        // Love seats: three symmetric pairs, an aisle gap between each pair.
+        // Love seats: three pairs, an aisle gap between each pair.
         {
           id: 'L1',
           label: '1',
@@ -190,7 +186,6 @@ export const CINEMA_MAP: KerusiMap = {
           col: 4,
           ...cell(4, LINE.L),
           type: 'sofa',
-          companions: ['L2'],
         },
         {
           id: 'L2',
@@ -199,7 +194,6 @@ export const CINEMA_MAP: KerusiMap = {
           col: 5,
           ...cell(5, LINE.L),
           type: 'sofa',
-          companions: ['L1'],
         },
         {
           id: 'L3',
@@ -208,7 +202,6 @@ export const CINEMA_MAP: KerusiMap = {
           col: 7,
           ...cell(7, LINE.L),
           type: 'sofa',
-          companions: ['L4'],
         },
         {
           id: 'L4',
@@ -217,7 +210,6 @@ export const CINEMA_MAP: KerusiMap = {
           col: 8,
           ...cell(8, LINE.L),
           type: 'sofa',
-          companions: ['L3'],
         },
         {
           id: 'L5',
@@ -226,7 +218,6 @@ export const CINEMA_MAP: KerusiMap = {
           col: 10,
           ...cell(10, LINE.L),
           type: 'sofa',
-          companions: ['L6'],
         },
         {
           id: 'L6',
@@ -235,8 +226,14 @@ export const CINEMA_MAP: KerusiMap = {
           col: 11,
           ...cell(11, LINE.L),
           type: 'sofa',
-          companions: ['L5'],
         },
+      ],
+      groups: [
+        { id: 'E-bay-left', kind: 'companion', seats: ['E1', 'E2'], booking: 'whole' },
+        { id: 'E-bay-right', kind: 'companion', seats: ['E8', 'E9'], booking: 'whole' },
+        { id: 'love-1', kind: 'loveseat', seats: ['L1', 'L2'], booking: 'whole' },
+        { id: 'love-2', kind: 'loveseat', seats: ['L3', 'L4'], booking: 'whole' },
+        { id: 'love-3', kind: 'loveseat', seats: ['L5', 'L6'], booking: 'whole' },
       ],
     },
   ],

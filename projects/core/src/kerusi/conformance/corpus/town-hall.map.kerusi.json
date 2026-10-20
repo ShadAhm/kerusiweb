@@ -14,8 +14,21 @@
       "defaultPriceTier": "regular"
     },
     {
+      "id": "table",
+      "label": "Table stool",
+      "form": "stool",
+      "defaultPriceTier": "regular"
+    },
+    {
       "id": "wheelchair",
       "label": "Wheelchair space",
+      "form": "wheelchair-space",
+      "defaultPriceTier": "regular"
+    },
+    {
+      "id": "balcony",
+      "label": "Balcony armchair",
+      "form": "armchair",
       "defaultPriceTier": "regular"
     }
   ],
@@ -45,18 +58,9 @@
           "label": "A",
           "shape": {
             "line": {
-              "from": [
-                320,
-                400
-              ],
-              "to": [
-                1088,
-                400
-              ],
-              "cols": [
-                1,
-                9
-              ]
+              "from": [320, 400],
+              "to": [1088, 400],
+              "cols": [1, 9]
             }
           }
         },
@@ -65,16 +69,10 @@
           "label": "Table 1",
           "shape": {
             "circle": {
-              "center": [
-                1300,
-                300
-              ],
+              "center": [1300, 300],
               "radius": 70,
               "start": -90,
-              "cols": [
-                1,
-                4
-              ]
+              "cols": [1, 4]
             }
           }
         }
@@ -161,12 +159,7 @@
           "col": 1,
           "x": 1300,
           "y": 230,
-          "type": "std",
-          "companions": [
-            "T1-2",
-            "T1-3",
-            "T1-4"
-          ]
+          "type": "table"
         },
         {
           "id": "T1-2",
@@ -174,12 +167,7 @@
           "col": 2,
           "x": 1370,
           "y": 300,
-          "type": "std",
-          "companions": [
-            "T1-1",
-            "T1-3",
-            "T1-4"
-          ]
+          "type": "table"
         },
         {
           "id": "T1-3",
@@ -187,12 +175,7 @@
           "col": 3,
           "x": 1300,
           "y": 370,
-          "type": "std",
-          "companions": [
-            "T1-1",
-            "T1-2",
-            "T1-4"
-          ]
+          "type": "table"
         },
         {
           "id": "T1-4",
@@ -200,18 +183,31 @@
           "col": 4,
           "x": 1230,
           "y": 300,
-          "type": "std",
-          "companions": [
-            "T1-1",
-            "T1-2",
-            "T1-3"
-          ]
+          "type": "table"
         },
         {
           "id": "S1",
           "x": 1408,
           "y": 702,
-          "type": "wheelchair"
+          "type": "wheelchair",
+          "accessibility": {
+            "wheelchairAccessible": true
+          }
+        }
+      ],
+      "groups": [
+        {
+          "id": "T1",
+          "kind": "table",
+          "label": "Table 1",
+          "seats": ["T1-1", "T1-2", "T1-3", "T1-4"],
+          "shape": {
+            "circle": {
+              "center": [1300, 300],
+              "radius": 45
+            }
+          },
+          "booking": "whole"
         }
       ]
     },
@@ -231,17 +227,11 @@
           "label": "L",
           "shape": {
             "arc": {
-              "center": [
-                800,
-                60
-              ],
+              "center": [800, 60],
               "radius": 640,
               "start": 120,
               "sweep": -60,
-              "cols": [
-                1,
-                7
-              ]
+              "cols": [1, 7]
             }
           }
         }
@@ -253,7 +243,7 @@
           "col": 1,
           "x": 480,
           "y": 614,
-          "type": "std"
+          "type": "balcony"
         },
         {
           "id": "L2",
@@ -261,7 +251,7 @@
           "col": 2,
           "x": 581,
           "y": 661,
-          "type": "std"
+          "type": "balcony"
         },
         {
           "id": "L3",
@@ -269,7 +259,7 @@
           "col": 3,
           "x": 689,
           "y": 690,
-          "type": "std"
+          "type": "balcony"
         },
         {
           "id": "L4",
@@ -277,7 +267,7 @@
           "col": 4,
           "x": 800,
           "y": 700,
-          "type": "std"
+          "type": "balcony"
         },
         {
           "id": "L5",
@@ -285,7 +275,7 @@
           "col": 5,
           "x": 930,
           "y": 760,
-          "type": "std"
+          "type": "balcony"
         },
         {
           "id": "L6",
@@ -293,7 +283,7 @@
           "col": 6,
           "x": 1019,
           "y": 661,
-          "type": "std"
+          "type": "balcony"
         },
         {
           "id": "L7",
@@ -301,7 +291,7 @@
           "col": 7,
           "x": 1120,
           "y": 614,
-          "type": "std"
+          "type": "balcony"
         }
       ]
     }

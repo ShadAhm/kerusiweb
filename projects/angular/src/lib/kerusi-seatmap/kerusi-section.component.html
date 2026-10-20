@@ -69,8 +69,9 @@
 
 <!-- Group footprints next, still under every seat. They are decoration for the
      eye: hidden from assistive technology, and no pointer target, so a press on
-     a tabletop selects nothing (D18). -->
-@for (entry of groups(); track entry.placed.group.id) {
+     a tabletop selects nothing (D18). A footprint that books its group whole is
+     drawn in the group's wrapper instead. -->
+@for (entry of footprints(); track entry.placed.group.id) {
   @if (entry.glyph; as footprint) {
     <svg:g
       [class]="footprint.className"
@@ -171,7 +172,7 @@
     [attr.tabindex]="tabIndex(placed)"
     [attr.aria-label]="ariaLabel(placed)"
     [attr.aria-pressed]="pressed(entry.selected)"
-    [attr.aria-disabled]="!placed.seat.selectable"
+    [attr.aria-disabled]="disabled(placed)"
     [attr.aria-describedby]="describedById(placed)"
     [attr.data-seat-id]="placed.seat.id"
     [attr.data-seat-type]="glyph.data.type"
@@ -198,15 +199,46 @@
 </ng-template>
 
 <!-- A group's seats sit in a role="group" named by its label, so a screen reader
-     says which table it is at. A group with no label has no name to give, so its
-     seats are drawn loose, like a seat in no group. -->
+     says which table it is at. An `either` table's shape goes first in it, as the
+     control that books the table whole, so it comes before its seats in keyboard
+     order (D19). A group with neither has no name to give, so its seats are drawn
+     loose, like a seat in no group. -->
 @for (grouped of groupedSeats(); track grouped.group.id) {
   <svg:g
     class="kerusi-group-seats"
-    role="group"
+    [attr.role]="grouped.group.label ? 'group' : null"
     [attr.aria-label]="grouped.group.label"
     [attr.data-group-id]="grouped.group.id"
   >
+    @if (grouped.control; as control) {
+      <svg:g
+        [class]="control.className"
+        role="button"
+        tabindex="0"
+        [attr.aria-label]="grouped.names?.label ?? grouped.group.label ?? grouped.group.id"
+        [attr.aria-pressed]="control.whole!.selected"
+        [attr.aria-disabled]="!control.whole!.available"
+        [attr.aria-description]="grouped.names?.reason ?? null"
+        [attr.data-group-id]="control.id"
+        [attr.data-group-kind]="control.kind"
+        [attr.transform]="control.transform"
+        (click)="onWholeUnitClick(control.id)"
+        (keydown)="onWholeUnitKeydown(control.id, $event)"
+      >
+        <svg:path
+          class="kerusi-group__body"
+          [attr.d]="control.body.d"
+          [style.fill]="control.body.fill"
+          [style.stroke]="control.body.stroke"
+        />
+        @for (detail of control.details; track $index) {
+          <svg:path class="kerusi-group__detail" [attr.d]="detail.d" [style.fill]="detail.fill" />
+        }
+        <!-- Only visible on :focus-visible: the body's own stroke is bound
+             inline, so the ring needs a path of its own for the stylesheet. -->
+        <svg:path class="kerusi-group__focus" [attr.d]="control.body.d" />
+      </svg:g>
+    }
     @for (entry of grouped.entries; track entry.placed.seat.id) {
       <ng-container *ngTemplateOutlet="seatRef; context: { $implicit: entry }" />
     }

@@ -126,7 +126,6 @@ export const TRAIN_MAP: KerusiMap = {
           ...cell(CARRIAGE_A_TOP, 1, 3),
           type: 'accessible',
           attributes: ['window'],
-          companions: ['A4B'],
           accessibility: {
             wheelchairAccessible: true,
             transferArmrest: 'right',
@@ -142,7 +141,6 @@ export const TRAIN_MAP: KerusiMap = {
           ...cell(CARRIAGE_A_TOP, 2, 3),
           type: 'accessible',
           attributes: ['aisle'],
-          companions: ['A4A'],
           accessibility: { transferArmrest: 'both' },
         },
         {
@@ -165,6 +163,7 @@ export const TRAIN_MAP: KerusiMap = {
         },
         ...airlineRow('A', 5, 'standard'),
       ],
+      groups: [{ id: 'A4-bay', kind: 'companion', seats: ['A4A', 'A4B'], booking: 'whole' }],
     },
     {
       id: 'carriage-b',

@@ -47,6 +47,7 @@ import {
   KerusiMap,
   KerusiSeatCardContext,
   KerusiSeatmapColors,
+  KerusiSelectionChange,
   KerusiSession,
   KerusiState,
   KerusiValidationError,
@@ -57,6 +58,7 @@ import {
   NavigationGraph,
   reduceGesture,
   reduceSeatHover,
+  RenderGroup,
   RenderMap,
   RenderSeat,
   RenderSection,
@@ -67,6 +69,7 @@ import {
   revealRect,
   SeatAriaStrings,
   seatAriaLabel,
+  selectedWholeUnits,
   SeatCardAppearance,
   seatCardId,
   SeatCardPlacement,
@@ -80,6 +83,8 @@ import {
   stepViewport,
   summarizeSelection,
   toggleSeatSelection,
+  toggleWholeUnit,
+  UnitMode,
   validateDocumentSet,
   viewportForRect,
   ViewportPoint,
@@ -89,6 +94,9 @@ import {
   viewportTouchAction,
   viewportTransform,
   wheelZoomFactor,
+  wholeUnitAriaLabel,
+  wholeUnitControlAction,
+  wholeUnitDisallowedAnnouncement,
   zoomLimits,
   zoomViewportBy,
   zoomViewportTo,
@@ -127,7 +135,7 @@ export interface SeatInteraction {
   seat: RenderSeat;
   /** The selection after this event. */
   selection: readonly string[];
-  /** Seats whose membership changed, including companions (§4.6). */
+  /** Seats whose membership changed, including the rest of the seat's booking unit (§4.12.2). */
   changed: readonly string[];
 }
 
@@ -177,7 +185,12 @@ export class KerusiSeatmapComponent {
 
   readonly map = input.required<KerusiMap>();
   readonly state = input<KerusiState | undefined>(undefined);
-  /** The optional map↔event join (§5.3). Validated against the map and state. */
+  /**
+   * The event's `KerusiSession` (§5.3). Its `bookingModes` override the map's
+   * own, so one map can sell every table whole at a wedding and by the seat at a
+   * quiz night (§4.12.1). Without one, the map's own modes apply. Validated
+   * against the map and state.
+   */
   readonly session = input<KerusiSession | undefined>(undefined);
 
   // --- selection ------------------------------------------------------------
@@ -241,8 +254,14 @@ export class KerusiSeatmapComponent {
 
   /** Statuses in which a seat may be picked. Default: `['available']`. */
   readonly selectableStatuses = input<readonly SeatRenderStatus[]>(['available']);
-  /** `auto` selects a seat's companion closure together (§4.6). */
-  readonly companionMode = input<'auto' | 'independent'>('auto');
+  /**
+   * How a tap selects (D22). `auto`, the default, takes the seat's booking unit
+   * (§4.12.2): both places of a love seat booked whole, every seat of a table a
+   * session sells whole. `seats` takes the seat alone, for an admin view that
+   * blocks single seats.
+   */
+  readonly unitMode = input<UnitMode>('auto');
+  /** Cap on how many seats may be selected. A whole table counts its seats (D21). */
   readonly maxSelection = input<number | undefined>(undefined);
   /** A final say on selectability, applied after the status test. */
   readonly seatSelectable = input<((seat: RenderSeat) => boolean) | undefined>(undefined);
@@ -314,6 +333,13 @@ export class KerusiSeatmapComponent {
 
   // --- outputs --------------------------------------------------------------
 
+  /**
+   * Whenever the map changes the selection itself (a tap, a whole-unit control,
+   * Escape): the new selection, still a list of seat ids, and the whole units it
+   * fully selects, so an app can say "Table 3 (whole table)" (D20). Fires with
+   * `selectionChange`, which `[(selection)]` already binds.
+   */
+  readonly selectionDetail = output<KerusiSelectionChange>();
   readonly seatSelect = output<SeatInteraction>();
   readonly seatDeselect = output<SeatInteraction>();
   readonly seatDisallowed = output<SeatDisallowed>();
@@ -653,6 +679,8 @@ export class KerusiSeatmapComponent {
       sectionIds: this.visibleSectionIds(),
       selectableStatuses: this.selectableStatuses(),
       seatSelectable: this.seatSelectable(),
+      session: this.session(),
+      unitMode: this.unitMode(),
     }),
   );
 
@@ -811,6 +839,41 @@ export class KerusiSeatmapComponent {
     );
   });
 
+  /** Every group by id, for a whole unit's control to find its unit and seats. */
+  private readonly groupsById = computed<ReadonlyMap<string, RenderGroup>>(
+    () =>
+      new Map(
+        this.renderMap().sections.flatMap((section) =>
+          section.groups.map((group) => [group.id, group] as const),
+        ),
+      ),
+  );
+
+  /** The name and, while it cannot be booked, the reason of each whole unit's control (D19). */
+  protected readonly wholeUnitLabels = computed<
+    ReadonlyMap<string, { label: string; reason?: string }>
+  >(() => {
+    const locale = this.resolvedLocale();
+    const strings = this.ariaStrings();
+    return new Map(
+      [...this.groupsById().values()].flatMap((group) =>
+        group.wholeUnit
+          ? [
+              [
+                group.id,
+                {
+                  label: wholeUnitAriaLabel(group.wholeUnit, locale, strings),
+                  reason: group.wholeUnit.selectable
+                    ? undefined
+                    : wholeUnitDisallowedAnnouncement(group.wholeUnit, 'unit-unavailable', strings),
+                },
+              ] as const,
+            ]
+          : [],
+      ),
+    );
+  });
+
   protected readonly mapLabel = computed(
     () => this.renderMap().name ?? `Seat map ${this.renderMap().id}`,
   );
@@ -853,7 +916,6 @@ export class KerusiSeatmapComponent {
 
     const outcome = toggleSeatSelection(this.selection(), seatId, {
       seatsById: model.seatsById,
-      companionMode: this.companionMode(),
       maxSelection: this.maxSelection(),
     });
 
@@ -863,7 +925,7 @@ export class KerusiSeatmapComponent {
       return;
     }
 
-    this.selection.set(outcome.selection);
+    this.commitSelection(outcome.selection);
     const event: SeatInteraction = {
       seat,
       selection: outcome.selection,
@@ -871,6 +933,61 @@ export class KerusiSeatmapComponent {
     };
     (outcome.kind === 'select' ? this.seatSelect : this.seatDeselect).emit(event);
     this.announceSelection(outcome.selection);
+  }
+
+  /**
+   * A whole unit's control (D19): books every seat of an `either` table, or
+   * releases them all when the table is already booked whole. The seat outputs
+   * do not fire, since no one seat was pressed; `selectionChange` and
+   * `selectionDetail` do.
+   */
+  protected onWholeUnitActivate(groupId: string): void {
+    const unit = this.groupsById().get(groupId)?.wholeUnit;
+    if (!unit || !this.interactive()) {
+      return;
+    }
+    const outcome = toggleWholeUnit(this.selection(), unit, {
+      seatsById: this.renderMap().seatsById,
+      maxSelection: this.maxSelection(),
+    });
+    if (outcome.kind === 'disallowed') {
+      this.announce(wholeUnitDisallowedAnnouncement(unit, outcome.reason!, this.ariaStrings()));
+      return;
+    }
+    this.commitSelection(outcome.selection);
+    this.announceSelection(outcome.selection);
+  }
+
+  /** Keys on a whole unit's control, by the map core shares with the React binding. */
+  protected onWholeUnitKeydown(
+    section: RenderSection,
+    { groupId, event }: { groupId: string; event: KeyboardEvent },
+  ): void {
+    switch (wholeUnitControlAction(event.key)) {
+      case 'toggle':
+        event.preventDefault();
+        this.onWholeUnitActivate(groupId);
+        return;
+      case 'enter-seats': {
+        const first = this.groupsById().get(groupId)?.seatIds[0];
+        if (first) {
+          event.preventDefault();
+          this.moveFocusTo(section.id, first);
+        }
+        return;
+      }
+      case 'clear':
+        if (this.dismissCards()) {
+          event.preventDefault();
+          return;
+        }
+        if (this.selection().length > 0) {
+          event.preventDefault();
+          this.commitSelection([]);
+          this.announceSelection([]);
+        }
+        return;
+    }
   }
 
   protected onSeatFocused(seatId: string): void {
@@ -944,7 +1061,7 @@ export class KerusiSeatmapComponent {
         }
         if (this.interactive() && this.selection().length > 0) {
           event.preventDefault();
-          this.selection.set([]);
+          this.commitSelection([]);
           this.announceSelection([]);
         }
         return;
@@ -1066,6 +1183,15 @@ export class KerusiSeatmapComponent {
   /** Closes the click card. */
   closeSeatCard(): void {
     this.closeClick(true);
+  }
+
+  /** Sets the selection, and reports it with the whole units it fully selects (D20). */
+  private commitSelection(next: readonly string[]): void {
+    this.selection.set(next);
+    this.selectionDetail.emit({
+      selection: next,
+      wholeUnits: selectedWholeUnits(this.renderMap(), next),
+    });
   }
 
   private setFocusedSeat(sectionId: string, seatId: string): void {

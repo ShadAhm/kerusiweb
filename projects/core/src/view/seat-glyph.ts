@@ -10,6 +10,7 @@ import {
 } from '../render/seat-shapes.js';
 import { PlacedSeat } from '../render/map-layout.js';
 import { classList, KerusiSeatStyle } from './kerusi-seat-style.js';
+import { canPickSeat } from './selection.js';
 import {
   KerusiSeatmapColors,
   occupantFillFor,
@@ -268,9 +269,11 @@ export function seatClassName(
     'kerusi-seat',
     `kerusi-seat--${seat.status}`,
     selected ? 'kerusi-seat--selected' : '',
-    seat.selectable ? '' : 'kerusi-seat--unselectable',
+    canPickSeat(seat) ? '' : 'kerusi-seat--unselectable',
+    // Available, but another seat of its booking unit is taken (§4.12.3).
+    seat.selectable && seat.unitBlocked ? 'kerusi-seat--unit-blocked' : '',
     seat.accessibility?.wheelchairAccessible ? 'kerusi-seat--wheelchair' : '',
-    seat.companions.length > 0 ? 'kerusi-seat--companion' : '',
+    seat.unit.seatIds.length > 1 ? 'kerusi-seat--unit' : '',
     ...classList(extra),
   ]
     .filter(Boolean)

@@ -174,7 +174,8 @@ export const AIRCRAFT_MAP: KerusiMap = {
         ...economyRow('13', 3, { exitRow: true }),
         ...economyRow('14', 4),
         // Row 15 carries the accessible pair: an aisle seat with a lifting
-        // armrest and the companion seat it must be booked with (§4.3.4/§4.6).
+        // armrest and the companion seat it must be booked with (§4.3.4): a
+        // group booked whole (§4.11, §4.12).
         {
           id: '15A',
           label: 'A',
@@ -191,7 +192,6 @@ export const AIRCRAFT_MAP: KerusiMap = {
           col: 2,
           ...cell(ECONOMY, 2, 5),
           type: 'accessible',
-          companions: ['15C'],
           accessibility: { companionRequired: true },
         },
         {
@@ -202,7 +202,6 @@ export const AIRCRAFT_MAP: KerusiMap = {
           ...cell(ECONOMY, 3, 5),
           type: 'accessible',
           attributes: ['aisle'],
-          companions: ['15B'],
           accessibility: {
             wheelchairAccessible: true,
             transferArmrest: 'left',
@@ -236,6 +235,7 @@ export const AIRCRAFT_MAP: KerusiMap = {
         },
         ...economyRow('16', 6),
       ],
+      groups: [{ id: '15-pair', kind: 'companion', seats: ['15B', '15C'], booking: 'whole' }],
     },
   ],
 };

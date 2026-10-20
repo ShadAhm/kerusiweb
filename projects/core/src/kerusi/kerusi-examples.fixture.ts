@@ -27,7 +27,7 @@ export const BUS_MAP: KerusiMap = {
   ],
 };
 
-/** §6.2 — cinema with tilted seats placed freely and companion couple seats. */
+/** §6.2 — cinema with tilted seats placed freely and a love seat booked as a pair. */
 export const CINEMA_MAP: KerusiMap = {
   kerusi: '1.0',
   id: 'cinema3-hallA',
@@ -71,7 +71,6 @@ export const CINEMA_MAP: KerusiMap = {
           x: 600,
           y: 700,
           type: 'recliner-couple',
-          companions: ['L2'],
         },
         {
           id: 'L2',
@@ -80,7 +79,16 @@ export const CINEMA_MAP: KerusiMap = {
           x: 660,
           y: 700,
           type: 'recliner-couple',
-          companions: ['L1'],
+        },
+      ],
+      // A pair booked only together: a group booked whole (§4.11, §4.12.4).
+      groups: [
+        {
+          id: 'L-pair',
+          kind: 'loveseat',
+          label: 'Love seat L1–L2',
+          seats: ['L1', 'L2'],
+          booking: 'whole',
         },
       ],
     },

@@ -7,17 +7,20 @@ suite rather than described in prose.
 |          |                                                |
 | -------- | ---------------------------------------------- |
 | Source   | https://github.com/ShadAhm/kerusi, `examples/` |
-| Spec     | v1.0.0-draft, rev 15 (`spec-1.0.0-draft.15`)   |
-| Commit   | `d16fd99`                                      |
-| Vendored | 2026-10-17                                     |
+| Spec     | v1.0.0-draft, rev 17 (`spec-1.0.0-draft.17`)   |
+| Commit   | `1a93bbf`                                      |
+| Vendored | 2026-10-20                                     |
 
-Some files come from a later tag, `spec-1.0.0-draft.17`, because this library
-adopts that revision a piece at a time (D17 onwards). Vendored from it so far:
-the seat form fixtures (`seat-forms`, `seat-form-implementation-defined` and
-`invalid/seat-type-form-empty`, §4.7.1) and the group fixtures (`group-kinds`,
-`invalid/group-*`, `validator-only/*group*` and `validator-only/seat-in-two-groups`,
-§4.11). Booking modes and whole prices come with their own release. The rest of
-the corpus stays at rev 15 until then.
+Rev 17 brought seat forms (§4.7.1), groups (§4.11), booking modes (§4.12) and
+whole prices (§4.9.1), and retired `Seat.companions` (§4.12.4), so
+`validator-only/asymmetric-companions` is gone from the standard and from here.
+
+`corpus/booking-units/` is the standard's booking-units corpus: maps, sessions,
+and the booking units, whole units and selection prices expected of them.
+`booking-units.spec.ts` runs this library's `bookingUnits`, `checkSelection` and
+`priceSelection` over every scenario in it. Its `lounge.json` names the map and
+the quiz-night session by a path relative to itself, which is why those two sit
+in `corpus/` beside the other documents.
 
 Only whitespace differs from the source: the repository runs Prettier over the
 corpus along with everything else.

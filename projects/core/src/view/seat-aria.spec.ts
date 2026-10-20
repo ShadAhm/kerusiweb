@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { Group, KerusiMap, Seat } from '../kerusi/kerusi-map.model.js';
 import { KerusiState } from '../kerusi/kerusi-state.model.js';
 import { buildRenderModel } from '../render/build-render-model.js';
+import { KerusiSession } from '../kerusi/kerusi-state.model.js';
 import {
   DEFAULT_SEAT_ARIA_STRINGS,
   disallowedAnnouncement,
   SeatAriaStrings,
   seatAriaLabel,
+  wholeUnitAriaLabel,
+  wholeUnitDisallowedAnnouncement,
 } from './seat-aria.js';
 
 const mapWith = (seat: Seat): KerusiMap => ({
@@ -155,8 +158,11 @@ describe('disallowedAnnouncement', () => {
     expect(disallowedAnnouncement(seat(), 'max-selection')).toContain(
       'would exceed the seat limit',
     );
-    expect(disallowedAnnouncement(seat(), 'companion-unavailable')).toContain(
+    expect(disallowedAnnouncement(seat(), 'unit-unavailable')).toContain(
       'must be booked with a seat that is unavailable',
+    );
+    expect(disallowedAnnouncement(seat(), 'unit-too-large')).toBe(
+      'Row 12, seat A is booked with more seats than the seat limit allows.',
     );
   });
 });
@@ -198,6 +204,123 @@ describe('seatAriaLabel for a seat in a group (§4.11)', () => {
   it('names the group when a selection is refused too', () => {
     expect(disallowedAnnouncement(seatOf('Table 3'), 'booked')).toBe(
       'Table 3, seat A is already booked.',
+    );
+  });
+});
+
+describe('booking units in what a screen reader says (§4.9.1, §4.12)', () => {
+  /** Table 3: eight places, sold by the seat or whole at MYR 180.00, and a love seat booked as a pair. */
+  const MAP: KerusiMap = {
+    kerusi: '1.0',
+    id: 'lounge',
+    canvas: { width: 400, height: 200 },
+    seatSize: 20,
+    legend: [{ id: 'guest', label: 'Guest', defaultPriceTier: 'seat' }],
+    priceTiers: [{ id: 'seat', price: { amount: 5000, currency: 'MYR' } }],
+    sections: [
+      {
+        id: 'floor',
+        seats: [
+          ...Array.from({ length: 8 }, (_, i) => ({
+            id: `T3-${i + 1}`,
+            label: `${i + 1}`,
+            x: 40 + i * 20,
+            y: 40,
+            type: 'guest',
+          })),
+          { id: 'LS-1', label: '1', x: 40, y: 120, type: 'guest' },
+          { id: 'LS-2', label: '2', x: 60, y: 120, type: 'guest' },
+        ],
+        groups: [
+          {
+            id: 'T3',
+            kind: 'table',
+            label: 'Table 3',
+            seats: Array.from({ length: 8 }, (_, i) => `T3-${i + 1}`),
+            booking: 'either',
+            wholePrice: { amount: 18000, currency: 'MYR' },
+          },
+          { id: 'LS', kind: 'loveseat', seats: ['LS-1', 'LS-2'], booking: 'whole' },
+        ],
+      },
+    ],
+  };
+  const WEDDING: KerusiSession = {
+    kerusi: '1.0',
+    id: 'wedding',
+    mapId: 'lounge',
+    bookingModes: { groups: { T3: 'whole' } },
+  };
+  const model = (session?: KerusiSession, state?: KerusiState) =>
+    buildRenderModel(MAP, state, { session });
+  // Intl puts a no-break space between the currency and the amount.
+  const said = (text: string) => text.replace(/ /g, ' ');
+
+  it('announces a seat of an either table by itself, at its own price', () => {
+    expect(said(seatAriaLabel(model().seatsById.get('T3-4')!, 'en'))).toBe(
+      'Table 3, seat 4, Guest, MYR 50.00, available.',
+    );
+  });
+
+  it('announces a seat of a table sold whole with the table, at the table price', () => {
+    expect(said(seatAriaLabel(model(WEDDING).seatsById.get('T3-4')!, 'en'))).toBe(
+      'Table 3, seat 4, Guest, MYR 180.00 for all 8 seats, available, ' +
+        'booked with 7 other seats at Table 3.',
+    );
+  });
+
+  it('announces a pair with no label or whole price by its other seat, at its own price', () => {
+    expect(said(seatAriaLabel(model().seatsById.get('LS-1')!, 'en'))).toBe(
+      'Seat 1, Guest, MYR 50.00, available, booked with 1 other seat.',
+    );
+  });
+
+  it('announces an available seat whose other half is taken as unavailable', () => {
+    const state: KerusiState = {
+      kerusi: '1.0',
+      mapId: 'lounge',
+      updatedAt: '2026-10-20T10:00:00Z',
+      seats: { 'LS-2': { status: 'booked' } },
+    };
+    expect(said(seatAriaLabel(model(undefined, state).seatsById.get('LS-1')!, 'en'))).toBe(
+      'Seat 1, Guest, MYR 50.00, unavailable, booked together with a seat that is taken, ' +
+        'booked with 1 other seat.',
+    );
+  });
+
+  it('names the whole-table control: label, what it books, its seats and price (D19)', () => {
+    const table = model().wholeUnits[0]!;
+    expect(said(wholeUnitAriaLabel(table, 'en'))).toBe(
+      'Table 3, book the whole table, 8 seats, MYR 180.00',
+    );
+    const unpriced = { ...table, label: undefined, kind: 'loveseat', wholePrice: undefined };
+    expect(said(wholeUnitAriaLabel(unpriced, 'en'))).toBe('book the whole love seat, 8 seats');
+  });
+
+  it('says why a whole unit cannot be booked', () => {
+    const table = model().wholeUnits[0]!;
+    expect(wholeUnitDisallowedAnnouncement(table, 'unit-unavailable')).toBe(
+      'Table 3 cannot be booked whole: a seat in it is unavailable.',
+    );
+    expect(wholeUnitDisallowedAnnouncement({ ...table, label: undefined }, 'unit-too-large')).toBe(
+      'The whole table has more seats than the seat limit allows.',
+    );
+  });
+
+  it('falls back to English for each new string a caller written before booking units omits', () => {
+    const {
+      bookedWith: _a,
+      unitPrice: _b,
+      unitUnavailable: _c,
+      wholeUnit: _d,
+      wholeUnitDisallowed: _e,
+      ...before
+    } = DEFAULT_SEAT_ARIA_STRINGS;
+    expect(said(seatAriaLabel(model(WEDDING).seatsById.get('T3-1')!, 'en', before))).toContain(
+      'booked with 7 other seats at Table 3',
+    );
+    expect(said(wholeUnitAriaLabel(model().wholeUnits[0]!, 'en', before))).toContain(
+      'book the whole table',
     );
   });
 });

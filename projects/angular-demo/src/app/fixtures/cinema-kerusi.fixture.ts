@@ -1,4 +1,4 @@
-import { KerusiMap, KerusiState, Seat } from '@kerusiweb/core';
+import { Group, KerusiMap, KerusiState, Seat } from '@kerusiweb/core';
 
 // An "everything" cinema expressed in the Kerusi Seat Map & Availability
 // Format. It exercises what a straight-rowed hall cannot show:
@@ -99,7 +99,7 @@ function standardRow(row: string, rowIndex: number): Seat[] {
   return seats;
 }
 
-/** Three couple recliners at the back, each pair linked by `companions`. */
+/** Three couple recliners at the back; {@link LOVE_SEAT_GROUPS} books each pair whole. */
 function loveSeatRow(): Seat[] {
   const pairs: [number, number][] = [
     [3, 4],
@@ -116,16 +116,22 @@ function loveSeatRow(): Seat[] {
       {
         ...seatAt(leftId, `${leftNumber}`, LOVE_ROW, leftSlot, LOVE_ROW_Y),
         type: 'recliner-couple',
-        companions: [rightId],
       },
       {
         ...seatAt(rightId, `${rightNumber}`, LOVE_ROW, rightSlot, LOVE_ROW_Y),
         type: 'recliner-couple',
-        companions: [leftId],
       },
     ];
   });
 }
+
+/** Each couple recliner pair as a love seat booked whole (§4.11, §4.12). */
+const LOVE_SEAT_GROUPS: Group[] = [1, 3, 5].map((left, i) => ({
+  id: `love-${i + 1}`,
+  kind: 'loveseat',
+  seats: [`${LOVE_ROW}${left}`, `${LOVE_ROW}${left + 1}`],
+  booking: 'whole',
+}));
 
 export const CINEMA_KERUSI_MAP: KerusiMap = {
   kerusi: '1.0',
@@ -184,6 +190,7 @@ export const CINEMA_KERUSI_MAP: KerusiMap = {
         },
       ],
       seats: [...STANDARD_ROWS.flatMap((row, index) => standardRow(row, index)), ...loveSeatRow()],
+      groups: LOVE_SEAT_GROUPS,
     },
   ],
 };

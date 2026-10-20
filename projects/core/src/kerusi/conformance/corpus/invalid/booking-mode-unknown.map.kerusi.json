@@ -1,0 +1,34 @@
+{
+  "kerusi": "1.0",
+  "id": "booking-mode-unknown",
+  "canvas": {
+    "width": 400,
+    "height": 200
+  },
+  "seatSize": 40,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "booking": "exclusive",
+  "sections": [
+    {
+      "id": "s",
+      "seats": [
+        {
+          "id": "a",
+          "x": 100,
+          "y": 100,
+          "type": "standard"
+        },
+        {
+          "id": "b",
+          "x": 140,
+          "y": 100,
+          "type": "standard"
+        }
+      ]
+    }
+  ]
+}

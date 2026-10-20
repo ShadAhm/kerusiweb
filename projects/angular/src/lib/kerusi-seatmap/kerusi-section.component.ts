@@ -8,10 +8,12 @@ import {
   TemplateRef,
 } from '@angular/core';
 import {
+  canPickSeat,
   DEFAULT_KERUSI_COLORS,
   elementFill,
   elementStyle,
   elementTextFill,
+  isWholeUnitControl,
   KerusiSeatmapColors,
   PlacedElement,
   PlacedGroup,
@@ -69,6 +71,13 @@ export class KerusiSectionComponent {
   readonly focusedSeatId = input<string | null>(null);
   /** Per-seat accessible names, keyed by seat id. */
   readonly ariaLabels = input<ReadonlyMap<string, string>>(new Map());
+  /**
+   * The name of each whole unit's control, keyed by group id, and the reason it
+   * cannot be booked while it cannot (D19).
+   */
+  readonly wholeUnitLabels = input<ReadonlyMap<string, { label: string; reason?: string }>>(
+    new Map(),
+  );
 
   readonly colors = input<Required<KerusiSeatmapColors>>(DEFAULT_KERUSI_COLORS);
   /** Whether an available seat may take its `SeatType.color` (§4.7). */
@@ -102,6 +111,9 @@ export class KerusiSectionComponent {
   readonly seatFocused = output<string>();
   readonly seatBlurred = output<string>();
   readonly seatKeydown = output<KeyboardEvent>();
+  /** A whole unit's control was pressed: book or release the group whole (D19). */
+  readonly wholeUnitActivate = output<string>();
+  readonly wholeUnitKeydown = output<{ groupId: string; event: KeyboardEvent }>();
 
   private readonly live = computed(() => this.reachable() ?? this.interactive());
 
@@ -142,29 +154,44 @@ export class KerusiSectionComponent {
   });
 
   /**
-   * Each group's footprint, resolved once per change of layout or theme. A group
-   * with no shape has none and draws nothing of its own.
+   * Each group's footprint, resolved once per change of layout, selection or
+   * theme. A group with no shape has none and draws nothing of its own. A shape
+   * that books its group whole is the group's control (D19), and is drawn in the
+   * group's wrapper rather than among the decoration.
    */
   protected readonly groups = computed(() => {
     const colors = this.colors();
-    return this.layout().groups.map((placed) => ({
-      placed,
-      glyph: resolveGroupGlyph(placed, colors),
-    }));
+    const selection = this.selection();
+    const interactive = this.interactive();
+    return this.layout().groups.map((placed) => {
+      const control = isWholeUnitControl(placed, interactive);
+      return {
+        placed,
+        control,
+        glyph: resolveGroupGlyph(placed, colors, control ? { selection } : undefined),
+      };
+    });
   });
+
+  /** The footprints drawn as decoration, under every seat. */
+  protected readonly footprints = computed(() => this.groups().filter((entry) => !entry.control));
 
   /**
    * A group's seats, wrapped in a `role="group"` named by the group's label so a
-   * screen reader says which table a seat is at. Only a group with a label and
-   * seats gets one: an unnamed group says nothing.
+   * screen reader says which table a seat is at, with the group's whole-unit
+   * control first, so it comes before its seats in keyboard order (D19). Only a
+   * `wrapped` group gets one: an unnamed group with no control says nothing.
    */
   protected readonly groupedSeats = computed(() => {
     const byId = new Map(this.seats().map((entry) => [entry.placed.seat.id, entry]));
-    return this.layout()
-      .groups.filter((group: PlacedGroup) => group.group.label && group.seats.length > 0)
-      .map((group) => ({
-        group: group.group,
-        entries: group.seats.map((placed) => byId.get(placed.seat.id)!),
+    const labels = this.wholeUnitLabels();
+    return this.groups()
+      .filter(({ placed }) => placed.wrapped)
+      .map(({ placed, control, glyph }) => ({
+        group: placed.group,
+        control: control && glyph?.whole ? glyph : undefined,
+        names: labels.get(placed.group.id),
+        entries: placed.seats.map((seat) => byId.get(seat.seat.id)!),
       }));
   });
 
@@ -184,6 +211,11 @@ export class KerusiSectionComponent {
   protected describedById(placed: PlacedSeat): string | null {
     const described = this.describedBy();
     return described?.seatId === placed.seat.id ? described.id : null;
+  }
+
+  /** Disabled too when another seat of its booking unit is taken (§4.12.3). */
+  protected disabled(placed: PlacedSeat): boolean {
+    return !canPickSeat(placed.seat);
   }
 
   protected ariaLabel(placed: PlacedSeat): string {
@@ -258,5 +290,13 @@ export class KerusiSectionComponent {
     if (this.live()) {
       this.seatKeydown.emit(event);
     }
+  }
+
+  protected onWholeUnitClick(groupId: string): void {
+    this.wholeUnitActivate.emit(groupId);
+  }
+
+  protected onWholeUnitKeydown(groupId: string, event: KeyboardEvent): void {
+    this.wholeUnitKeydown.emit({ groupId, event });
   }
 }

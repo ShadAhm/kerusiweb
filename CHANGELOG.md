@@ -6,6 +6,59 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+**Breaking: the next release is 4.0.0** of `@kerusiweb/core`,
+`@kerusiweb/angular` and `@kerusiweb/react`, for Kerusi
+[rev 17](https://github.com/ShadAhm/kerusi/tree/spec-1.0.0-draft.17)
+(ShadAhm/kerusi#17, ShadAhm/kerusi#18): seat forms, groups, **booking units**
+and whole prices. Rev 17 retires `Seat.companions` for groups booked `whole`, and
+selection moves from the companion closure to booking units, so `companions`
+and `companionMode` go. Documents and code both change; see
+[Migrating from 3.x](#migrating-from-3x). Planned in #50; done in #51, #52 and
+#53.
+
+### Changed (breaking)
+
+1. **`Seat.companions` is retired** (§4.12.4). The member is reserved: the
+   validator rejects a seat that carries it, even an empty list, with the
+   reference rule id `companions-retired` (D23), and says that a group replaces
+   it. `companion-reference` and `companion-symmetry` are gone with it. A set of
+   seats booked together is now a group with `booking: "whole"`, of kind
+   `companion` when no furniture is involved and `loveseat`, `table` or the like
+   when it is. The `Seat.companions` type is `never`.
+
+2. **A tap selects a booking unit** (§4.12.2, D19). A seat's booking unit is
+   every seat of the outermost level containing it (the map, its section, its
+   group) whose effective mode is `whole`, or the seat alone. A tap, Enter or
+   Space on a seat toggles its whole unit, in place of the companion closure, and
+   `changed` in `onSeatSelect` / `(seatSelect)` lists all of it.
+
+3. **`companionMode` is `unitMode: 'auto' | 'seats'`** (D22), on both bindings
+   and as a `buildRenderModel` option. `'seats'` is the old `'independent'`: a
+   tap takes the seat alone, for an admin view that blocks single seats.
+
+4. **New disallowed reasons.** `companion-unavailable` is `unit-unavailable`: a
+   seat of the unit is not available (§4.12.3). `unit-too-large` is new: the unit
+   alone holds more seats than `maxSelection`, which still counts seats (D21).
+   `SeatAriaStrings.disallowed` needs both keys, and no longer takes the old one.
+
+5. **The render model.** `RenderSeat.companions` is gone; `RenderSeat.unit` is
+   the seat's booking unit, and `RenderSeat.unitBlocked` says another seat of it
+   cannot be picked. Core no longer exports `companionClosure`. The seat class
+   `kerusi-seat--companion` is `kerusi-seat--unit`, on a seat in a unit of more
+   than one.
+
+6. **A seat booked only with a taken seat shows as unavailable** (§4.12.3): the
+   other half of a sold love seat is `aria-disabled`, carries
+   `kerusi-seat--unselectable` and the new `kerusi-seat--unit-blocked`, which
+   dims it, and is announced "unavailable, booked together with a seat that is
+   taken". It was shown as available before, and refused only when tapped.
+
+7. **Totals follow §4.9.1.** `summarizeSelection`, and the `summary` both
+   bindings expose, charge a table, room or venue its whole price when every one
+   of its seats is selected, however they were picked, in place of its seats'
+   prices. `unpriced` counts the seats no whole price covers. The live region's
+   total is the same.
+
 ### Added
 
 - **Seat forms (§4.7.1).** `SeatType.form` says what one place of a type looks
@@ -47,6 +100,103 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in #50.
 - A "Banquet" scenario in both demos has round tables, and the Lounge's sofa and
   pews are groups.
+- **Booking modes (§4.12).** `booking: "seats" | "whole" | "either"` on the map, a
+  section and a group, and a `KerusiSession`'s `bookingModes` overriding them for
+  one event (§4.12.1, §5.3), are modelled and honoured. Core exports
+  `bookingUnits(map, session?, state?)`: every booking unit, every whole unit
+  (with level, id, label, seat ids, whole price and, given a state, whether it
+  can be booked), and each seat's unit. It follows the standard's reference
+  `schema/booking.mjs` and passes its `examples/booking-units/` corpus, vendored
+  here. Core also exports `bookingLevels`, `checkSelection` (whether a selection
+  is a union of booking units, §4.12.3) and `priceSelection` (§4.9.1).
+- **A `session` input or prop drives booking.** Both bindings already took a
+  `KerusiSession` for validation; its `bookingModes` now apply, so one map can
+  sell every table whole at a wedding and by the seat at a quiz night. Without a
+  session, the map's own modes apply.
+- **Book a table whole from its shape** (D19). An `either` group with a shape,
+  an `either` table or sofa, has its footprint drawn as a control: a
+  `role="button"` with `tabindex="0"`, first in its group's wrapper so it comes
+  before its seats in keyboard order, announced "Table 3, book the whole table,
+  8 seats, MYR 180.00" (`ariaStrings.wholeUnit`, optional). A click, Enter or
+  Space selects every seat of it, and again deselects them; `aria-pressed` says
+  whether it is booked whole, and its outline takes the selected colour. While a
+  seat of it is taken it is `aria-disabled`, with the reason as its
+  `aria-description`. An arrow key moves into its first seat, and Escape clears
+  the selection as from a seat. It shows a heavier outline on hover and the
+  focus ring on `:focus-visible` (`kerusi-group--whole`, `kerusi-group--selected`,
+  `kerusi-group--unavailable`, `kerusi-group__focus`). A read-only map draws the
+  footprint as decoration, as before. Seat events do not fire for it;
+  `onSelectionChange` and `(selectionChange)` do.
+- **Whole units with no shape are the app's** (D19): a room, the venue, a
+  shapeless group. `RenderMap.wholeUnits`, or `bookingUnits` with a state, gives
+  them with their availability, and the app books one by setting `selection`
+  (core's `toggleWholeUnit` does the arithmetic). The READMEs show a "Book the
+  whole room" button built this way.
+- **The change reports whole units** (D20). `selection` stays a list of seat ids.
+  React's `onSelectionChange` gains a second argument, `{ selection, wholeUnits }`;
+  Angular gains a `(selectionDetail)` output with the same object, emitted with
+  `(selectionChange)`. `wholeUnits` lists the whole units fully selected, so an
+  app can say "Table 3 (whole table)". `summarizeSelection` also returns
+  `wholeUnits`, and `wholes`, the levels charged a whole price.
+- **What a screen reader says.** A seat in a unit of more than one is announced
+  with it: "booked with 7 other seats at Table 3" (`ariaStrings.bookedWith`), and
+  at the unit's whole price when the level has one: "MYR 1,200.00 for all 8
+  seats" (`ariaStrings.unitPrice`). `unitUnavailable`, `wholeUnit` and
+  `wholeUnitDisallowed` are new optional strings too; leave them out and the
+  English defaults are used.
+- **Whole prices (§4.9.1).** `wholePrice` and `wholePriceTier` on the map, a
+  section and a group. The validator checks a whole price tier resolves
+  (`whole-price-tier-unresolved`, D23) and counts whole prices toward the map's
+  one currency (`single-currency`), checks every `booking` is a known mode
+  (`booking-mode-invalid`), checks a session's `bookingModes`
+  (`session-booking-mode-invalid`), and, given the map, that every section and
+  group a session overrides exists (`session-booking-mode-unresolved`, D23).
+- The vendored conformance corpus is now rev 17 throughout, with the
+  booking-units corpus run against `bookingUnits`, `checkSelection` and
+  `priceSelection`.
+- A "Wedding" scenario in both demos sells the Banquet's map with every table
+  booked whole through a session, at a table price; a "Venue hire" scenario has
+  an `either` venue offered by the app's own "Hire the whole venue" button, an
+  `either` table booked from its top, and a private room booked `whole`. The
+  demos' companion pairs are groups booked whole.
+
+### Migrating from 3.x
+
+**Documents.** Replace every `companions` list with a group in the seats'
+section, booked whole. A wheelchair space and its companion seat:
+
+```diff
+   seats: [
+-    { "id": "E1", "x": 40, "y": 200, "type": "wheelchair", "companions": ["E2"] },
+-    { "id": "E2", "x": 80, "y": 200, "type": "standard", "companions": ["E1"] }
++    { "id": "E1", "x": 40, "y": 200, "type": "wheelchair" },
++    { "id": "E2", "x": 80, "y": 200, "type": "standard" }
+   ],
++  "groups": [
++    { "id": "E-bay", "kind": "companion", "seats": ["E1", "E2"], "booking": "whole" }
++  ]
+```
+
+Use `kind: "loveseat"`, `"table"` and so on when there is a piece of furniture,
+and give it a `shape` to draw it. A family pod linked by a chain of companions is
+one group of all its seats. Then set `kerusi` documents to rev 17 in whatever
+pipeline produces them: a map that still carries `companions` is rejected with
+`companions-retired`.
+
+**Code.**
+
+- `companionMode="independent"` becomes `unitMode="seats"`;
+  `companionMode="auto"` becomes `unitMode="auto"`, the default, or nothing.
+- In a `SeatDisallowed` handler or a custom `ariaStrings.disallowed`, rename
+  `companion-unavailable` to `unit-unavailable`, and handle `unit-too-large`.
+- `RenderSeat.companions` is `RenderSeat.unit.seatIds` (with the seat itself),
+  and `companionClosure(id, seatsById)` is `seatsById.get(id).unit.seatIds`.
+- CSS on `.kerusi-seat--companion` moves to `.kerusi-seat--unit`.
+- A total from `summarizeSelection` now applies whole prices (§4.9.1). A map with
+  no `wholePrice` or `wholePriceTier` totals exactly as before.
+- To show whole bookings in a cart, read `wholeUnits` from the change event
+  (React's second `onSelectionChange` argument, Angular's `(selectionDetail)`) or
+  from `summary`.
 
 ## [3.1.0] - 2026-10-18
 

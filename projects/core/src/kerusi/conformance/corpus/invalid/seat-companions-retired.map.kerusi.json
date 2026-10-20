@@ -1,0 +1,35 @@
+{
+  "kerusi": "1.0",
+  "id": "seat-companions-retired",
+  "canvas": {
+    "width": 400,
+    "height": 200
+  },
+  "seatSize": 40,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "seats": [
+        {
+          "id": "a",
+          "x": 100,
+          "y": 100,
+          "type": "standard",
+          "companions": ["b"]
+        },
+        {
+          "id": "b",
+          "x": 140,
+          "y": 100,
+          "type": "standard",
+          "companions": ["a"]
+        }
+      ]
+    }
+  ]
+}

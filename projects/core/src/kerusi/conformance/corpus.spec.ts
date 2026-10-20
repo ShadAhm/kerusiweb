@@ -6,7 +6,10 @@ import {
   checkKerusiState,
   checkKerusiStateDelta,
   errorsOf,
+  validateDocumentSet,
 } from '../kerusi-validator.js';
+import { KerusiMap } from '../kerusi-map.model.js';
+import { KerusiSession } from '../kerusi-state.model.js';
 import { KerusiViolation } from '../kerusi-violation.js';
 
 /**
@@ -63,6 +66,8 @@ const VALID = [
   'delta-release.statedelta.kerusi.json',
   'flight-b738.map.kerusi.json',
   'group-kinds.map.kerusi.json',
+  'lounge-quiz-night.session.kerusi.json',
+  'lounge.map.kerusi.json',
   'seat-form-implementation-defined.map.kerusi.json',
   'seat-forms.map.kerusi.json',
   'session-mh123.session.kerusi.json',
@@ -80,11 +85,11 @@ const VALID = [
  * wrong reason is a failure rather than a pass.
  */
 const SEMANTIC: Record<string, string[]> = {
-  'validator-only/asymmetric-companions.map.kerusi.json': ['companion-symmetry'],
   'validator-only/dangling-group-seat.map.kerusi.json': ['group-seat-unresolved'],
   'validator-only/dangling-price-tier.map.kerusi.json': ['seat-pricetier-reference'],
   'validator-only/dangling-row.map.kerusi.json': ['seat-row-reference'],
   'validator-only/dangling-seat-type.map.kerusi.json': ['seat-type-reference'],
+  'validator-only/dangling-whole-price-tier.map.kerusi.json': ['whole-price-tier-unresolved'],
   'validator-only/duplicate-element-ids.map.kerusi.json': ['element-id-duplicate'],
   'validator-only/duplicate-group-ids.map.kerusi.json': ['group-id-duplicate'],
   'validator-only/duplicate-price-tier-ids.map.kerusi.json': ['price-tier-id-duplicate'],
@@ -99,10 +104,14 @@ const SEMANTIC: Record<string, string[]> = {
   'validator-only/group-shape-outside-canvas.map.kerusi.json': ['group-shape-outside-canvas'],
   'validator-only/seat-in-two-groups.map.kerusi.json': ['group-seat-shared'],
   'validator-only/seat-outside-canvas.map.kerusi.json': ['seat-outside-canvas'],
+  // The reference validator calls it `map-currency-mixed`; this library's rule
+  // predates whole prices, which now count toward it (§4.9.1).
+  'validator-only/whole-price-currency.map.kerusi.json': ['single-currency'],
 };
 
 /** Schema-invalid documents this library also rejects, by rule id. */
 const REJECTED: Record<string, string[]> = {
+  'invalid/booking-mode-unknown.map.kerusi.json': ['booking-mode-invalid'],
   'invalid/degenerate-canvas.map.kerusi.json': ['map-canvas-size'],
   'invalid/delta-both-scopes.statedelta.kerusi.json': ['state-scope'],
   'invalid/delta-missing-changes.statedelta.kerusi.json': ['delta-changes'],
@@ -120,11 +129,15 @@ const REJECTED: Record<string, string[]> = {
   'invalid/row-shape-unknown-kind.map.kerusi.json': ['row-shape-kind'],
   'invalid/seat-col-without-row.map.kerusi.json': ['seat-col-without-row'],
   'invalid/seat-col-zero.map.kerusi.json': ['seat-col-invalid'],
+  // §4.12.4: the member is reserved, so §2's "ignore what you don't know" does
+  // not apply, and the rule id is the reference validator's (D23).
+  'invalid/seat-companions-retired.map.kerusi.json': ['companions-retired', 'companions-retired'],
   'invalid/seat-missing-y.map.kerusi.json': ['seat-position'],
   // Below the schema's `minimum: 0`, which is the canvas's lower edge.
   'invalid/seat-negative-x.map.kerusi.json': ['seat-outside-canvas'],
   'invalid/seat-no-position.map.kerusi.json': ['seat-position'],
   'invalid/section-seat-size-zero.map.kerusi.json': ['section-seat-size'],
+  'invalid/session-booking-mode-unknown.session.kerusi.json': ['session-booking-mode-invalid'],
   'invalid/session-missing-mapid.session.kerusi.json': ['session-mapid'],
   'invalid/state-bad-timestamp.state.kerusi.json': ['state-updatedat-format'],
   'invalid/state-both-scopes.state.kerusi.json': ['state-scope'],
@@ -167,6 +180,14 @@ describe('conformance corpus — valid examples', () => {
       expect(checkFor(name)(docOf(name))).toEqual([]);
     });
   }
+});
+
+describe('conformance corpus — a session against its map (§5.3)', () => {
+  it('accepts the quiz-night session against the lounge it names', () => {
+    const map = docOf('lounge.map.kerusi.json') as KerusiMap;
+    const session = docOf('lounge-quiz-night.session.kerusi.json') as KerusiSession;
+    expect(validateDocumentSet({ map, session })).toEqual([]);
+  });
 });
 
 describe('conformance corpus — §7 semantic rules', () => {

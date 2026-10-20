@@ -1,16 +1,19 @@
 import {
   Accessibility,
+  BookingMode,
   Bounds,
   Canvas,
   Element,
   Group,
+  KerusiMap,
   Money,
   PriceTier,
   Seat,
   SeatType,
   Section,
 } from '../kerusi/kerusi-map.model.js';
-import { SeatStatus } from '../kerusi/kerusi-state.model.js';
+import { KerusiSession, SeatStatus } from '../kerusi/kerusi-state.model.js';
+import { BookingLevelKind } from '../kerusi/kerusi-booking.js';
 
 /**
  * The renderer's view of a Kerusi document pair: a `KerusiMap` with its
@@ -77,16 +80,29 @@ export interface RenderSeat {
   // --- commerce -------------------------------------------------------------
   /** Resolved per the §4.9 precedence order; absent when the seat is unpriced. */
   price?: Money;
-  /** ids of seats that must be booked together (§4.6). Symmetric. */
-  companions: readonly string[];
+  /**
+   * The seat's booking unit (§4.12.2): the seats a tap on it selects and
+   * deselects together. The seat alone unless a level containing it is booked
+   * `whole`, and always the seat alone under `unitMode: 'seats'`.
+   */
+  unit: RenderBookingUnit;
 
   // --- availability ---------------------------------------------------------
   /** From the merged state; `"available"` when the seat is absent (§5.1). */
   status: SeatRenderStatus;
   /** RFC 3339 (§5.1.1); meaningful when `status === "held"`. */
   holdExpires?: string;
-  /** Whether this seat may currently be picked, per the caller's rules. */
+  /**
+   * Whether this seat may currently be picked by its own rules: its status, and
+   * the caller's `seatSelectable`. See `unitBlocked` for its booking unit's.
+   */
   selectable: boolean;
+  /**
+   * Whether another seat of its booking unit cannot be picked, so neither can
+   * this one (§4.12.3): the other half of a love seat is sold. A renderer shows
+   * such a seat as unavailable, as it does one that is not `selectable`.
+   */
+  unitBlocked: boolean;
 
   /**
    * The group this seat belongs to (§4.11): the table, sofa or pew it sits at.
@@ -96,6 +112,41 @@ export interface RenderSeat {
 
   /** The originating document object, for callers that need `metadata`. */
   source: Seat;
+}
+
+/**
+ * How a tap on a seat selects (D22): `auto` takes the seat's whole booking unit
+ * (§4.12.2), `seats` takes the seat alone, for an admin view that blocks single
+ * seats.
+ */
+export type UnitMode = 'auto' | 'seats';
+
+/**
+ * A booking unit or a whole unit (§4.12.2), resolved: seats booked as one.
+ *
+ * A whole unit is an `either` level offered as one booking: an `either` table is
+ * offered on its shape, and a room or the venue, which has nothing to tap, is
+ * left to the app (D19).
+ */
+export interface RenderBookingUnit {
+  /** `"seat"` for a seat that is a booking unit on its own. */
+  level: BookingLevelKind | 'seat';
+  /** The id of the map, section, group or seat. */
+  id: string;
+  /** The level's label, localized: a group's or section's label, the map's name. */
+  label?: string;
+  /** `Group.kind` for a group's unit: what to call it ("book the whole table"). */
+  kind?: string;
+  /** The unit's seat ids, in document order. Some may be in sections not drawn. */
+  seatIds: readonly string[];
+  /** The level's whole price (§4.9.1), which applies whenever all its seats are selected. */
+  wholePrice?: Money;
+  /**
+   * Whether every seat in it may be picked now (§4.12.3): its status is
+   * selectable and the caller's `seatSelectable` allows it. A renderer MUST NOT
+   * offer a whole unit while this is false.
+   */
+  selectable: boolean;
 }
 
 /**
@@ -125,6 +176,14 @@ export interface RenderGroup {
   seatIds: readonly string[];
   /** The footprint, when the document gives a well-formed one. */
   shape?: RenderGroupShape;
+  /** The group's effective booking mode (§4.12.1): the session's override, else its own. */
+  booking: BookingMode;
+  /**
+   * The group as one booking, when it is offered whole: its mode is `either` and
+   * no `whole` level contains it (§4.12.2). With a `shape`, the shape is the
+   * control that books it (D19).
+   */
+  wholeUnit?: RenderBookingUnit;
   source: Group;
 }
 
@@ -194,6 +253,8 @@ export interface RenderSection {
   elements: readonly RenderElement[];
   /** Furniture and sets of seats that belong together (§4.11), in document order. */
   groups: readonly RenderGroup[];
+  /** The section's effective booking mode (§4.12.1). */
+  booking: BookingMode;
   /**
    * `Section.directions` localized (§4.10) — what an axis means in the physical
    * world. Informational only: nothing in this library reads it to decide
@@ -223,6 +284,25 @@ export interface RenderMap {
   currency?: string;
   /** Every seat across every section, keyed by id — the merge and lookup index. */
   seatsById: ReadonlyMap<string, RenderSeat>;
+  /** The map's effective booking mode (§4.12.1). */
+  booking: BookingMode;
+  /** How a tap selects: the `unitMode` the model was built with (D22). */
+  unitMode: UnitMode;
+  /**
+   * Every booking unit (§4.12.2), in document order, over the whole map rather
+   * than only the sections drawn. Under `unitMode: 'seats'`, one per seat.
+   */
+  units: readonly RenderBookingUnit[];
+  /**
+   * Every whole unit (§4.12.2), in document order: the map, then its sections,
+   * then its groups. An app offers the ones with no shape, a room or the venue,
+   * with its own control, by setting `selection` to the unit's `seatIds` (D19).
+   */
+  wholeUnits: readonly RenderBookingUnit[];
+  /** The document the model was built from, for pricing a selection (§4.9.1). */
+  source: KerusiMap;
+  /** The session whose booking modes apply, when one was given (§5.3). */
+  session?: KerusiSession;
 }
 
 /** A legend row: a seat type with its label and default price resolved. */

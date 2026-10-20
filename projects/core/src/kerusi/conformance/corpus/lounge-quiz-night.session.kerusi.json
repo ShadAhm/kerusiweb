@@ -1,0 +1,13 @@
+{
+  "kerusi": "1.0",
+  "id": "lounge-2026-11-14-quiz",
+  "mapId": "lounge",
+  "label": "Quiz night, 14 Nov 2026",
+  "startsAt": "2026-11-14T20:00:00+08:00",
+  "bookingModes": {
+    "map": "seats",
+    "groups": {
+      "T1": "whole"
+    }
+  }
+}

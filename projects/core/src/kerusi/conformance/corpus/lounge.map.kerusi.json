@@ -1,0 +1,360 @@
+{
+  "kerusi": "1.0",
+  "id": "lounge",
+  "name": "The Lounge",
+  "canvas": {
+    "width": 1200,
+    "height": 640
+  },
+  "seatSize": 40,
+  "legend": [
+    {
+      "id": "loveseat",
+      "label": "Love seat place",
+      "form": "sofa",
+      "defaultPriceTier": "premium"
+    },
+    {
+      "id": "sofa",
+      "label": "Sofa place",
+      "form": "sofa",
+      "defaultPriceTier": "regular"
+    },
+    {
+      "id": "pew",
+      "label": "Pew place",
+      "form": "bench",
+      "defaultPriceTier": "pew"
+    },
+    {
+      "id": "table-chair",
+      "label": "Table seat",
+      "defaultPriceTier": "regular"
+    },
+    {
+      "id": "private",
+      "label": "Private room armchair",
+      "form": "armchair",
+      "defaultPriceTier": "regular"
+    }
+  ],
+  "priceTiers": [
+    {
+      "id": "regular",
+      "label": "Regular",
+      "price": {
+        "amount": 5000,
+        "currency": "MYR"
+      }
+    },
+    {
+      "id": "premium",
+      "label": "Premium",
+      "price": {
+        "amount": 7000,
+        "currency": "MYR"
+      }
+    },
+    {
+      "id": "pew",
+      "label": "Pew",
+      "price": {
+        "amount": 3000,
+        "currency": "MYR"
+      }
+    },
+    {
+      "id": "table",
+      "label": "Table of four",
+      "price": {
+        "amount": 18000,
+        "currency": "MYR"
+      }
+    }
+  ],
+  "booking": "either",
+  "wholePrice": {
+    "amount": 500000,
+    "currency": "MYR"
+  },
+  "sections": [
+    {
+      "id": "lounge",
+      "label": "Lounge",
+      "index": 0,
+      "bounds": {
+        "x": 40,
+        "y": 20,
+        "width": 720,
+        "height": 560
+      },
+      "rows": [
+        {
+          "id": "P1",
+          "label": "Pew 1",
+          "shape": {
+            "line": {
+              "from": [140, 400],
+              "to": [260, 400],
+              "cols": [1, 4]
+            }
+          }
+        },
+        {
+          "id": "T1",
+          "label": "Table 1",
+          "shape": {
+            "circle": {
+              "center": [560, 420],
+              "radius": 80,
+              "start": -90,
+              "cols": [1, 4]
+            }
+          }
+        }
+      ],
+      "elements": [
+        {
+          "id": "stage",
+          "kind": "stage",
+          "label": "Stage",
+          "x": 400,
+          "y": 60,
+          "width": 600,
+          "height": 60
+        }
+      ],
+      "seats": [
+        {
+          "id": "LS1-1",
+          "x": 140,
+          "y": 200,
+          "type": "loveseat"
+        },
+        {
+          "id": "LS1-2",
+          "x": 180,
+          "y": 200,
+          "type": "loveseat"
+        },
+        {
+          "id": "SF1-1",
+          "x": 300,
+          "y": 200,
+          "type": "sofa"
+        },
+        {
+          "id": "SF1-2",
+          "x": 340,
+          "y": 200,
+          "type": "sofa"
+        },
+        {
+          "id": "SF1-3",
+          "x": 380,
+          "y": 200,
+          "type": "sofa"
+        },
+        {
+          "id": "P1-1",
+          "row": "P1",
+          "col": 1,
+          "x": 140,
+          "y": 400,
+          "type": "pew"
+        },
+        {
+          "id": "P1-2",
+          "row": "P1",
+          "col": 2,
+          "x": 180,
+          "y": 400,
+          "type": "pew"
+        },
+        {
+          "id": "P1-3",
+          "row": "P1",
+          "col": 3,
+          "x": 220,
+          "y": 400,
+          "type": "pew"
+        },
+        {
+          "id": "P1-4",
+          "row": "P1",
+          "col": 4,
+          "x": 260,
+          "y": 400,
+          "type": "pew"
+        },
+        {
+          "id": "T1-1",
+          "row": "T1",
+          "col": 1,
+          "x": 560,
+          "y": 340,
+          "rotation": 180,
+          "type": "table-chair"
+        },
+        {
+          "id": "T1-2",
+          "row": "T1",
+          "col": 2,
+          "x": 640,
+          "y": 420,
+          "rotation": 270,
+          "type": "table-chair"
+        },
+        {
+          "id": "T1-3",
+          "row": "T1",
+          "col": 3,
+          "x": 560,
+          "y": 500,
+          "type": "table-chair"
+        },
+        {
+          "id": "T1-4",
+          "row": "T1",
+          "col": 4,
+          "x": 480,
+          "y": 420,
+          "rotation": 90,
+          "type": "table-chair"
+        }
+      ],
+      "groups": [
+        {
+          "id": "LS1",
+          "kind": "loveseat",
+          "label": "Love seat",
+          "seats": ["LS1-1", "LS1-2"],
+          "shape": {
+            "rect": {
+              "x": 160,
+              "y": 204,
+              "width": 96,
+              "height": 48
+            }
+          },
+          "booking": "whole"
+        },
+        {
+          "id": "SF1",
+          "kind": "sofa",
+          "label": "Sofa",
+          "seats": ["SF1-1", "SF1-2", "SF1-3"],
+          "shape": {
+            "rect": {
+              "x": 340,
+              "y": 204,
+              "width": 136,
+              "height": 48
+            }
+          }
+        },
+        {
+          "id": "P1",
+          "kind": "pew",
+          "label": "Pew 1",
+          "seats": ["P1-1", "P1-2", "P1-3", "P1-4"],
+          "shape": {
+            "rect": {
+              "x": 200,
+              "y": 404,
+              "width": 172,
+              "height": 44
+            }
+          }
+        },
+        {
+          "id": "T1",
+          "kind": "table",
+          "label": "Table 1",
+          "seats": ["T1-1", "T1-2", "T1-3", "T1-4"],
+          "shape": {
+            "circle": {
+              "center": [560, 420],
+              "radius": 50
+            }
+          },
+          "booking": "either",
+          "wholePriceTier": "table"
+        }
+      ]
+    },
+    {
+      "id": "private",
+      "label": "Private room",
+      "index": 1,
+      "bounds": {
+        "x": 840,
+        "y": 300,
+        "width": 320,
+        "height": 200
+      },
+      "booking": "whole",
+      "wholePrice": {
+        "amount": 120000,
+        "currency": "MYR"
+      },
+      "seats": [
+        {
+          "id": "R1",
+          "x": 940,
+          "y": 350,
+          "rotation": 180,
+          "type": "private"
+        },
+        {
+          "id": "R2",
+          "x": 1000,
+          "y": 350,
+          "rotation": 180,
+          "type": "private"
+        },
+        {
+          "id": "R3",
+          "x": 1060,
+          "y": 350,
+          "rotation": 180,
+          "type": "private"
+        },
+        {
+          "id": "R4",
+          "x": 940,
+          "y": 450,
+          "type": "private"
+        },
+        {
+          "id": "R5",
+          "x": 1000,
+          "y": 450,
+          "type": "private"
+        },
+        {
+          "id": "R6",
+          "x": 1060,
+          "y": 450,
+          "type": "private"
+        }
+      ],
+      "groups": [
+        {
+          "id": "PT",
+          "kind": "table",
+          "label": "Private table",
+          "seats": ["R1", "R2", "R3", "R4", "R5", "R6"],
+          "shape": {
+            "rect": {
+              "x": 1000,
+              "y": 400,
+              "width": 200,
+              "height": 60
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

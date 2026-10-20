@@ -1,8 +1,10 @@
 import {
+  canPickSeat,
   DEFAULT_KERUSI_COLORS,
   elementFill,
   elementStyle,
   elementTextFill,
+  isWholeUnitControl,
   resolveGroupGlyph,
   resolveSeatGlyph,
   resolveSeatStyle,
@@ -38,6 +40,11 @@ export interface KerusiSectionProps {
   focusedSeatId?: string | null;
   /** Per-seat accessible names, keyed by seat id. */
   ariaLabels?: ReadonlyMap<string, string>;
+  /**
+   * The name of each whole unit's control, keyed by group id, and the reason it
+   * cannot be booked while it cannot (D19).
+   */
+  wholeUnitLabels?: ReadonlyMap<string, { label: string; reason?: string }>;
   colors?: Required<KerusiSeatmapColors>;
   /** Whether an available seat may take its `SeatType.color` (§4.7). */
   typeColors?: boolean;
@@ -74,10 +81,14 @@ export interface KerusiSectionProps {
   onSeatPointer?: (type: 'enter' | 'leave' | 'move', seatId: string, pointerType: string) => void;
   /** Called with each seat's `<g>` as it mounts and unmounts, for focus moves. */
   registerSeat?: (seatId: string, node: SVGGElement | null) => void;
+  /** A whole unit's control was pressed: book or release the group whole (D19). */
+  onWholeUnitActivate?: (groupId: string) => void;
+  onWholeUnitKeyDown?: (groupId: string, event: ReactKeyboardEvent<SVGGElement>) => void;
 }
 
 const EMPTY_SELECTION: ReadonlySet<string> = new Set();
 const EMPTY_LABELS: ReadonlyMap<string, string> = new Map();
+const EMPTY_UNIT_LABELS: ReadonlyMap<string, { label: string; reason?: string }> = new Map();
 
 /**
  * Draws one Kerusi `Section` as a `<g>` on the map's shared canvas (D1).
@@ -95,6 +106,7 @@ export function KerusiSection({
   selection = EMPTY_SELECTION,
   focusedSeatId = null,
   ariaLabels = EMPTY_LABELS,
+  wholeUnitLabels = EMPTY_UNIT_LABELS,
   colors = DEFAULT_KERUSI_COLORS,
   typeColors = true,
   seatTypeStyles,
@@ -110,9 +122,12 @@ export function KerusiSection({
   onSeatKeyDown,
   onSeatPointer,
   registerSeat,
+  onWholeUnitActivate,
+  onWholeUnitKeyDown,
 }: KerusiSectionProps) {
   const section = layout.section;
   const anchor = layout.labelAnchor;
+  const control = (placed: PlacedGroup) => isWholeUnitControl(placed, interactive);
 
   const seatNode = (placed: PlacedSeat) => (
     <SectionSeat
@@ -170,24 +185,39 @@ export function KerusiSection({
 
       {/* Group footprints next, still under every seat. They are decoration
           for the eye: hidden from assistive technology, and no pointer target,
-          so a press on a tabletop selects nothing (D18). */}
-      {layout.groups.map((placed) => (
-        <SectionGroup key={placed.group.id} placed={placed} colors={colors} />
-      ))}
+          so a press on a tabletop selects nothing (D18). A footprint that books
+          its group whole is drawn in the group's wrapper instead. */}
+      {layout.groups
+        .filter((placed) => !control(placed))
+        .map((placed) => (
+          <SectionGroup key={placed.group.id} placed={placed} colors={colors} />
+        ))}
 
       {/* A group's seats sit in a role="group" named by its label, so a screen
-          reader says which table it is in. A group with no label has no name to
+          reader says which table it is in. An `either` table's shape goes first
+          in it, as the control that books the table whole, so it comes before
+          its seats in keyboard order (D19). A group with neither has no name to
           give, so its seats are drawn loose, like a seat in no group. */}
       {layout.groups
-        .filter((placed) => placed.group.label && placed.seats.length > 0)
+        .filter((placed) => placed.wrapped)
         .map((placed) => (
           <g
             key={placed.group.id}
             className="kerusi-group-seats"
-            role="group"
+            role={placed.group.label ? 'group' : undefined}
             aria-label={placed.group.label}
             data-group-id={placed.group.id}
           >
+            {control(placed) && (
+              <WholeUnitControl
+                placed={placed}
+                colors={colors}
+                selection={selection}
+                names={wholeUnitLabels.get(placed.group.id)}
+                onActivate={onWholeUnitActivate}
+                onKeyDown={onWholeUnitKeyDown}
+              />
+            )}
             {placed.seats.map(seatNode)}
           </g>
         ))}
@@ -225,6 +255,58 @@ function SectionGroup({
       {glyph.details.map((detail, i) => (
         <path key={i} className="kerusi-group__detail" d={detail.d} style={{ fill: detail.fill }} />
       ))}
+    </g>
+  );
+}
+
+/**
+ * A group's footprint as the control that books it whole (D19): a focusable
+ * button, pressed while every seat of the group is selected, and disabled while
+ * any of them is taken. Drawn under the group's seats, first in their wrapper.
+ */
+function WholeUnitControl({
+  placed,
+  colors,
+  selection,
+  names,
+  onActivate,
+  onKeyDown,
+}: {
+  placed: PlacedGroup;
+  colors: Required<KerusiSeatmapColors>;
+  selection: ReadonlySet<string>;
+  names?: { label: string; reason?: string };
+  onActivate?: (groupId: string) => void;
+  onKeyDown?: (groupId: string, event: ReactKeyboardEvent<SVGGElement>) => void;
+}) {
+  const glyph = resolveGroupGlyph(placed, colors, { selection });
+  if (!glyph?.whole) return null;
+  return (
+    <g
+      className={glyph.className}
+      role="button"
+      tabIndex={0}
+      aria-label={names?.label ?? placed.group.label ?? placed.group.id}
+      aria-pressed={glyph.whole.selected}
+      aria-disabled={!glyph.whole.available}
+      aria-description={names?.reason}
+      data-group-id={glyph.id}
+      data-group-kind={glyph.kind}
+      transform={glyph.transform ?? undefined}
+      onClick={() => onActivate?.(glyph.id)}
+      onKeyDown={(event) => onKeyDown?.(glyph.id, event)}
+    >
+      <path
+        className="kerusi-group__body"
+        d={glyph.body.d}
+        style={{ fill: glyph.body.fill, stroke: glyph.body.stroke }}
+      />
+      {glyph.details.map((detail, i) => (
+        <path key={i} className="kerusi-group__detail" d={detail.d} style={{ fill: detail.fill }} />
+      ))}
+      {/* Only visible on :focus-visible: the body's own stroke is bound inline,
+          so the ring needs a path of its own for the stylesheet to paint. */}
+      <path className="kerusi-group__focus" d={glyph.body.d} />
     </g>
   );
 }
@@ -291,7 +373,8 @@ function SectionSeat({
       /* A read-only map that still takes clicks does not toggle, so it does not
          claim to be a toggle button (D14). */
       aria-pressed={!interactive && clickable ? undefined : selected}
-      aria-disabled={!seat.selectable}
+      /* Disabled too when another seat of its booking unit is taken (§4.12.3). */
+      aria-disabled={!canPickSeat(seat)}
       aria-describedby={describedById}
       data-seat-id={seat.id}
       data-seat-type={glyph.data.type}

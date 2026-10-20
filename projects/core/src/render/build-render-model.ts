@@ -7,12 +7,14 @@ import {
   Seat,
   Section,
 } from '../kerusi/kerusi-map.model.js';
-import { KerusiState } from '../kerusi/kerusi-state.model.js';
+import { KerusiSession, KerusiState } from '../kerusi/kerusi-state.model.js';
+import { BookingUnit, bookingLevels, bookingUnits } from '../kerusi/kerusi-booking.js';
 import { areNeighbours, seatSizeOf } from '../kerusi/kerusi-geometry.js';
 import { resolveLocalizedText, resolveMapLocale } from '../kerusi/kerusi-locale.js';
 import { resolveSeatPrice, resolveTierPrice } from '../kerusi/kerusi-price.js';
 import { orderRowMeta } from '../kerusi/kerusi-rows.js';
 import {
+  RenderBookingUnit,
   RenderDirection,
   RenderElement,
   RenderGroup,
@@ -23,6 +25,7 @@ import {
   RenderSeat,
   RenderSection,
   SeatRenderStatus,
+  UnitMode,
 } from './render-model.js';
 
 /**
@@ -43,6 +46,16 @@ export interface BuildRenderModelOptions {
   selectableStatuses?: readonly SeatRenderStatus[];
   /** A final say on whether a seat is selectable, applied after the status test. */
   seatSelectable?: (seat: RenderSeat) => boolean;
+  /**
+   * The event's `KerusiSession`, whose `bookingModes` override the map's own
+   * (§4.12.1, §5.3). Without one, the map's own modes apply.
+   */
+  session?: KerusiSession;
+  /**
+   * How a tap selects (D22): `auto`, the default, takes the seat's booking unit
+   * (§4.12.2); `seats` takes the seat alone.
+   */
+  unitMode?: UnitMode;
 }
 
 /**
@@ -59,6 +72,8 @@ export interface BuildRenderModelOptions {
  *  - availability merged by `Seat.id`, honoring §5.1's sparse rule that an
  *    absent seat is available;
  *  - price resolved through the §4.9 precedence order;
+ *  - booking modes resolved with the session's overrides (§4.12.1), and each
+ *    seat given its booking unit (§4.12.2);
  *  - `Section.label` and `SeatType.label` localized against the map's locale.
  *
  * Positions are copied, never computed: every seat and element keeps the
@@ -111,6 +126,24 @@ export function buildRenderModel(
     };
   });
 
+  const unitMode = options.unitMode ?? 'auto';
+  const booking = resolveBooking(map, options.session, {
+    locale,
+    unitMode,
+    seatsById,
+    state,
+    selectableStatuses,
+  });
+  for (const section of sections) {
+    (section as { booking: RenderSection['booking'] }).booking =
+      booking.sectionModes.get(section.id) ?? 'seats';
+    for (const group of section.groups) {
+      const mutable = group as { booking: RenderGroup['booking']; wholeUnit?: RenderBookingUnit };
+      mutable.booking = booking.groupModes.get(group.id) ?? 'seats';
+      mutable.wholeUnit = booking.wholeGroups.get(group.id);
+    }
+  }
+
   return {
     id: map.id,
     name: map.name,
@@ -123,6 +156,76 @@ export function buildRenderModel(
     // §4.9 forbids mixing currencies, so the first is the map's.
     currency: [...currencies][0],
     seatsById,
+    booking: booking.mapMode,
+    unitMode,
+    units: booking.units,
+    wholeUnits: booking.wholeUnits,
+    source: map,
+    session: options.session,
+  };
+}
+
+/**
+ * Resolves booking modes and units (§4.12) over the whole map, and hands each
+ * drawn seat its booking unit. A unit's seats may lie in sections not drawn;
+ * whether those may be picked is read from the state alone.
+ */
+function resolveBooking(
+  map: KerusiMap,
+  session: KerusiSession | undefined,
+  ctx: {
+    locale: string;
+    unitMode: UnitMode;
+    seatsById: ReadonlyMap<string, RenderSeat>;
+    state?: KerusiState;
+    selectableStatuses: ReadonlySet<SeatRenderStatus>;
+  },
+) {
+  const levels = bookingLevels(map, session);
+  const derived = bookingUnits(map, session);
+  const kinds = new Map(
+    (map.sections ?? []).flatMap((section) =>
+      (Array.isArray(section?.groups) ? section.groups : []).map((g) => [g?.id, g?.kind] as const),
+    ),
+  );
+
+  const pickable = (id: string) => {
+    const seat = ctx.seatsById.get(id);
+    if (seat) return seat.selectable;
+    return ctx.selectableStatuses.has(ctx.state?.seats?.[id]?.status ?? 'available');
+  };
+  const resolve = (unit: BookingUnit): RenderBookingUnit => ({
+    level: unit.level,
+    id: unit.id,
+    label: resolveLocalizedText(unit.label, ctx.locale),
+    kind: unit.level === 'group' ? kinds.get(unit.id) : undefined,
+    seatIds: unit.seats,
+    wholePrice: unit.wholePrice,
+    selectable: unit.seats.every(pickable),
+  });
+
+  const units =
+    ctx.unitMode === 'seats'
+      ? [...levels.seatLevels.keys()].map((id) => resolve({ level: 'seat', id, seats: [id] }))
+      : derived.units.map(resolve);
+  const wholeUnits = derived.wholeUnits.map(resolve);
+
+  const unitOf = new Map(units.flatMap((unit) => unit.seatIds.map((id) => [id, unit] as const)));
+  for (const seat of ctx.seatsById.values()) {
+    const unit = unitOf.get(seat.id) ?? resolve({ level: 'seat', id: seat.id, seats: [seat.id] });
+    seat.unit = unit;
+    seat.unitBlocked = unit.seatIds.some((id) => id !== seat.id && !pickable(id));
+  }
+
+  return {
+    mapMode: levels.map.mode,
+    sectionModes: new Map(levels.sections.map((level) => [level.id, level.mode])),
+    groupModes: new Map(levels.groups.map((level) => [level.id, level.mode])),
+    wholeGroups: new Map(
+      wholeUnits.filter((unit) => unit.level === 'group').map((unit) => [unit.id, unit]),
+    ),
+    units,
+    wholeUnits,
   };
 }
 
@@ -172,6 +275,8 @@ function buildSection(section: Section, ctx: BuildContext): RenderSection {
     seats,
     elements,
     groups,
+    // Set once the whole map's booking modes are resolved.
+    booking: 'seats',
     directions: buildDirections(section, ctx.locale),
     source: section,
   };
@@ -353,10 +458,12 @@ function buildSeat(
     attributes: seat.attributes ?? [],
     accessibility: seat.accessibility,
     price,
-    companions: seat.companions ?? [],
+    // Set once the whole map's booking units are resolved.
+    unit: { level: 'seat', id: seat.id, seatIds: [seat.id], selectable: false },
     status: status?.status ?? 'available',
     holdExpires: status?.holdExpires,
     selectable: false,
+    unitBlocked: false,
     group,
     source: seat,
   };
@@ -407,6 +514,8 @@ function buildGroups(section: Section, ctx: BuildContext): RenderGroup[] {
       sectionId: section.id,
       seatIds: (Array.isArray(group.seats) ? group.seats : []).filter((id) => seatIds.has(id)),
       shape: buildGroupShape(group),
+      // Set once the whole map's booking modes are resolved.
+      booking: 'seats' as const,
       source: group,
     }));
 }

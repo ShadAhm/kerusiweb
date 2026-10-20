@@ -2,7 +2,17 @@ import { buildRenderModel, formatMoney, summarizeSelection } from '@kerusiweb/co
 import type { Bounds, KerusiSeatCardContext, KerusiViolation, SeatStyleFn } from '@kerusiweb/core';
 import { KerusiSeatmap } from '@kerusiweb/react';
 import type { KerusiSeatmapHandle, SeatDisallowed, SeatRenderContext } from '@kerusiweb/react';
-import { DEMO_LOCALES, premiumTypeStyles, SCENARIOS, seatCardText } from '@kerusi/demo-scenarios';
+import {
+  DEMO_LOCALES,
+  premiumTypeStyles,
+  outermostWholeUnits,
+  SCENARIOS,
+  seatCardText,
+  toggleWholeUnitButton,
+  wholeUnitButtons as wholeUnitButtonsOf,
+  wholeUnitName,
+} from '@kerusi/demo-scenarios';
+import type { WholeUnitButton } from '@kerusi/demo-scenarios';
 import type { Scenario } from '@kerusi/demo-scenarios';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
@@ -116,9 +126,18 @@ export function App() {
   );
 
   const summary = useMemo(() => {
-    const model = buildRenderModel(scenario.map, scenario.state, { locale });
-    const { seats, total, unpriced } = summarizeSelection(model, selection);
+    const model = buildRenderModel(scenario.map, scenario.state, {
+      locale,
+      session: scenario.session,
+    });
+    const { seats, total, unpriced, wholeUnits } = summarizeSelection(model, selection);
     return {
+      // "Table 1 (whole table)": what the change event's `wholeUnits` is for (D20).
+      wholeUnits: outermostWholeUnits(wholeUnits).map((unit) => ({
+        id: unit.id,
+        label: wholeUnitName(unit),
+        price: unit.wholePrice ? formatMoney(unit.wholePrice, locale) : '',
+      })),
       seats: seats.map((seat) => ({
         id: seat.id,
         label: seat.rowLabel ? `${seat.rowLabel}${seat.label}` : seat.label,
@@ -130,6 +149,20 @@ export function App() {
       unpriced,
     };
   }, [scenario, locale, selection]);
+
+  /**
+   * The whole units with nothing to press on the map, a room or the venue,
+   * offered with the app's own buttons (D19). This is the README's "Book the
+   * whole room" pattern: read the units with their availability, and set
+   * `selection`.
+   */
+  const wholeUnitButtons = useMemo(
+    () => wholeUnitButtonsOf(scenario, locale, selection),
+    [scenario, locale, selection],
+  );
+
+  const toggleWholeUnit = (button: WholeUnitButton) =>
+    onSelectionChange(toggleWholeUnitButton(selection, button));
 
   const sectionSummary = useMemo(
     () =>
@@ -337,10 +370,42 @@ export function App() {
             </div>
 
             <aside className="panel">
+              {wholeUnitButtons.length > 0 && (
+                <div className="card">
+                  <h3>Book it whole</h3>
+                  {wholeUnitButtons.map((unit) => (
+                    <button
+                      key={unit.key}
+                      type="button"
+                      className="whole-unit"
+                      aria-pressed={unit.selected}
+                      disabled={!unit.bookable}
+                      onClick={() => toggleWholeUnit(unit)}
+                    >
+                      {unit.label}
+                    </button>
+                  ))}
+                  <p className="muted">
+                    The venue has no shape to press, so the app offers it from the map&apos;s whole
+                    units, and selects it by setting <code>selection</code>.
+                  </p>
+                </div>
+              )}
+
               <div className="card">
                 <h3>Your selection</h3>
                 {summary.seats.length > 0 ? (
                   <>
+                    {summary.wholeUnits.length > 0 && (
+                      <ul className="seat-list seat-list--wholes">
+                        {summary.wholeUnits.map((unit) => (
+                          <li key={unit.id}>
+                            <span className="seat-list__id">{unit.label}</span>
+                            <span className="seat-list__price">{unit.price}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <ul className="seat-list">
                       {summary.seats.map((seat) => (
                         <li key={seat.id}>
@@ -593,5 +658,6 @@ const DISALLOWED_TEXT: Record<SeatDisallowed['reason'], string> = {
   blocked: 'blocked by the venue',
   'not-selectable': 'not selectable',
   'max-selection': 'would exceed the seat limit',
-  'companion-unavailable': 'must be booked with a seat that is unavailable',
+  'unit-unavailable': 'must be booked with a seat that is unavailable',
+  'unit-too-large': 'is booked with more seats than the seat limit allows',
 };

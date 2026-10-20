@@ -168,9 +168,40 @@
       </div>
 
       <aside class="panel">
+        @if (wholeUnitButtons().length) {
+          <div class="card">
+            <h3>Book it whole</h3>
+            @for (unit of wholeUnitButtons(); track unit.key) {
+              <button
+                type="button"
+                class="whole-unit"
+                [attr.aria-pressed]="unit.selected"
+                [disabled]="!unit.bookable"
+                (click)="toggleWholeUnit(unit)"
+              >
+                {{ unit.label }}
+              </button>
+            }
+            <p class="muted">
+              The venue has no shape to press, so the app offers it from the map's whole units, and
+              selects it by setting <code>selection</code>.
+            </p>
+          </div>
+        }
+
         <div class="card">
           <h3>Your selection</h3>
           @if (summary().seats.length) {
+            @if (summary().wholeUnits.length) {
+              <ul class="seat-list seat-list--wholes">
+                @for (unit of summary().wholeUnits; track unit.id) {
+                  <li>
+                    <span class="seat-list__id">{{ unit.label }}</span>
+                    <span class="seat-list__price">{{ unit.price }}</span>
+                  </li>
+                }
+              </ul>
+            }
             <ul class="seat-list">
               @for (seat of summary().seats; track seat.id) {
                 <li>

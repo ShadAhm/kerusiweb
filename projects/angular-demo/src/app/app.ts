@@ -19,8 +19,13 @@ import {
   DEMO_LOCALES,
   premiumTypeStyles,
   Scenario,
+  outermostWholeUnits,
   SCENARIOS,
   seatCardText,
+  toggleWholeUnitButton,
+  WholeUnitButton,
+  wholeUnitButtons,
+  wholeUnitName,
 } from '@kerusi/demo-scenarios';
 
 const THEME_STORAGE_KEY = 'kerusi-demo-theme';
@@ -157,9 +162,18 @@ export class App {
 
   protected readonly summary = computed(() => {
     const scenario = this.scenario();
-    const model = buildRenderModel(scenario.map, scenario.state, { locale: this.locale() });
-    const { seats, total, unpriced } = summarizeSelection(model, this.selection());
+    const model = buildRenderModel(scenario.map, scenario.state, {
+      locale: this.locale(),
+      session: scenario.session,
+    });
+    const { seats, total, unpriced, wholeUnits } = summarizeSelection(model, this.selection());
     return {
+      // "Table 1 (whole table)": what the change event's `wholeUnits` is for (D20).
+      wholeUnits: outermostWholeUnits(wholeUnits).map((unit) => ({
+        id: unit.id,
+        label: wholeUnitName(unit),
+        price: unit.wholePrice ? formatMoney(unit.wholePrice, this.locale()) : '',
+      })),
       seats: seats.map((seat) => ({
         id: seat.id,
         label: seat.rowLabel ? `${seat.rowLabel}${seat.label}` : seat.label,
@@ -172,6 +186,19 @@ export class App {
       unpriced,
     };
   });
+
+  /**
+   * The whole units with nothing to press on the map, a room or the venue,
+   * offered with the app's own buttons (D19): the README's "Book the whole
+   * room" pattern.
+   */
+  protected readonly wholeUnitButtons = computed(() =>
+    wholeUnitButtons(this.scenario(), this.locale(), this.selection()),
+  );
+
+  protected toggleWholeUnit(button: WholeUnitButton): void {
+    this.onSelectionChange(toggleWholeUnitButton(this.selection(), button));
+  }
 
   /** The scenario's map as JSON, so the standard itself is visible on the page. */
   protected readonly sourceJson = computed(() => JSON.stringify(this.scenario().map, null, 2));
@@ -217,5 +244,6 @@ const DISALLOWED_TEXT: Record<SeatDisallowed['reason'], string> = {
   blocked: 'blocked by the venue',
   'not-selectable': 'not selectable',
   'max-selection': 'would exceed the seat limit',
-  'companion-unavailable': 'must be booked with a seat that is unavailable',
+  'unit-unavailable': 'must be booked with a seat that is unavailable',
+  'unit-too-large': 'is booked with more seats than the seat limit allows',
 };

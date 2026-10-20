@@ -6,6 +6,7 @@ import type {
   KerusiSeatCardContext,
   KerusiSeatContext,
   KerusiSeatmapColors,
+  KerusiSelectionChange,
   KerusiSession,
   KerusiState,
   KerusiViewport,
@@ -19,6 +20,7 @@ import type {
   SeatStyleFn,
   SeatTypeStyles,
   SelectionSummary,
+  UnitMode,
 } from '@kerusiweb/core';
 import type { CSSProperties, ReactNode } from 'react';
 
@@ -44,7 +46,7 @@ export interface SeatInteraction {
   seat: RenderSeat;
   /** The selection after this event. */
   selection: readonly string[];
-  /** Seats whose membership changed, including companions (§4.6). */
+  /** Seats whose membership changed, including the rest of the seat's booking unit (§4.12.2). */
   changed: readonly string[];
 }
 
@@ -105,7 +107,12 @@ export interface KerusiSeatmapProps {
 
   map: KerusiMap;
   state?: KerusiState;
-  /** The optional map↔event join (§5.3). Validated against the map and state. */
+  /**
+   * The event's `KerusiSession` (§5.3). Its `bookingModes` override the map's
+   * own, so one map can sell every table whole at a wedding and by the seat at a
+   * quiz night (§4.12.1). Without one, the map's own modes apply. Validated
+   * against the map and state.
+   */
   session?: KerusiSession;
 
   // --- selection ------------------------------------------------------------
@@ -118,7 +125,12 @@ export interface KerusiSeatmapProps {
   selection?: readonly string[];
   /** The initial selection when the component owns it. Ignored if `selection` is set. */
   defaultSelection?: readonly string[];
-  onSelectionChange?: (selection: readonly string[]) => void;
+  /**
+   * Called with the new selection, still a list of seat ids, and what it amounts
+   * to: `change.wholeUnits` lists the whole units fully selected, so an app can
+   * say "Table 3 (whole table)" (D20).
+   */
+  onSelectionChange?: (selection: readonly string[], change: KerusiSelectionChange) => void;
 
   // --- localization ---------------------------------------------------------
 
@@ -180,8 +192,14 @@ export interface KerusiSeatmapProps {
 
   /** Statuses in which a seat may be picked. Default: `['available']`. */
   selectableStatuses?: readonly SeatRenderStatus[];
-  /** `auto` selects a seat's companion closure together (§4.6). */
-  companionMode?: 'auto' | 'independent';
+  /**
+   * How a tap selects (D22). `auto`, the default, takes the seat's booking unit
+   * (§4.12.2): both places of a love seat booked whole, every seat of a table a
+   * session sells whole. `seats` takes the seat alone, for an admin view that
+   * blocks single seats.
+   */
+  unitMode?: UnitMode;
+  /** Cap on how many seats may be selected. A whole table counts its seats (D21). */
   maxSelection?: number;
   /**
    * A final say on selectability, applied after the status test.

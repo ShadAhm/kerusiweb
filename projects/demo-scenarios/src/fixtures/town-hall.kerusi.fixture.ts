@@ -70,7 +70,7 @@ export const TOWN_HALL_MAP: KerusiMap = {
         { id: 'A8', label: '8', row: 'A', col: 8, x: 992, y: 400, type: 'std' },
         // Moved off the guide by hand; still A8's neighbour.
         { id: 'A9', label: '9', row: 'A', col: 9, x: 1100, y: 440, type: 'std' },
-        // The round table books as one party: every seat a companion of the rest.
+        // The round table books as one party: a group booked whole (§4.12).
         {
           id: 'T1-1',
           label: '1',
@@ -79,7 +79,6 @@ export const TOWN_HALL_MAP: KerusiMap = {
           x: 1300,
           y: 230,
           type: 'std',
-          companions: ['T1-2', 'T1-3', 'T1-4'],
         },
         {
           id: 'T1-2',
@@ -89,7 +88,6 @@ export const TOWN_HALL_MAP: KerusiMap = {
           x: 1370,
           y: 300,
           type: 'std',
-          companions: ['T1-1', 'T1-3', 'T1-4'],
         },
         {
           id: 'T1-3',
@@ -99,7 +97,6 @@ export const TOWN_HALL_MAP: KerusiMap = {
           x: 1300,
           y: 370,
           type: 'std',
-          companions: ['T1-1', 'T1-2', 'T1-4'],
         },
         {
           id: 'T1-4',
@@ -109,7 +106,6 @@ export const TOWN_HALL_MAP: KerusiMap = {
           x: 1230,
           y: 300,
           type: 'std',
-          companions: ['T1-1', 'T1-2', 'T1-3'],
         },
         // No row at all: a seat on its own, with no neighbours.
         {
@@ -119,6 +115,16 @@ export const TOWN_HALL_MAP: KerusiMap = {
           y: 702,
           type: 'wheelchair',
           accessibility: { wheelchairAccessible: true, aisleChairCompatible: true },
+        },
+      ],
+      groups: [
+        {
+          id: 'T1',
+          kind: 'table',
+          label: 'Table 1',
+          seats: ['T1-1', 'T1-2', 'T1-3', 'T1-4'],
+          shape: { circle: { center: [1300, 300], radius: 45 } },
+          booking: 'whole',
         },
       ],
     },

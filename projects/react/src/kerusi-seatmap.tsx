@@ -17,11 +17,16 @@ import {
   resolveControlStrings,
   resolveMapLocale,
   seatAriaLabel,
+  selectedWholeUnits,
   summarizeSelection,
   toggleSeatSelection,
+  toggleWholeUnit,
   validateDocumentSet,
   viewportTouchAction,
   viewportTransform,
+  wholeUnitAriaLabel,
+  wholeUnitControlAction,
+  wholeUnitDisallowedAnnouncement,
 } from '@kerusiweb/core';
 import type {
   KerusiState,
@@ -29,6 +34,7 @@ import type {
   MapLayout,
   Money,
   NavigationGraph,
+  RenderGroup,
   RenderMap,
   RenderSection,
   SeatClickSource,
@@ -108,7 +114,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       sectionIds,
       sectionOverrides = NO_OVERRIDES,
       selectableStatuses = DEFAULT_SELECTABLE_STATUSES,
-      companionMode = 'auto',
+      unitMode = 'auto',
       maxSelection,
       seatSelectable,
       interactive = true,
@@ -148,12 +154,20 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
     const isControlled = controlledSelection !== undefined;
     const selection = isControlled ? controlledSelection : uncontrolledSelection;
 
+    /** Read by `commitSelection`, which is declared before the render model. */
+    const renderMapRef = useRef<RenderMap | null>(null);
+
     const commitSelection = useCallback(
       (next: readonly string[]) => {
         if (!isControlled) {
           setUncontrolledSelection(next);
         }
-        onSelectionChange?.(next);
+        if (onSelectionChange) {
+          const wholeUnits = renderMapRef.current
+            ? selectedWholeUnits(renderMapRef.current, next)
+            : [];
+          onSelectionChange(next, { selection: next, wholeUnits });
+        }
       },
       [isControlled, onSelectionChange],
     );
@@ -228,9 +242,21 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
           sectionIds: visibleSectionIds,
           selectableStatuses,
           seatSelectable,
+          session,
+          unitMode,
         }),
-      [map, effectiveState, locale, visibleSectionIds, selectableStatuses, seatSelectable],
+      [
+        map,
+        effectiveState,
+        locale,
+        visibleSectionIds,
+        selectableStatuses,
+        seatSelectable,
+        session,
+        unitMode,
+      ],
     );
+    renderMapRef.current = renderMap;
 
     const resolvedLocale = useMemo(() => resolveMapLocale(map, locale), [map, locale]);
     const isRtl = rtl === 'auto' ? isRtlLocale(resolvedLocale) : rtl === true;
@@ -264,6 +290,42 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
           ]),
         ),
       [renderMap, resolvedLocale, ariaStrings],
+    );
+
+    /** Every group by id, for a whole unit's control to find its unit and seats. */
+    const groupsById = useMemo<ReadonlyMap<string, RenderGroup>>(
+      () =>
+        new Map(
+          renderMap.sections.flatMap((section) => section.groups.map((g) => [g.id, g] as const)),
+        ),
+      [renderMap],
+    );
+
+    /** The name and, while it cannot be booked, the reason of each whole unit's control (D19). */
+    const wholeUnitLabels = useMemo<ReadonlyMap<string, { label: string; reason?: string }>>(
+      () =>
+        new Map(
+          [...groupsById.values()].flatMap((group) =>
+            group.wholeUnit
+              ? [
+                  [
+                    group.id,
+                    {
+                      label: wholeUnitAriaLabel(group.wholeUnit, resolvedLocale, ariaStrings),
+                      reason: group.wholeUnit.selectable
+                        ? undefined
+                        : wholeUnitDisallowedAnnouncement(
+                            group.wholeUnit,
+                            'unit-unavailable',
+                            ariaStrings,
+                          ),
+                    },
+                  ] as const,
+                ]
+              : [],
+          ),
+        ),
+      [groupsById, resolvedLocale, ariaStrings],
     );
 
     // --- focus and announcements --------------------------------------------
@@ -373,7 +435,6 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
 
         const outcome = toggleSeatSelection(selection, seatId, {
           seatsById: renderMap.seatsById,
-          companionMode,
           maxSelection,
         });
 
@@ -399,7 +460,6 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
         interactive,
         onSeatClick,
         cards.activate,
-        companionMode,
         maxSelection,
         announce,
         ariaStrings,
@@ -407,6 +467,81 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
         commitSelection,
         onSeatSelect,
         onSeatDeselect,
+        announceSelection,
+      ],
+    );
+
+    /**
+     * A whole unit's control (D19): books every seat of an `either` table, or
+     * releases them all when the table is already booked whole. The seat events
+     * do not fire, since no one seat was pressed; `onSelectionChange` does.
+     */
+    const onWholeUnitActivate = useCallback(
+      (groupId: string) => {
+        const unit = groupsById.get(groupId)?.wholeUnit;
+        if (!unit || !interactive) {
+          return;
+        }
+        const outcome = toggleWholeUnit(selection, unit, {
+          seatsById: renderMap.seatsById,
+          maxSelection,
+        });
+        if (outcome.kind === 'disallowed') {
+          announce(wholeUnitDisallowedAnnouncement(unit, outcome.reason!, ariaStrings));
+          return;
+        }
+        commitSelection(outcome.selection);
+        announceSelection(outcome.selection);
+      },
+      [
+        groupsById,
+        interactive,
+        selection,
+        renderMap,
+        maxSelection,
+        announce,
+        ariaStrings,
+        commitSelection,
+        announceSelection,
+      ],
+    );
+
+    /** Keys on a whole unit's control, by the map core shares with the Angular binding. */
+    const onWholeUnitKeyDown = useCallback(
+      (sectionId: string, groupId: string, event: ReactKeyboardEvent<SVGGElement>) => {
+        switch (wholeUnitControlAction(event.key)) {
+          case 'toggle':
+            event.preventDefault();
+            onWholeUnitActivate(groupId);
+            return;
+          case 'enter-seats': {
+            const first = groupsById.get(groupId)?.seatIds[0];
+            if (first) {
+              event.preventDefault();
+              moveFocusTo(sectionId, first);
+            }
+            return;
+          }
+          case 'clear':
+            if (cards.dismiss()) {
+              event.preventDefault();
+              return;
+            }
+            if (selection.length > 0) {
+              event.preventDefault();
+              commitSelection([]);
+              announceSelection([]);
+            }
+            return;
+        }
+      },
+      [
+        onWholeUnitActivate,
+        groupsById,
+        moveFocusTo,
+        cards.dismiss,
+        selection,
+        commitSelection,
         announceSelection,
       ],
     );
@@ -632,6 +767,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
             selection={selectionSet}
             focusedSeatId={focusedSeatIds[placed.section.id] ?? null}
             ariaLabels={ariaLabels}
+            wholeUnitLabels={wholeUnitLabels}
             colors={resolvedColors}
             typeColors={typeColors}
             seatTypeStyles={seatTypeStyles}
@@ -645,6 +781,10 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
             onSeatFocused={onSeatFocused}
             onSeatBlurred={cards.tracksFocus ? cards.blur : undefined}
             onSeatKeyDown={(event) => onKeyDown(placed.section.id, event)}
+            onWholeUnitActivate={onWholeUnitActivate}
+            onWholeUnitKeyDown={(groupId, event) =>
+              onWholeUnitKeyDown(placed.section.id, groupId, event)
+            }
             onSeatPointer={cards.tracksPointer ? cards.pointer : undefined}
             registerSeat={registerSeat}
           />

@@ -15,11 +15,13 @@ renderer underneath them is plain TypeScript.
 Give it a `KerusiMap` and a `KerusiState` and it draws the venue on the map's
 one canvas, every seat exactly where and as large as the document says, seats
 coloured from the map's legend, prices resolved through the standard's
-precedence order, and companion seats booked as a unit.
+precedence order, and seats booked by their booking unit: a love seat as a
+pair, a table or a room whole.
 
-> **Upgrading from 2.x?** 3.0.0 follows Kerusi rev 15, where a map has one
-> canvas and every seat its own `x`/`y`. Documents and a few inputs change; see
-> [Migrating from 2.x](CHANGELOG.md#migrating-from-2x).
+> **Upgrading from 3.x?** 4.0.0 follows Kerusi rev 17, which retires
+> `Seat.companions` for groups booked whole, and `companionMode` becomes
+> `unitMode`; see [Migrating from 3.x](CHANGELOG.md#migrating-from-3x). From 2.x,
+> start with [Migrating from 2.x](CHANGELOG.md#migrating-from-2x).
 
 **[Live demos →](https://shadahm.github.io/kerusiweb/)**
 
@@ -124,17 +126,17 @@ See the [Angular README](projects/angular/README.md) or the
 The library is a conformant Kerusi consumer. [docs/kerusi-conformance.md](docs/kerusi-conformance.md)
 is a feature-by-feature audit; the highlights:
 
-|                                     |                                                                                                                                                                                                                                              |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **One canvas per map (§4.5)**       | The map is one `<svg>` on the document's canvas. Every seat is drawn at its `x`/`y`, at its seat size and rotation, and nothing is moved, resized or reflowed: the same document draws the same picture in any conformant renderer.          |
-| **Sections are zones**              | Sections share the canvas, so a stalls and a balcony can sit side by side. A section's declared `bounds` place its label and let a zoomable map zoom to it.                                                                                  |
-| **The document drives the picture** | `SeatType.color`, price tiers, attributes and `Element.kind` all affect what is drawn.                                                                                                                                                       |
-| **Seat forms (§4.7.1)**             | `SeatType.form` draws an armchair, stool, recliner, beanbag, floor cushion, wheelchair space, sofa place or pew place as its own outline, in the seat and the legend. Your own `shape` still wins (D17).                                     |
-| **Groups (§4.11)**                  | A table, sofa, love seat, pew or booth is drawn as its own footprint under its seats, styled by `--kerusi-group-*` tokens, and its seats are announced by it: "Table 3, seat 4". It is decoration, so a press on a tabletop selects nothing. |
-| **Accessibility**                   | Roving tabindex, arrow keys that follow §4.3.5 adjacency and cross aisles, and seats announced with their type, price, status, a neighbouring aisle and every §4.3.4 accessibility property.                                                 |
-| **Companions**                      | `companions` closures book and release together, and a pair whose other half is sold is refused rather than half-taken.                                                                                                                      |
-| **Live availability**               | `KerusiStateStore` (Angular) and `useKerusiState` (React) apply deltas in order, discard stale and out-of-scope ones, and revert lapsed holds.                                                                                               |
-| **Validation**                      | Every MUST-level rule, throwing or collecting, with a rule slug and document path per violation, tested against the example corpus published with the standard.                                                                              |
+|                                     |                                                                                                                                                                                                                                                                                        |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **One canvas per map (§4.5)**       | The map is one `<svg>` on the document's canvas. Every seat is drawn at its `x`/`y`, at its seat size and rotation, and nothing is moved, resized or reflowed: the same document draws the same picture in any conformant renderer.                                                    |
+| **Sections are zones**              | Sections share the canvas, so a stalls and a balcony can sit side by side. A section's declared `bounds` place its label and let a zoomable map zoom to it.                                                                                                                            |
+| **The document drives the picture** | `SeatType.color`, price tiers, attributes and `Element.kind` all affect what is drawn.                                                                                                                                                                                                 |
+| **Seat forms (§4.7.1)**             | `SeatType.form` draws an armchair, stool, recliner, beanbag, floor cushion, wheelchair space, sofa place or pew place as its own outline, in the seat and the legend. Your own `shape` still wins (D17).                                                                               |
+| **Groups (§4.11)**                  | A table, sofa, love seat, pew or booth is drawn as its own footprint under its seats, styled by `--kerusi-group-*` tokens, and its seats are announced by it: "Table 3, seat 4". It is decoration, so a press on a tabletop selects nothing.                                           |
+| **Accessibility**                   | Roving tabindex, arrow keys that follow §4.3.5 adjacency and cross aisles, and seats announced with their type, price, status, a neighbouring aisle and every §4.3.4 accessibility property.                                                                                           |
+| **Booking units (§4.12)**           | A tap takes a seat's booking unit: a love seat booked whole as a pair, every chair at a table a session sells whole. An `either` table is booked whole from its tabletop; a room or the venue from the app's own button, built from core's `bookingUnits`. Whole prices follow §4.9.1. |
+| **Live availability**               | `KerusiStateStore` (Angular) and `useKerusiState` (React) apply deltas in order, discard stale and out-of-scope ones, and revert lapsed holds.                                                                                                                                         |
+| **Validation**                      | Every MUST-level rule, throwing or collecting, with a rule slug and document path per violation, tested against the example corpus published with the standard.                                                                                                                        |
 
 ## Hover and click, and seat cards
 

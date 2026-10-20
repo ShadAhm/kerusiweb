@@ -1,0 +1,503 @@
+{
+  "description": "The lounge of section 6.8: a love seat, a sofa, a pew, a round table sold either way at a table price, a private room hired whole, and venue hire.",
+  "map": "../lounge.map.kerusi.json",
+  "scenarios": [
+    {
+      "name": "the map as published",
+      "session": null,
+      "units": [
+        {
+          "level": "group",
+          "id": "LS1",
+          "seats": ["LS1-1", "LS1-2"]
+        },
+        {
+          "level": "seat",
+          "id": "SF1-1",
+          "seats": ["SF1-1"]
+        },
+        {
+          "level": "seat",
+          "id": "SF1-2",
+          "seats": ["SF1-2"]
+        },
+        {
+          "level": "seat",
+          "id": "SF1-3",
+          "seats": ["SF1-3"]
+        },
+        {
+          "level": "seat",
+          "id": "P1-1",
+          "seats": ["P1-1"]
+        },
+        {
+          "level": "seat",
+          "id": "P1-2",
+          "seats": ["P1-2"]
+        },
+        {
+          "level": "seat",
+          "id": "P1-3",
+          "seats": ["P1-3"]
+        },
+        {
+          "level": "seat",
+          "id": "P1-4",
+          "seats": ["P1-4"]
+        },
+        {
+          "level": "seat",
+          "id": "T1-1",
+          "seats": ["T1-1"]
+        },
+        {
+          "level": "seat",
+          "id": "T1-2",
+          "seats": ["T1-2"]
+        },
+        {
+          "level": "seat",
+          "id": "T1-3",
+          "seats": ["T1-3"]
+        },
+        {
+          "level": "seat",
+          "id": "T1-4",
+          "seats": ["T1-4"]
+        },
+        {
+          "level": "section",
+          "id": "private",
+          "seats": ["R1", "R2", "R3", "R4", "R5", "R6"]
+        }
+      ],
+      "wholeUnits": [
+        {
+          "level": "map",
+          "id": "lounge",
+          "seats": [
+            "LS1-1",
+            "LS1-2",
+            "SF1-1",
+            "SF1-2",
+            "SF1-3",
+            "P1-1",
+            "P1-2",
+            "P1-3",
+            "P1-4",
+            "T1-1",
+            "T1-2",
+            "T1-3",
+            "T1-4",
+            "R1",
+            "R2",
+            "R3",
+            "R4",
+            "R5",
+            "R6"
+          ]
+        },
+        {
+          "level": "group",
+          "id": "T1",
+          "seats": ["T1-1", "T1-2", "T1-3", "T1-4"]
+        }
+      ],
+      "selections": [
+        {
+          "seats": ["T1-1", "T1-2", "T1-3", "T1-4"],
+          "valid": true,
+          "total": {
+            "amount": 18000,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "group",
+              "id": "T1"
+            }
+          ]
+        },
+        {
+          "seats": ["T1-1", "T1-2"],
+          "valid": true,
+          "total": {
+            "amount": 10000,
+            "currency": "MYR"
+          },
+          "pricedWhole": []
+        },
+        {
+          "seats": ["LS1-1"],
+          "valid": false
+        },
+        {
+          "seats": ["LS1-1", "LS1-2"],
+          "valid": true,
+          "total": {
+            "amount": 14000,
+            "currency": "MYR"
+          },
+          "pricedWhole": []
+        },
+        {
+          "seats": ["R1", "R2", "R3", "R4", "R5", "R6"],
+          "valid": true,
+          "total": {
+            "amount": 120000,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "section",
+              "id": "private"
+            }
+          ]
+        },
+        {
+          "seats": ["R1"],
+          "valid": false
+        },
+        {
+          "seats": [
+            "LS1-1",
+            "LS1-2",
+            "SF1-1",
+            "SF1-2",
+            "SF1-3",
+            "P1-1",
+            "P1-2",
+            "P1-3",
+            "P1-4",
+            "T1-1",
+            "T1-2",
+            "T1-3",
+            "T1-4",
+            "R1",
+            "R2",
+            "R3",
+            "R4",
+            "R5",
+            "R6"
+          ],
+          "valid": true,
+          "total": {
+            "amount": 500000,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "map",
+              "id": "lounge"
+            }
+          ]
+        },
+        {
+          "seats": [
+            "LS1-1",
+            "LS1-2",
+            "SF1-1",
+            "SF1-2",
+            "SF1-3",
+            "P1-1",
+            "P1-2",
+            "P1-3",
+            "P1-4",
+            "T1-1",
+            "T1-2",
+            "T1-3",
+            "T1-4"
+          ],
+          "valid": true,
+          "total": {
+            "amount": 59000,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "group",
+              "id": "T1"
+            }
+          ]
+        },
+        {
+          "seats": ["T1-1", "T1-2", "T1-3", "T1-4", "R1", "R2", "R3", "R4", "R5", "R6"],
+          "valid": true,
+          "total": {
+            "amount": 138000,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "section",
+              "id": "private"
+            },
+            {
+              "level": "group",
+              "id": "T1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "quiz night: tables sold whole, no venue hire",
+      "session": "../lounge-quiz-night.session.kerusi.json",
+      "units": [
+        {
+          "level": "group",
+          "id": "LS1",
+          "seats": ["LS1-1", "LS1-2"]
+        },
+        {
+          "level": "seat",
+          "id": "SF1-1",
+          "seats": ["SF1-1"]
+        },
+        {
+          "level": "seat",
+          "id": "SF1-2",
+          "seats": ["SF1-2"]
+        },
+        {
+          "level": "seat",
+          "id": "SF1-3",
+          "seats": ["SF1-3"]
+        },
+        {
+          "level": "seat",
+          "id": "P1-1",
+          "seats": ["P1-1"]
+        },
+        {
+          "level": "seat",
+          "id": "P1-2",
+          "seats": ["P1-2"]
+        },
+        {
+          "level": "seat",
+          "id": "P1-3",
+          "seats": ["P1-3"]
+        },
+        {
+          "level": "seat",
+          "id": "P1-4",
+          "seats": ["P1-4"]
+        },
+        {
+          "level": "group",
+          "id": "T1",
+          "seats": ["T1-1", "T1-2", "T1-3", "T1-4"]
+        },
+        {
+          "level": "section",
+          "id": "private",
+          "seats": ["R1", "R2", "R3", "R4", "R5", "R6"]
+        }
+      ],
+      "wholeUnits": [],
+      "selections": [
+        {
+          "seats": ["T1-1"],
+          "valid": false
+        },
+        {
+          "seats": ["T1-1", "T1-2", "T1-3", "T1-4"],
+          "valid": true,
+          "total": {
+            "amount": 18000,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "group",
+              "id": "T1"
+            }
+          ]
+        },
+        {
+          "seats": [
+            "LS1-1",
+            "LS1-2",
+            "SF1-1",
+            "SF1-2",
+            "SF1-3",
+            "P1-1",
+            "P1-2",
+            "P1-3",
+            "P1-4",
+            "T1-1",
+            "T1-2",
+            "T1-3",
+            "T1-4",
+            "R1",
+            "R2",
+            "R3",
+            "R4",
+            "R5",
+            "R6"
+          ],
+          "valid": true,
+          "total": {
+            "amount": 179000,
+            "currency": "MYR"
+          },
+          "pricedWhole": [
+            {
+              "level": "section",
+              "id": "private"
+            },
+            {
+              "level": "group",
+              "id": "T1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "one table seat booked and one room seat held: neither the table, the room nor the venue can be booked whole",
+      "session": null,
+      "state": {
+        "kerusi": "1.0",
+        "mapId": "lounge",
+        "updatedAt": "2026-11-14T19:00:00+08:00",
+        "seats": {
+          "T1-2": {
+            "status": "booked"
+          },
+          "R3": {
+            "status": "held",
+            "holdExpires": "2026-11-14T19:10:00+08:00"
+          }
+        }
+      },
+      "units": [
+        {
+          "level": "group",
+          "id": "LS1",
+          "seats": ["LS1-1", "LS1-2"],
+          "bookable": true
+        },
+        {
+          "level": "seat",
+          "id": "SF1-1",
+          "seats": ["SF1-1"],
+          "bookable": true
+        },
+        {
+          "level": "seat",
+          "id": "SF1-2",
+          "seats": ["SF1-2"],
+          "bookable": true
+        },
+        {
+          "level": "seat",
+          "id": "SF1-3",
+          "seats": ["SF1-3"],
+          "bookable": true
+        },
+        {
+          "level": "seat",
+          "id": "P1-1",
+          "seats": ["P1-1"],
+          "bookable": true
+        },
+        {
+          "level": "seat",
+          "id": "P1-2",
+          "seats": ["P1-2"],
+          "bookable": true
+        },
+        {
+          "level": "seat",
+          "id": "P1-3",
+          "seats": ["P1-3"],
+          "bookable": true
+        },
+        {
+          "level": "seat",
+          "id": "P1-4",
+          "seats": ["P1-4"],
+          "bookable": true
+        },
+        {
+          "level": "seat",
+          "id": "T1-1",
+          "seats": ["T1-1"],
+          "bookable": true
+        },
+        {
+          "level": "seat",
+          "id": "T1-2",
+          "seats": ["T1-2"],
+          "bookable": false
+        },
+        {
+          "level": "seat",
+          "id": "T1-3",
+          "seats": ["T1-3"],
+          "bookable": true
+        },
+        {
+          "level": "seat",
+          "id": "T1-4",
+          "seats": ["T1-4"],
+          "bookable": true
+        },
+        {
+          "level": "section",
+          "id": "private",
+          "seats": ["R1", "R2", "R3", "R4", "R5", "R6"],
+          "bookable": false
+        }
+      ],
+      "wholeUnits": [
+        {
+          "level": "map",
+          "id": "lounge",
+          "seats": [
+            "LS1-1",
+            "LS1-2",
+            "SF1-1",
+            "SF1-2",
+            "SF1-3",
+            "P1-1",
+            "P1-2",
+            "P1-3",
+            "P1-4",
+            "T1-1",
+            "T1-2",
+            "T1-3",
+            "T1-4",
+            "R1",
+            "R2",
+            "R3",
+            "R4",
+            "R5",
+            "R6"
+          ],
+          "bookable": false
+        },
+        {
+          "level": "group",
+          "id": "T1",
+          "seats": ["T1-1", "T1-2", "T1-3", "T1-4"],
+          "bookable": false
+        }
+      ],
+      "selections": [
+        {
+          "seats": ["T1-1"],
+          "valid": true,
+          "total": {
+            "amount": 5000,
+            "currency": "MYR"
+          },
+          "pricedWhole": []
+        }
+      ]
+    }
+  ]
+}

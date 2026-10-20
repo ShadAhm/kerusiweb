@@ -1,6 +1,6 @@
 /**
  * Kerusi Seat Map document types, transcribed from the Kerusi Seat Map and
- * Availability Format v1.0.0-draft rev 15, §4. Field-level comments preserve
+ * Availability Format v1.0.0-draft rev 17, §4. Field-level comments preserve
  * the normative REQUIRED/OPTIONAL constraints and defaults from the standard.
  *
  * A `KerusiMap` describes a physical venue/vehicle configuration (layout,
@@ -58,8 +58,8 @@ export interface Accessibility {
   /** Reachable via aisle-chair transfer. */
   aisleChairCompatible?: boolean;
   /**
-   * The occupant is expected to need an adjacent companion. Pair with
-   * `Seat.companions` (§4.6) to link the actual companion seat.
+   * The occupant is expected to need an adjacent companion. Pair the seat with
+   * its companion seat in a group with `booking: "whole"` (§4.11, §4.12.4).
    */
   companionRequired?: boolean;
 }
@@ -219,8 +219,13 @@ export interface Seat {
   priceTier?: string;
   /** Literal override; takes precedence over `priceTier` (§4.9). */
   price?: Money;
-  /** ids of other seats that must be booked together (couple/family bays). */
-  companions?: string[];
+  /**
+   * Retired in rev 17 (§4.12.4). A set of seats booked together is a group with
+   * `booking: "whole"`. The member is reserved: a validator rejects a seat that
+   * carries it (`companions-retired`), because ignored, a pair sold together
+   * would quietly become two seats sold apart.
+   */
+  companions?: never;
   /**
    * Free, non-exclusive tags: "aisle" | "window" | "extra-legroom" | ...
    * Descriptive only; attributes MUST NOT independently affect price (§4.3.3).
@@ -300,6 +305,12 @@ export interface Section {
    * a pew. A seat is in at most one group, and a group does not span sections.
    */
   groups?: Group[];
+  /** How the section, a room or zone, may be booked (§4.12). Default `"seats"`. */
+  booking?: BookingMode;
+  /** Room hire: a literal whole price, over `wholePriceTier` (§4.9.1). */
+  wholePrice?: Money;
+  /** References a `PriceTier.id` for the whole price (§4.9.1). */
+  wholePriceTier?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -307,10 +318,7 @@ export interface Section {
  * A piece of furniture, or a set of seats that belong together (§4.11): the
  * places on a sofa or pew, the chairs round a table, a booth. It MAY give the
  * piece a footprint of its own, which the canonical view draws under the
- * group's seats.
- *
- * `booking`, `wholePrice` and `wholePriceTier` (§4.9.1, §4.12) are not modelled
- * here yet: a consumer ignores members it does not recognize (§2).
+ * group's seats, and says how the set may be booked (§4.12).
  */
 export interface Group {
   /** REQUIRED. Unique within the KerusiMap (§4.6). */
@@ -328,6 +336,12 @@ export interface Group {
   seats: string[];
   /** The piece's own footprint, drawn under its seats. Canvas units (§4.5). */
   shape?: GroupShape;
+  /** How the group may be booked (§4.12). Default `"seats"`. */
+  booking?: BookingMode;
+  /** A table or sofa price: a literal whole price, over `wholePriceTier` (§4.9.1). */
+  wholePrice?: Money;
+  /** References a `PriceTier.id` for the whole price (§4.9.1). */
+  wholePriceTier?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -344,6 +358,18 @@ export type GroupKind =
 export type GroupShape =
   | { rect: { x: number; y: number; width: number; height: number; rotation?: number } }
   | { circle: { center: Point; radius: number } };
+
+/**
+ * How a level, the map, a section or a group, may be booked (§4.12):
+ *
+ * - `seats`, the default: the level adds nothing, and its seats are booked as
+ *   the levels inside it say.
+ * - `whole`: the level's seats can be booked only all together.
+ * - `either`: as `seats`, and the whole level is also offered as one booking.
+ *
+ * A `KerusiSession` may override it for one event (§5.3).
+ */
+export type BookingMode = 'seats' | 'whole' | 'either';
 
 /** The top-level static seat-map document (§4). */
 export interface KerusiMap {
@@ -377,5 +403,11 @@ export interface KerusiMap {
   priceTiers?: PriceTier[];
   /** REQUIRED. */
   sections: Section[];
+  /** How the whole venue may be booked (§4.12). Default `"seats"`. */
+  booking?: BookingMode;
+  /** Venue hire: a literal whole price, over `wholePriceTier` (§4.9.1). */
+  wholePrice?: Money;
+  /** References a `PriceTier.id` for the whole price (§4.9.1). */
+  wholePriceTier?: string;
   metadata?: Record<string, unknown>;
 }

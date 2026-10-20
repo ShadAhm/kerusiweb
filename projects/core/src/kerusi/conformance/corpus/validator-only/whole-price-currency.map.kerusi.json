@@ -1,0 +1,47 @@
+{
+  "kerusi": "1.0",
+  "id": "whole-price-currency",
+  "canvas": {
+    "width": 400,
+    "height": 200
+  },
+  "seatSize": 40,
+  "legend": [
+    {
+      "id": "standard"
+    }
+  ],
+  "priceTiers": [
+    {
+      "id": "regular",
+      "price": {
+        "amount": 1000,
+        "currency": "MYR"
+      }
+    }
+  ],
+  "sections": [
+    {
+      "id": "s",
+      "booking": "whole",
+      "wholePrice": {
+        "amount": 1800,
+        "currency": "USD"
+      },
+      "seats": [
+        {
+          "id": "a",
+          "x": 100,
+          "y": 100,
+          "type": "standard"
+        },
+        {
+          "id": "b",
+          "x": 140,
+          "y": 100,
+          "type": "standard"
+        }
+      ]
+    }
+  ]
+}

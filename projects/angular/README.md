@@ -39,11 +39,11 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 
 **Documents**
 
-| Input     | Type            | Default    |                                                                             |
-| --------- | --------------- | ---------- | --------------------------------------------------------------------------- |
-| `map`     | `KerusiMap`     | _required_ | The static venue layout.                                                    |
-| `state`   | `KerusiState`   | —          | Live availability. Merged by `Seat.id`; an absent seat is available (§5.1). |
-| `session` | `KerusiSession` | —          | The optional map↔event join (§5.3). Validated against the map and state.    |
+| Input     | Type            | Default    |                                                                                                             |
+| --------- | --------------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `map`     | `KerusiMap`     | _required_ | The static venue layout.                                                                                    |
+| `state`   | `KerusiState`   | —          | Live availability. Merged by `Seat.id`; an absent seat is available (§5.1).                                 |
+| `session` | `KerusiSession` | —          | The event (§5.3). Its `bookingModes` override the map's own (§4.12.1). Validated against the map and state. |
 
 **Selection**
 
@@ -51,8 +51,8 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 | -------------------- | ------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `selection`          | `readonly string[]`             | `[]`            | Selected seat ids. Two-way (`[(selection)]`) or read-only (`[selection]`).                                                                       |
 | `selectableStatuses` | `SeatRenderStatus[]`            | `['available']` | Which statuses a seat may be picked in.                                                                                                          |
-| `companionMode`      | `'auto' \| 'independent'`       | `'auto'`        | `auto` selects a seat's whole companion closure together (§4.6).                                                                                 |
-| `maxSelection`       | `number`                        | —               | Cap on selected seats. Counts a companion closure as its full size.                                                                              |
+| `unitMode`           | `'auto' \| 'seats'`             | `'auto'`        | `auto` selects a seat's whole booking unit together (§4.12.2); `seats` takes the seat alone (D22).                                               |
+| `maxSelection`       | `number`                        | —               | Cap on selected seats. Counts every seat of a unit; a unit bigger than the cap is refused as `unit-too-large` (D21).                             |
 | `seatSelectable`     | `(seat: RenderSeat) => boolean` | —               | A final say, applied after the status test.                                                                                                      |
 | `interactive`        | `boolean`                       | `true`          | `false` turns selection off. Seats still take clicks, and stay keyboard-reachable, while `(seatClick)` is bound or a click card template is set. |
 
@@ -99,17 +99,18 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 
 ### Outputs
 
-| Output                        | Payload                      |                                                                                                        |
-| ----------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `selectionChange`             | `readonly string[]`          | From the `selection` model.                                                                            |
-| `seatSelect` / `seatDeselect` | `SeatInteraction`            | The `RenderSeat`, the resulting selection, and every seat that changed (companions included).          |
-| `seatDisallowed`              | `SeatDisallowed`             | `reason` is `booked`, `held`, `blocked`, `not-selectable`, `max-selection` or `companion-unavailable`. |
-| `seatFocus`                   | `RenderSeat`                 |                                                                                                        |
-| `seatHover`                   | `RenderSeat \| null`         | The seat under the pointer, then `null` when it leaves. See [Hover and click](#hover-and-click).       |
-| `seatClick`                   | `SeatClick`                  | Every seat activation: `{ seat, selected, source }`. Read-only; fires before the selection outputs.    |
-| `validationIssues`            | `readonly KerusiViolation[]` | Emitted whenever the documents change.                                                                 |
-| `viewportChange`              | `KerusiViewport`             | `{ zoom, x, y }`, whenever the zoom or pan changes. Only with `zoomable`.                              |
-| `maximizedChange`             | `boolean`                    | When the map is maximized or restored. Only with `maximizable`.                                        |
+| Output                        | Payload                      |                                                                                                                     |
+| ----------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `selectionChange`             | `readonly string[]`          | From the `selection` model.                                                                                         |
+| `selectionDetail`             | `KerusiSelectionChange`      | With `selectionChange` when the map changes the selection: `{ selection, wholeUnits }` (D20).                       |
+| `seatSelect` / `seatDeselect` | `SeatInteraction`            | The `RenderSeat`, the resulting selection, and every seat that changed (its booking unit included).                 |
+| `seatDisallowed`              | `SeatDisallowed`             | `reason` is `booked`, `held`, `blocked`, `not-selectable`, `max-selection`, `unit-unavailable` or `unit-too-large`. |
+| `seatFocus`                   | `RenderSeat`                 |                                                                                                                     |
+| `seatHover`                   | `RenderSeat \| null`         | The seat under the pointer, then `null` when it leaves. See [Hover and click](#hover-and-click).                    |
+| `seatClick`                   | `SeatClick`                  | Every seat activation: `{ seat, selected, source }`. Read-only; fires before the selection outputs.                 |
+| `validationIssues`            | `readonly KerusiViolation[]` | Emitted whenever the documents change.                                                                              |
+| `viewportChange`              | `KerusiViewport`             | `{ zoom, x, y }`, whenever the zoom or pan changes. Only with `zoomable`.                                           |
+| `maximizedChange`             | `boolean`                    | When the map is maximized or restored. Only with `maximizable`.                                                     |
 
 ### The seat glyph
 
@@ -244,14 +245,15 @@ kerusi-seatmap .kerusi-seat--selected .kerusi-seat__wheelchair {
 
 For anything the palette does not cover, each seat group carries class hooks:
 
-| Class                                                           |                                            |
-| --------------------------------------------------------------- | ------------------------------------------ |
-| `.kerusi-seat`                                                  | Every seat group.                          |
-| `.kerusi-seat--available` / `--held` / `--booked` / `--blocked` | Its `SeatStatus`.                          |
-| `.kerusi-seat--selected`                                        | Currently picked.                          |
-| `.kerusi-seat--unselectable`                                    | Fails the status test or `seatSelectable`. |
-| `.kerusi-seat--wheelchair`                                      | `accessibility.wheelchairAccessible`.      |
-| `.kerusi-seat--companion`                                       | Has companions (§4.6).                     |
+| Class                                                           |                                                                          |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `.kerusi-seat`                                                  | Every seat group.                                                        |
+| `.kerusi-seat--available` / `--held` / `--booked` / `--blocked` | Its `SeatStatus`.                                                        |
+| `.kerusi-seat--selected`                                        | Currently picked.                                                        |
+| `.kerusi-seat--unselectable`                                    | Cannot be picked now: its status, `seatSelectable`, or its booking unit. |
+| `.kerusi-seat--wheelchair`                                      | `accessibility.wheelchairAccessible`.                                    |
+| `.kerusi-seat--unit`                                            | Booked only with other seats (§4.12.2).                                  |
+| `.kerusi-seat--unit-blocked`                                    | Available, but another seat of its unit is taken (§4.12.3). Dimmed.      |
 
 Inside a seat: `.kerusi-seat__box`, `__wash`, `__core`, `__occupant`
 (`__occupant--selected` / `--held` / `--booked`), `__label`, `__wheelchair`, and,
@@ -437,10 +439,12 @@ with nothing in the middle.
   `--kerusi-group-sofa-detail`, and so on. Keep them quiet next to the seats,
   because the held and booked wash, the figure and the selected frame are drawn
   over them.
-- **Not interactive.** A footprint is decoration: it is hidden from assistive
-  technology and takes no pointer, so a press on a tabletop selects nothing and
-  a drag across it still pans. Seat hit-testing, the tab stop and the arrow keys
-  are the same as without groups.
+- **Not interactive, unless it books its group whole.** A footprint is
+  decoration: it is hidden from assistive technology and takes no pointer, so a
+  press on a tabletop selects nothing and a drag across it still pans. Seat
+  hit-testing, the tab stop and the arrow keys are the same as without groups.
+  The exception is an `either` group's shape, which books the group whole; see
+  [Booking units](#booking-units-whole-tables-rooms-and-venues).
 - **Announced.** A group with a `label` wraps its seats in a
   `<g class="kerusi-group-seats" role="group" aria-label="Table 3">`, and each
   of its seats is announced by it: "Table 3, seat 4, Guest, ...". Words come from
@@ -451,7 +455,111 @@ with nothing in the middle.
 - **Mirrors and hides with its section.** In right-to-left a footprint mirrors
   with the canvas (D3), and a hidden section hides its groups (D4).
 
-This draws and names groups only. Booking a group whole is a separate release.
+### Booking units: whole tables, rooms and venues
+
+Kerusi rev 17 says how each level of a map may be booked (§4.12): the map (the
+venue), a section (a room or zone) and a group (a piece of furniture) each take
+`booking: "seats"` (the default), `"whole"` (only all together) or `"either"`
+(by the seat, or the whole level as one booking). A `KerusiSession` can override
+any of them for one event in `bookingModes` (§5.3), so one map sells every table
+whole at a wedding and by the seat at a quiz night. Pass the session as
+`session` and its modes apply; without one, the map's own do.
+
+```json
+{
+  "id": "table-3",
+  "kind": "table",
+  "label": "Table 3",
+  "seats": ["T3-1", "T3-2", "T3-3", "T3-4"],
+  "shape": { "circle": { "center": [300, 240], "radius": 48 } },
+  "booking": "either",
+  "wholePrice": { "amount": 18000, "currency": "MYR" }
+}
+```
+
+- **A tap takes the seat's booking unit.** Every seat of the outermost level
+  containing it whose mode is `whole`, or the seat alone: both places of a love
+  seat booked whole, every chair at a table the session sells whole. It is
+  refused with `unit-unavailable` while any seat of the unit is taken, and with
+  `unit-too-large` when the unit alone holds more seats than `maxSelection`,
+  which counts seats (D21). A seat booked only with a taken seat is shown
+  unavailable (`aria-disabled`, `.kerusi-seat--unit-blocked`, dimmed) and
+  announced so. A seat in a unit of more than one is announced with it: "booked
+  with 7 other seats at Table 3", at the unit's whole price when it has one.
+  `unitMode: 'seats'` takes the seat alone, for an admin view.
+- **An `either` table is booked whole from its shape** (D19). The footprint
+  becomes a `role="button"`, first in its group's wrapper so it comes before its
+  seats in keyboard order, announced "Table 3, book the whole table, 4 seats,
+  MYR 180.00". A click, Enter or Space selects every seat of it, and again
+  releases them; `aria-pressed` says whether it is booked whole, and its outline
+  takes the selected colour. While a seat of it is taken it is `aria-disabled`,
+  with the reason as its `aria-description`. An arrow key moves into its first
+  seat. Classes: `.kerusi-group--whole`, `--selected`, `--unavailable`, and a
+  `.kerusi-group__focus` outline for the focus ring. On a read-only map the
+  footprint stays decoration.
+- **Whole units with no shape are yours to offer** (D19): a room, the venue, a
+  group with no shape has nothing to press. Read them from `bookingUnits` in
+  `@kerusiweb/core`, with their availability, and book one by setting
+  `selection`.
+- **`selection` stays a list of seat ids** (D20). The change also reports the
+  whole units fully selected, however their seats were picked, so a cart can
+  say "Table 3 (whole table)".
+- **Prices follow §4.9.1.** A table, room or venue whose seats are all selected
+  is charged its whole price (`wholePrice`, or `wholePriceTier`) in place of
+  its seats'. `summary.total` and the announced total do this; `summary.wholes`
+  lists the levels charged.
+
+A "Book the whole room" button, for a section booked `either`:
+
+```ts
+import { bookingUnits, BookingUnit } from '@kerusiweb/core';
+
+export class Booking {
+  readonly map = input.required<KerusiMap>();
+  readonly session = input<KerusiSession>();
+  readonly state = input<KerusiState>();
+  readonly selection = signal<readonly string[]>([]);
+
+  protected readonly room = computed(() =>
+    bookingUnits(this.map(), this.session(), this.state()).wholeUnits.find(
+      (unit) => unit.level === 'section' && unit.id === 'private-room',
+    ),
+  );
+
+  protected booked(room: BookingUnit): boolean {
+    return room.seats.every((id) => this.selection().includes(id));
+  }
+
+  protected toggle(room: BookingUnit): void {
+    const rest = this.selection().filter((id) => !room.seats.includes(id));
+    this.selection.set(this.booked(room) ? rest : [...rest, ...room.seats]);
+  }
+}
+```
+
+```html
+@if (room(); as room) {
+<button
+  type="button"
+  [attr.aria-pressed]="booked(room)"
+  [disabled]="!room.bookable"
+  (click)="toggle(room)"
+>
+  Book the whole room
+</button>
+}
+<kerusi-seatmap [map]="map()" [session]="session()" [state]="state()" [(selection)]="selection" />
+```
+
+`room.bookable` is false while any seat of the room is taken (§4.12.3). When the
+map itself changes the selection, `(selectionDetail)` reports
+`{ selection, wholeUnits }` beside `(selectionChange)`.
+
+A selection that is not a union of booking units, such as one place of a love
+seat set by the app, is drawn as given and mended on the next tap: a tap on a
+selected seat drops every selected seat of its unit, and a tap on an unselected
+one adds the rest of it. `checkSelection(map, session, ids)` in core says whether
+a selection may be submitted (§4.12.3).
 
 ### Custom seat content
 
@@ -503,7 +611,7 @@ changes, and it can sit inside an `@if` to switch it on and off at run time.
 **What the library keeps.** Each seat's `<g>` stays the library's: its role,
 `aria-label`, `aria-pressed`, `aria-disabled`, tab stop, `data-seat-id`, class
 list, rotation and its click, focus and key handlers. Only what is drawn inside
-it is yours. Keyboard navigation, selection, companions and announcements
+it is yours. Keyboard navigation, selection, booking units and announcements
 therefore behave exactly as they do for the stock seat, and the accessible name
 still comes from the library (and `ariaStrings`), whatever text you draw.
 
@@ -808,6 +916,10 @@ screen, so they swap along with a mirrored right-to-left map.
 | `PageUp` / `PageDown`    | First / last seat of the section       |
 | `Enter` / `Space`        | Toggle, and open a click card          |
 | `Escape`                 | Close a card; else clear the selection |
+
+An `either` table's top is a control of its own, in Tab order just before its
+seats (D19): `Enter` or `Space` books it whole or releases it, an arrow key moves
+into its first seat, and `Escape` clears the selection.
 
 Each seat is a `role="button"` announcing its position, whether it is next to
 an aisle, its type, price and status, every `Seat.accessibility` property and its

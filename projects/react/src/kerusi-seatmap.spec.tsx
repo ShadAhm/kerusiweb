@@ -10,6 +10,10 @@ import { act, fireEvent, render } from '@testing-library/react';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  PARITY_BOOKING_MAP,
+  PARITY_BOOKING_SELECTION,
+  PARITY_BOOKING_SIGNATURE,
+  PARITY_BOOKING_STATE,
   PARITY_FORMS_MAP,
   PARITY_GROUPS_MAP,
   PARITY_GROUPS_SELECTION,
@@ -29,8 +33,8 @@ import type { SeatDisallowed, SeatRenderContext } from './types.js';
 
 /**
  * Two sections side by side on one canvas: stalls in a row with an aisle and
- * declared bounds, and a balcony with no rows or bounds holding a companion
- * pair, one seat of it turned.
+ * declared bounds, and a balcony with no rows or bounds holding a love seat
+ * booked only as a pair, one seat of it turned.
  */
 const VENUE: KerusiMap = {
   kerusi: '1.0',
@@ -64,17 +68,10 @@ const VENUE: KerusiMap = {
       index: 2,
       label: { en: 'Balcony', ms: 'Balkoni' },
       seats: [
-        { id: 'L1', label: 'L1', x: 260, y: 100, type: 'sofa', companions: ['L2'] },
-        {
-          id: 'L2',
-          label: 'L2',
-          x: 300,
-          y: 100,
-          rotation: 10,
-          type: 'sofa',
-          companions: ['L1'],
-        },
+        { id: 'L1', label: 'L1', x: 260, y: 100, type: 'sofa' },
+        { id: 'L2', label: 'L2', x: 300, y: 100, rotation: 10, type: 'sofa' },
       ],
+      groups: [{ id: 'pair', kind: 'loveseat', seats: ['L1', 'L2'], booking: 'whole' }],
     },
   ],
 };
@@ -367,7 +364,7 @@ describe('KerusiSeatmap', () => {
       expect(seat('A2').getAttribute('aria-pressed')).toBe('true');
     });
 
-    it('selects a companion pair together (§4.6)', () => {
+    it('selects a pair booked whole together (§4.12)', () => {
       fireEvent.click(seat('L1'));
       expect([...host.selection].sort()).toEqual(['L1', 'L2']);
     });
@@ -395,7 +392,10 @@ describe('KerusiSeatmap', () => {
 
       fireEvent.click(pick('A1'));
       expect(onSelectionChange).toHaveBeenCalledTimes(1);
-      expect(onSelectionChange).toHaveBeenLastCalledWith(['A2', 'A1']);
+      expect(onSelectionChange).toHaveBeenLastCalledWith(['A2', 'A1'], {
+        selection: ['A2', 'A1'],
+        wholeUnits: [],
+      });
       // No `selection` prop, so the component committed it itself.
       expect(pick('A1').getAttribute('aria-pressed')).toBe('true');
     });
@@ -434,16 +434,26 @@ describe('KerusiSeatmap', () => {
       expect(seat('A2').getAttribute('aria-disabled')).toBe('false');
     });
 
-    it('reports max-selection, counting the companion closure', () => {
-      set({ maxSelection: 1 });
+    it('reports max-selection, counting both seats of the pair (D21)', () => {
+      set({ maxSelection: 2 });
+      fireEvent.click(seat('A1'));
       fireEvent.click(seat('L1'));
       expect(disallowed!.reason).toBe('max-selection');
     });
 
-    it('reports companion-unavailable when the pair cannot be completed', () => {
-      withStatus('L2', 'booked');
+    it('reports unit-too-large for a pair over a limit of one (D21)', () => {
+      set({ maxSelection: 1 });
       fireEvent.click(seat('L1'));
-      expect(disallowed!.reason).toBe('companion-unavailable');
+      expect(disallowed!.reason).toBe('unit-too-large');
+    });
+
+    it('reports unit-unavailable when the pair cannot be completed, and shows it unavailable', () => {
+      withStatus('L2', 'booked');
+      expect(seat('L1').getAttribute('aria-disabled')).toBe('true');
+      expect(seat('L1').getAttribute('class')).toContain('kerusi-seat--unselectable');
+      fireEvent.click(seat('L1'));
+      expect(disallowed!.reason).toBe('unit-unavailable');
+      expect(host.selection).toEqual([]);
     });
   });
 
@@ -1074,7 +1084,7 @@ describe('KerusiSeatmap groups (§4.11)', () => {
     expect(onSelectionChange).not.toHaveBeenCalled();
     // And a seat inside the same group still selects.
     fireEvent.click(el.querySelector('[data-seat-id="T3"]')!);
-    expect(onSelectionChange).toHaveBeenCalledWith(['T3']);
+    expect(onSelectionChange).toHaveBeenCalledWith(['T3'], { selection: ['T3'], wholeUnits: [] });
   });
 
   it('leaves the arrow-key order to the rows, as without groups', () => {
@@ -1127,6 +1137,168 @@ describe('KerusiSeatmap groups (§4.11)', () => {
   });
 });
 
+describe('KerusiSeatmap booking units (§4.12, D19–D22)', () => {
+  const draw = (extra: Partial<React.ComponentProps<typeof KerusiSeatmap>> = {}) =>
+    render(<KerusiSeatmap map={PARITY_BOOKING_MAP} state={PARITY_BOOKING_STATE} {...extra} />)
+      .container;
+  const control = (el: HTMLElement, id: string) =>
+    el.querySelector<SVGGElement>(`g.kerusi-group--whole[data-group-id="${id}"]`)!;
+  const seatOf = (el: HTMLElement, id: string) =>
+    el.querySelector<SVGGElement>(`[data-seat-id="${id}"]`)!;
+  const live = (el: HTMLElement) =>
+    el
+      .querySelector('[aria-live]')!
+      .textContent!.replace(/\u200b/g, '')
+      .replace(/\u00a0/g, ' ');
+
+  /** A host that owns the selection, as an app would. */
+  function Host(props: Partial<React.ComponentProps<typeof KerusiSeatmap>>) {
+    const [selection, setSelection] = useState<readonly string[]>(props.selection ?? []);
+    return (
+      <KerusiSeatmap
+        map={PARITY_BOOKING_MAP}
+        state={PARITY_BOOKING_STATE}
+        {...props}
+        selection={selection}
+        onSelectionChange={(next, change) => {
+          setSelection(next);
+          props.onSelectionChange?.(next, change);
+        }}
+      />
+    );
+  }
+
+  it('makes an either group’s shape a button, first in its wrapper, before its seats', () => {
+    const el = draw();
+    const table = control(el, 'table-3');
+    expect(table.getAttribute('role')).toBe('button');
+    expect(table.getAttribute('tabindex')).toBe('0');
+    expect(table.hasAttribute('aria-hidden')).toBe(false);
+    expect(table.getAttribute('aria-label')).toBe(
+      'Table 3, book the whole table, 4 seats, MYR\u00a0180.00',
+    );
+    expect(table.parentElement!.getAttribute('class')).toBe('kerusi-group-seats');
+    expect(table.parentElement!.firstElementChild).toBe(table);
+    // Nothing is left in the decorative layer for a group whose shape is a control.
+    expect(el.querySelectorAll('g.kerusi-group[aria-hidden]')).toHaveLength(0);
+  });
+
+  it('wraps a whole unit with no label without naming the wrapper', () => {
+    const bench = control(draw(), 'bench');
+    expect(bench.getAttribute('aria-label')).toBe('book the whole bench, 2 seats');
+    expect(bench.parentElement!.hasAttribute('role')).toBe(false);
+  });
+
+  it('books the whole table on a click, reports it, and releases it on another', () => {
+    const onSelectionChange = vi.fn();
+    const el = render(<Host onSelectionChange={onSelectionChange} />).container;
+    fireEvent.click(control(el, 'table-3'));
+    const [selection, change] = onSelectionChange.mock.lastCall!;
+    expect(selection).toEqual(['T1', 'T2', 'T3', 'T4']);
+    expect(change.wholeUnits.map((u: { id: string }) => u.id)).toEqual(['table-3']);
+    expect(control(el, 'table-3').getAttribute('aria-pressed')).toBe('true');
+    expect(control(el, 'table-3').getAttribute('class')).toContain('kerusi-group--selected');
+    expect(live(el)).toBe('4 seats selected, MYR 180.00 total');
+
+    fireEvent.click(control(el, 'table-3'));
+    expect(onSelectionChange).toHaveBeenLastCalledWith([], { selection: [], wholeUnits: [] });
+  });
+
+  it('reports a table picked seat by seat as booked whole too, and prices it so (§4.9.1)', () => {
+    const onSelectionChange = vi.fn();
+    const el = render(<Host onSelectionChange={onSelectionChange} />).container;
+    for (const id of ['T1', 'T2', 'T3', 'T4']) fireEvent.click(seatOf(el, id));
+    expect(onSelectionChange.mock.lastCall![1].wholeUnits.map((u: { id: string }) => u.id)).toEqual(
+      ['table-3'],
+    );
+    expect(control(el, 'table-3').getAttribute('aria-pressed')).toBe('true');
+    expect(live(el)).toBe('4 seats selected, MYR 180.00 total');
+  });
+
+  it('answers Enter and Space, moves into its seats on an arrow, and clears on Escape', () => {
+    const el = render(<Host />).container;
+    fireEvent.keyDown(control(el, 'table-3'), { key: 'Enter' });
+    expect(control(el, 'table-3').getAttribute('aria-pressed')).toBe('true');
+    fireEvent.keyDown(control(el, 'table-3'), { key: ' ' });
+    expect(control(el, 'table-3').getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.keyDown(control(el, 'table-3'), { key: 'ArrowRight' });
+    expect(seatOf(el, 'T1').getAttribute('tabindex')).toBe('0');
+    expect(document.activeElement).toBe(seatOf(el, 'T1'));
+
+    fireEvent.click(seatOf(el, 'X1'));
+    fireEvent.keyDown(control(el, 'table-3'), { key: 'Escape' });
+    expect(seatOf(el, 'X1').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('disables a whole unit while a seat of it is taken, with the reason, and refuses it', () => {
+    const onSelectionChange = vi.fn();
+    const el = render(<Host onSelectionChange={onSelectionChange} />).container;
+    const sofa = control(el, 'sofa');
+    expect(sofa.getAttribute('aria-disabled')).toBe('true');
+    expect(sofa.getAttribute('aria-description')).toBe(
+      'Sofa cannot be booked whole: a seat in it is unavailable.',
+    );
+    fireEvent.click(sofa);
+    expect(onSelectionChange).not.toHaveBeenCalled();
+    expect(live(el)).toBe('Sofa cannot be booked whole: a seat in it is unavailable.');
+    // Its free seats are still sold one by one.
+    fireEvent.click(seatOf(el, 'S1'));
+    expect(onSelectionChange).toHaveBeenLastCalledWith(['S1'], {
+      selection: ['S1'],
+      wholeUnits: [],
+    });
+  });
+
+  it('refuses a table bigger than maxSelection as unit-too-large (D21)', () => {
+    const el = render(<Host maxSelection={3} />).container;
+    fireEvent.click(control(el, 'table-3'));
+    expect(control(el, 'table-3').getAttribute('aria-pressed')).toBe('false');
+    expect(live(el)).toBe('Table 3 has more seats than the seat limit allows.');
+  });
+
+  it('draws no control on a read-only map: the shape is decoration again', () => {
+    const el = draw({ interactive: false });
+    expect(el.querySelector('.kerusi-group--whole')).toBeNull();
+    expect(
+      el.querySelector('g.kerusi-group[data-group-id="table-3"]')!.getAttribute('aria-hidden'),
+    ).toBe('true');
+  });
+
+  it('takes the booking unit on a tap: a pair booked whole, both seats', () => {
+    const onSelectionChange = vi.fn();
+    const el = render(<Host onSelectionChange={onSelectionChange} />).container;
+    fireEvent.click(seatOf(el, 'L2'));
+    expect(onSelectionChange.mock.lastCall![0]).toEqual(['L1', 'L2']);
+  });
+
+  it('takes the seat alone under unitMode="seats" (D22)', () => {
+    const onSelectionChange = vi.fn();
+    const el = render(<Host unitMode="seats" onSelectionChange={onSelectionChange} />).container;
+    fireEvent.click(seatOf(el, 'L2'));
+    expect(onSelectionChange.mock.lastCall![0]).toEqual(['L2']);
+    expect(seatOf(el, 'L1').getAttribute('aria-label')).not.toContain('booked with');
+  });
+
+  it('applies a session’s booking modes: a wedding sells the table whole (§5.3)', () => {
+    const session = {
+      kerusi: '1.0' as const,
+      id: 'wedding',
+      mapId: 'supper-club',
+      bookingModes: { groups: { 'table-3': 'whole' as const } },
+    };
+    const onSelectionChange = vi.fn();
+    const el = render(<Host session={session} onSelectionChange={onSelectionChange} />).container;
+    // Booked only whole, the table is not offered on its shape: a tap on any seat takes it.
+    expect(control(el, 'table-3')).toBeNull();
+    expect(seatOf(el, 'T2').getAttribute('aria-label')).toContain(
+      'booked with 3 other seats at Table 3',
+    );
+    fireEvent.click(seatOf(el, 'T2'));
+    expect(onSelectionChange.mock.lastCall![0]).toEqual(['T1', 'T2', 'T3', 'T4']);
+  });
+});
+
 describe('KerusiSeatmap SVG parity with the Angular binding', () => {
   it('draws groups exactly as the shared signature says', () => {
     const el = render(
@@ -1146,6 +1318,19 @@ describe('KerusiSeatmap SVG parity with the Angular binding', () => {
       <KerusiSeatmap map={PARITY_MAP} state={PARITY_STATE} selection={PARITY_SELECTION} />,
     ).container;
     expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(PARITY_SIGNATURE);
+  });
+
+  it('draws booking units and whole-unit controls exactly as the shared signature says', () => {
+    const el = render(
+      <KerusiSeatmap
+        map={PARITY_BOOKING_MAP}
+        state={PARITY_BOOKING_STATE}
+        selection={PARITY_BOOKING_SELECTION}
+      />,
+    ).container;
+    expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(
+      PARITY_BOOKING_SIGNATURE,
+    );
   });
 
   it('draws the seat forms exactly as the shared signature says', () => {

@@ -227,19 +227,32 @@ formatMoney(total, 'ms-MY'); // "RM 104.00"
 
 `showLegend` renders a key from `KerusiMap.legend` and `priceTiers`.
 
-## Companions (§4.6)
+## Booking units (§4.12)
 
-`companions` must be symmetric, and the library treats the transitive closure as
-one unit: selecting a love seat takes its partner, deselecting either releases
-both, `maxSelection` counts the pair, and a pair whose other half is sold is
-refused with `reason: 'companion-unavailable'` rather than half-taken.
+A level, the map, a section or a group, says how it may be booked: `seats` (the
+default), `whole` (only all together) or `either` (by the seat, or whole). A
+`KerusiSession` may override any level for one event. A seat's **booking unit**
+is every seat of the outermost `whole` level containing it, or the seat alone,
+and a tap selects it: selecting a love seat takes its partner, deselecting
+either releases both, `maxSelection` counts the pair, and a pair whose other
+half is sold is refused with `reason: 'unit-unavailable'` rather than half-taken.
 
 ```ts
-{ id: 'L1', row: 'L', col: 1, x: 600, y: 700, type: 'sofa', companions: ['L2'] },
-{ id: 'L2', row: 'L', col: 2, x: 660, y: 700, type: 'sofa', companions: ['L1'] },
+seats: [
+  { id: 'L1', row: 'L', col: 1, x: 600, y: 700, type: 'sofa' },
+  { id: 'L2', row: 'L', col: 2, x: 660, y: 700, type: 'sofa' },
+],
+groups: [{ id: 'love-1', kind: 'loveseat', seats: ['L1', 'L2'], booking: 'whole' }],
 ```
 
-Set `companionMode` to `'independent'` to handle the pairing yourself.
+An `either` level is also offered as a **whole unit**: an `either` table from its
+tabletop, a room or the venue from the app's own button. `bookingUnits(map,
+session, state)` in core lists both kinds, and `priceSelection` prices a
+selection with whole prices (§4.9.1). Set `unitMode` to `'seats'` to select seat
+by seat whatever the units, for an admin view.
+
+`Seat.companions` was retired in rev 17 (§4.12.4); a map that still carries it is
+rejected with `companions-retired`.
 
 ## Accessibility (§4.3.4)
 
@@ -250,7 +263,6 @@ announced:
 {
   id: '15C', row: '15', col: 3, x: 96, y: 378, type: 'accessible',
   attributes: ['aisle'],
-  companions: ['15B'],
   accessibility: {
     wheelchairAccessible: true,
     transferArmrest: 'left',
@@ -263,8 +275,8 @@ announced:
 > "Row 15, seat C, Accessible, MYR 140.00, available, wheelchair accessible,
 > transfer armrest left, aisle chair compatible, companion seat required, aisle."
 
-Pair `companionRequired` with `companions` so the companion seat is actually
-linked, not merely implied.
+Pair `companionRequired` with a group of kind `companion` booked `whole`, so the
+companion seat is actually linked, not merely implied.
 
 ## Localization
 

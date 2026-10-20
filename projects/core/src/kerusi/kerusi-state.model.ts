@@ -4,6 +4,8 @@
  * booking status that is merged onto a static {@link KerusiMap} by `Seat.id`.
  */
 
+import type { BookingMode } from './kerusi-map.model.js';
+
 /** Per-seat availability status (§5.1). */
 export interface SeatStatus {
   /** REQUIRED. */
@@ -78,5 +80,17 @@ export interface KerusiSession {
   /** RFC 3339 date-time (§5.1.1) — showtime / departure / event start. */
   startsAt?: string;
   endsAt?: string;
+  /**
+   * This event's booking-mode overrides (§4.12.1, §5.3): each replaces the
+   * named level's own `booking` for this session only. Every key of `sections`
+   * and `groups` MUST name a section or a group of the session's map.
+   */
+  bookingModes?: {
+    map?: BookingMode;
+    /** By `Section.id`. */
+    sections?: Record<string, BookingMode>;
+    /** By `Group.id`. */
+    groups?: Record<string, BookingMode>;
+  };
   metadata?: Record<string, unknown>;
 }

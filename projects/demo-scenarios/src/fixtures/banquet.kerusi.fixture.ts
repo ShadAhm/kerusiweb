@@ -11,6 +11,10 @@ import { Group, KerusiMap, KerusiState, Seat } from '@kerusiweb/core';
  * Each seat is turned to face the middle of its table. A seat faces up when its
  * `rotation` is 0 (§4.3.1), so a seat on a point of the ring is turned until up
  * points at the centre.
+ *
+ * The map sells the hall by the seat. Each round table also carries a table
+ * price, which applies only while an event sells the table whole (§4.9.1): the
+ * Wedding scenario's session does, with this same map.
  */
 
 const SEAT = 30;
@@ -52,6 +56,8 @@ function roundTable(n: number, cx: number, cy: number): { seats: Seat[]; group: 
       label: `Table ${n}`,
       seats: seats.map((s) => s.id),
       shape: { circle: { center: [cx, cy], radius: TABLE_RADIUS } },
+      // Ignored while the table is sold by the seat (§4.9.1).
+      wholePriceTier: 'table',
     },
   };
 }
@@ -92,6 +98,7 @@ export const BANQUET_MAP: KerusiMap = {
   priceTiers: [
     { id: 'guest', label: 'Guest', price: { amount: 18000, currency: 'MYR' } },
     { id: 'head', label: 'VIP', price: { amount: 30000, currency: 'MYR' } },
+    { id: 'table', label: 'Table of eight', price: { amount: 120000, currency: 'MYR' } },
   ],
   sections: [
     {

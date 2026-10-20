@@ -1,4 +1,4 @@
-import { Element, KerusiMap, RowMeta, Seat, Section } from './kerusi-map.model.js';
+import { BookingMode, Element, KerusiMap, RowMeta, Seat, Section } from './kerusi-map.model.js';
 import { KerusiSession, KerusiState, KerusiStateDelta, SeatStatus } from './kerusi-state.model.js';
 import { resolveSeatPrice } from './kerusi-price.js';
 import {
@@ -20,6 +20,9 @@ const SUPPORTED_MAJOR = 1;
 
 /** Valid `transferArmrest` values (§4.3.4). */
 const TRANSFER_ARMREST = new Set(['left', 'right', 'both', 'fixed', 'none']);
+
+/** Valid `booking` values on the map, a section or a group, and in a session (§4.12). */
+const BOOKING_MODES: ReadonlySet<string> = new Set<BookingMode>(['seats', 'whole', 'either']);
 
 /**
  * Thrown when a Kerusi document violates a MUST-level rule in the standard.
@@ -147,6 +150,93 @@ export function checkKerusiSession(session: unknown): readonly KerusiViolation[]
       );
     }
   }
+  violations.push(...collectSessionBookingModeViolations(doc));
+  return violations;
+}
+
+/**
+ * §5.3: `bookingModes`, when present, is an object whose `map` is a booking
+ * mode and whose `sections` and `groups` map ids to booking modes. A mode this
+ * library does not know would leave the level's own mode in force, quietly
+ * undoing what the event set out to sell, so it is rejected rather than ignored.
+ */
+function collectSessionBookingModeViolations(session: KerusiSession): KerusiViolation[] {
+  const modes: unknown = session.bookingModes;
+  if (modes === undefined) {
+    return [];
+  }
+  const invalid = (path: string, value: unknown) =>
+    error(
+      'session-booking-mode-invalid',
+      `KerusiSession "${session.id}" sets ${path} to ${JSON.stringify(value)}, which is not ` +
+        'one of seats | whole | either (§4.12, §5.3).',
+      { id: session.id, path },
+    );
+  if (!isObject(modes)) {
+    return [invalid('bookingModes', modes)];
+  }
+  const violations: KerusiViolation[] = [];
+  if (modes['map'] !== undefined && !BOOKING_MODES.has(modes['map'] as string)) {
+    violations.push(invalid('bookingModes.map', modes['map']));
+  }
+  for (const key of ['sections', 'groups'] as const) {
+    const byId = modes[key];
+    if (byId === undefined) continue;
+    if (!isObject(byId)) {
+      violations.push(invalid(`bookingModes.${key}`, byId));
+      continue;
+    }
+    for (const [id, mode] of Object.entries(byId)) {
+      if (!BOOKING_MODES.has(mode as string)) {
+        violations.push(invalid(`bookingModes.${key}.${id}`, mode));
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * §4.12.2: every key of a session's `bookingModes.sections` and
+ * `bookingModes.groups` names a section or a group of its map. An override
+ * that named nothing would change nothing, and an event's "every table sold
+ * whole" would quietly not happen.
+ */
+function collectSessionOverrideViolations(
+  session: KerusiSession,
+  map: KerusiMap,
+): KerusiViolation[] {
+  const modes: unknown = session.bookingModes;
+  if (!isObject(modes) || !Array.isArray(map.sections)) {
+    return [];
+  }
+  const sections = map.sections.filter((section): section is Section => isObject(section));
+  const known = {
+    sections: new Set(sections.map((section) => section.id)),
+    groups: new Set(
+      sections.flatMap((section) =>
+        (Array.isArray(section.groups) ? section.groups : []).map((group) => group?.id),
+      ),
+    ),
+  };
+  const violations: KerusiViolation[] = [];
+  for (const [key, kind] of [
+    ['sections', 'section'],
+    ['groups', 'group'],
+  ] as const) {
+    const byId = modes[key];
+    if (!isObject(byId)) continue;
+    for (const id of Object.keys(byId)) {
+      if (known[key].has(id)) continue;
+      violations.push(
+        error(
+          'session-booking-mode-unresolved',
+          `KerusiSession "${session.id}" sets the booking mode of ${kind} "${id}", which ` +
+            `map "${map.id}" does not declare (§4.12.2).`,
+          { id: session.id, path: `bookingModes.${key}.${id}` },
+        ),
+      );
+    }
+  }
   return violations;
 }
 
@@ -193,7 +283,8 @@ function daysInMonth(year: number, month: number): number {
  * Validates a map together with the session and/or state that reference it,
  * checking the joins the individual validators cannot see (§5.1, §5.3): a
  * state's `mapId` must be the map's id, its `sessionId` the session's, and the
- * session's `mapId` the map's.
+ * session's `mapId` the map's, and every section and group the session's
+ * `bookingModes` names must be one of the map's (§4.12.2).
  */
 export function validateDocumentSet(docs: {
   map: KerusiMap;
@@ -214,6 +305,9 @@ export function validateDocumentSet(docs: {
           { id: session.id },
         ),
       );
+    }
+    if (map && typeof map === 'object') {
+      violations.push(...collectSessionOverrideViolations(session, map));
     }
   }
 
@@ -263,15 +357,18 @@ export function validateDocumentSet(docs: {
  *  - Every `Seat.priceTier` resolves to a `PriceTier.id` (§4.6).
  *  - Every `Seat.row` resolves to a `RowMeta.id` when the section declares
  *    `rows`; opaque free-text otherwise (§4.6).
- *  - Every `Seat.companions[]` entry resolves to another seat in the SAME
- *    section, and the relationship is symmetric (§4.6).
+ *  - No seat carries `companions`, which rev 17 retired: a set of seats booked
+ *    together is a group with `booking: "whole"` (§4.12.4).
+ *  - Every `booking` on the map, a section or a group is `seats`, `whole` or
+ *    `either` (§4.12), and every `wholePriceTier` resolves (§4.9.1).
  *  - Every row shape is exactly one well-formed line, arc or circle (§4.2.3).
  *  - Every group has an `id`, a `kind` and at least one seat; each seat it lists
  *    is a seat of its own section and in no other group, and listed once; its
  *    shape, when given, is exactly one well-formed `rect` or `circle` whose
  *    centre is on the canvas (§4.11).
  *  - Every `Element` has the required `id` and `kind` (§4.4).
- *  - All resolved currencies across the map are identical (§4.9).
+ *  - All resolved currencies across the map, whole prices included, are
+ *    identical (§4.9, §4.9.1).
  *
  * Members this library does not recognize are ignored (§7), including the
  * members rev 15 removed from sections and elements; a rev 14 map is still
@@ -381,6 +478,8 @@ function collectMapViolations(map: KerusiMap): KerusiViolation[] {
       ctx.currencies.add(tier.price.currency);
     }
   }
+
+  violations.push(...collectBookingViolations(map, `KerusiMap "${map.id}"`, map.id, ctx, ''));
 
   map.sections.forEach((section, sectionIndex) => {
     violations.push(...collectSectionViolations(section, ctx, `sections[${sectionIndex}]`));
@@ -505,6 +604,9 @@ function collectSectionViolations(
   if (!section.id) {
     violations.push(error('section-id', 'A section is missing the required "id".', { path }));
   }
+  violations.push(
+    ...collectBookingViolations(section, `Section "${section.id}"`, section.id, ctx, path),
+  );
   if (section.seatSize !== undefined && !isPositive(section.seatSize)) {
     violations.push(
       error(
@@ -529,7 +631,6 @@ function collectSectionViolations(
 
   const rowIds = section.rows ? new Set(section.rows.map((r) => r.id)) : null;
   const seatIds = new Set(section.seats.map((s) => s.id));
-  const companionsBySeat = new Map<string, Set<string>>();
   const seatAtRowCol = new Map<string, string>();
 
   section.seats.forEach((seat, seatIndex) => {
@@ -631,36 +732,20 @@ function collectSectionViolations(
       ctx.currencies.add(price.currency);
     }
 
-    companionsBySeat.set(seat.id, new Set(seat.companions ?? []));
-  });
-
-  // §4.6 companion resolution + symmetry.
-  for (const [seatId, companions] of companionsBySeat) {
-    for (const companionId of companions) {
-      if (!seatIds.has(companionId)) {
-        violations.push(
-          error(
-            'companion-reference',
-            `Seat "${seatId}" lists companion "${companionId}", which is not a ` +
-              `seat in section "${section.id}" (§4.6).`,
-            { id: seatId, path },
-          ),
-        );
-        continue;
-      }
-      const back = companionsBySeat.get(companionId);
-      if (!back || !back.has(seatId)) {
-        violations.push(
-          error(
-            'companion-symmetry',
-            `Companion link is not symmetric: seat "${seatId}" lists "${companionId}", ` +
-              `but "${companionId}" does not list "${seatId}" in return (§4.6).`,
-            { id: seatId, path },
-          ),
-        );
-      }
+    // §4.12.4: `companions` is retired and reserved. The rule that a consumer
+    // ignores a member it does not recognise (§2) does not apply: ignored, a
+    // pair sold together would quietly become two seats sold apart.
+    if (isObject(seat) && 'companions' in seat) {
+      violations.push(
+        error(
+          'companions-retired',
+          `Seat "${seat.id}" carries "companions", which rev 17 retired; put the seats in ` +
+            'one group with "booking": "whole" instead (§4.11, §4.12.4).',
+          { id: seat.id, path: `${seatPath}.companions` },
+        ),
+      );
     }
-  }
+  });
 
   // §4.4 elements.
   violations.push(...collectElementViolations(section, ctx, path));
@@ -672,6 +757,49 @@ function collectSectionViolations(
 }
 
 const GROUP_SHAPE_KINDS = ['rect', 'circle'] as const;
+
+/**
+ * A level's booking members, on the map, a section or a group: `booking` is a
+ * booking mode (§4.12), `wholePriceTier` names a declared tier, and the whole
+ * price's currency counts toward the map's one currency (§4.9.1). A whole price
+ * on a level whose mode is `seats` is not invalid: another session may make the
+ * level `either`.
+ */
+function collectBookingViolations(
+  level: { booking?: unknown; wholePrice?: unknown; wholePriceTier?: unknown },
+  what: string,
+  id: string | undefined,
+  ctx: MapContext,
+  path: string,
+): KerusiViolation[] {
+  const at = (member: string) => (path ? `${path}.${member}` : member);
+  const violations: KerusiViolation[] = [];
+  if (level.booking !== undefined && !BOOKING_MODES.has(level.booking as string)) {
+    violations.push(
+      error(
+        'booking-mode-invalid',
+        `${what} has "booking": ${JSON.stringify(level.booking)}, which is not one of ` +
+          'seats | whole | either (§4.12).',
+        { id, path: at('booking') },
+      ),
+    );
+  }
+  if (level.wholePriceTier !== undefined && !ctx.priceTierIds.has(level.wholePriceTier as string)) {
+    violations.push(
+      error(
+        'whole-price-tier-unresolved',
+        `${what} has whole price tier "${level.wholePriceTier}", which the map does not ` +
+          'declare (§4.6, §4.9.1).',
+        { id, path: at('wholePriceTier') },
+      ),
+    );
+  }
+  const currency = isObject(level.wholePrice) ? level.wholePrice['currency'] : undefined;
+  if (typeof currency === 'string' && currency) {
+    ctx.currencies.add(currency);
+  }
+  return violations;
+}
 
 /**
  * §4.11: each group has an `id`, a `kind` and at least one seat. Every seat it
@@ -770,6 +898,8 @@ function collectGroupViolations(
     if (group.shape !== undefined) {
       violations.push(...collectGroupShapeViolations(group.shape, id, ctx, `${groupPath}.shape`));
     }
+
+    violations.push(...collectBookingViolations(group, `Group "${id}"`, id, ctx, groupPath));
   });
 
   return violations;

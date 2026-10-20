@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   KerusiMap,
+  KerusiSelectionChange,
   KerusiState,
   KerusiViolation,
   SeatStyleFn,
@@ -11,6 +12,10 @@ import {
   seatBodyPath,
 } from '@kerusiweb/core';
 import {
+  PARITY_BOOKING_MAP,
+  PARITY_BOOKING_SELECTION,
+  PARITY_BOOKING_SIGNATURE,
+  PARITY_BOOKING_STATE,
   PARITY_FORMS_MAP,
   PARITY_GROUPS_MAP,
   PARITY_GROUPS_SELECTION,
@@ -30,7 +35,7 @@ import { KerusiSeatTemplateDirective } from './kerusi-seat-template.directive';
 
 /**
  * Two sections side by side on one canvas: stalls in a row with an aisle and
- * declared bounds, and a balcony with no rows or bounds holding a companion
+ * declared bounds, and a balcony with no rows or bounds holding a love seat booked whole as a
  * pair, one seat of it turned.
  */
 const VENUE: KerusiMap = {
@@ -65,17 +70,10 @@ const VENUE: KerusiMap = {
       index: 2,
       label: { en: 'Balcony', ms: 'Balkoni' },
       seats: [
-        { id: 'L1', label: 'L1', x: 260, y: 100, type: 'sofa', companions: ['L2'] },
-        {
-          id: 'L2',
-          label: 'L2',
-          x: 300,
-          y: 100,
-          rotation: 10,
-          type: 'sofa',
-          companions: ['L1'],
-        },
+        { id: 'L1', label: 'L1', x: 260, y: 100, type: 'sofa' },
+        { id: 'L2', label: 'L2', x: 300, y: 100, rotation: 10, type: 'sofa' },
       ],
+      groups: [{ id: 'pair', kind: 'loveseat', seats: ['L1', 'L2'], booking: 'whole' }],
     },
   ],
 };
@@ -361,7 +359,7 @@ describe('KerusiSeatmapComponent', () => {
       expect(seat('A2').getAttribute('aria-pressed')).toBe('true');
     });
 
-    it('selects a companion pair together (§4.6)', () => {
+    it('selects a pair booked whole together (§4.12)', () => {
       seat('L1').dispatchEvent(new MouseEvent('click'));
       fixture.detectChanges();
       expect([...host.selection()].sort()).toEqual(['L1', 'L2']);
@@ -403,19 +401,32 @@ describe('KerusiSeatmapComponent', () => {
       expect(seat('A2').getAttribute('aria-disabled')).toBe('false');
     });
 
-    it('reports max-selection, counting the companion closure', () => {
-      host.maxSelection.set(1);
+    it('reports max-selection, counting both seats of the pair (D21)', () => {
+      host.maxSelection.set(2);
+      fixture.detectChanges();
+      seat('A1').dispatchEvent(new MouseEvent('click'));
       fixture.detectChanges();
       seat('L1').dispatchEvent(new MouseEvent('click'));
       fixture.detectChanges();
       expect(host.disallowed()!.reason).toBe('max-selection');
     });
 
-    it('reports companion-unavailable when the pair cannot be completed', () => {
-      withStatus('L2', 'booked');
+    it('reports unit-too-large for a pair over a limit of one (D21)', () => {
+      host.maxSelection.set(1);
+      fixture.detectChanges();
       seat('L1').dispatchEvent(new MouseEvent('click'));
       fixture.detectChanges();
-      expect(host.disallowed()!.reason).toBe('companion-unavailable');
+      expect(host.disallowed()!.reason).toBe('unit-too-large');
+    });
+
+    it('reports unit-unavailable when the pair cannot be completed, and shows it unavailable', () => {
+      withStatus('L2', 'booked');
+      expect(seat('L1').getAttribute('aria-disabled')).toBe('true');
+      expect(seat('L1').getAttribute('class')).toContain('kerusi-seat--unselectable');
+      seat('L1').dispatchEvent(new MouseEvent('click'));
+      fixture.detectChanges();
+      expect(host.disallowed()!.reason).toBe('unit-unavailable');
+      expect(host.selection()).toEqual([]);
     });
   });
 
@@ -1095,7 +1106,165 @@ describe('KerusiSeatmapComponent groups (§4.11)', () => {
   });
 });
 
+describe('KerusiSeatmapComponent booking units (§4.12, D19–D22)', () => {
+  /** Mounts the map alone and records every `selectionDetail` it emits. */
+  function mount(inputs: Record<string, unknown> = {}) {
+    const fixture = TestBed.createComponent(KerusiSeatmapComponent);
+    const all: Record<string, unknown> = {
+      map: PARITY_BOOKING_MAP,
+      state: PARITY_BOOKING_STATE,
+      ...inputs,
+    };
+    for (const [name, value] of Object.entries(all)) {
+      fixture.componentRef.setInput(name, value);
+    }
+    const details: KerusiSelectionChange[] = [];
+    fixture.componentInstance.selectionDetail.subscribe((change) => details.push(change));
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const control = (id: string) =>
+      el.querySelector<SVGGElement>(`g.kerusi-group--whole[data-group-id="${id}"]`)!;
+    const seatOf = (id: string) => el.querySelector<SVGGElement>(`[data-seat-id="${id}"]`)!;
+    const click = (node: Element) => {
+      node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      fixture.detectChanges();
+    };
+    const key = (node: Element, k: string) => {
+      node.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+      fixture.detectChanges();
+    };
+    const selection = () => fixture.componentInstance.selection();
+    return { fixture, el, details, control, seatOf, click, key, selection };
+  }
+
+  it('makes an either group’s shape a button, first in its wrapper, before its seats', () => {
+    const { el, control } = mount();
+    const table = control('table-3');
+    expect(table.getAttribute('role')).toBe('button');
+    expect(table.getAttribute('tabindex')).toBe('0');
+    expect(table.hasAttribute('aria-hidden')).toBe(false);
+    expect(table.getAttribute('aria-label')).toBe(
+      'Table 3, book the whole table, 4 seats, MYR\u00a0180.00',
+    );
+    expect(table.parentElement!.getAttribute('class')).toBe('kerusi-group-seats');
+    expect(table.parentElement!.firstElementChild).toBe(table);
+    expect(el.querySelectorAll('g.kerusi-group[aria-hidden]')).toHaveLength(0);
+  });
+
+  it('wraps a whole unit with no label without naming the wrapper', () => {
+    const bench = mount().control('bench');
+    expect(bench.getAttribute('aria-label')).toBe('book the whole bench, 2 seats');
+    expect(bench.parentElement!.hasAttribute('role')).toBe(false);
+  });
+
+  it('books the whole table on a click, reports it, and releases it on another', () => {
+    const { control, click, details, selection } = mount();
+    click(control('table-3'));
+    expect(selection()).toEqual(['T1', 'T2', 'T3', 'T4']);
+    expect(details.at(-1)!.wholeUnits.map((u) => u.id)).toEqual(['table-3']);
+    expect(control('table-3').getAttribute('aria-pressed')).toBe('true');
+    expect(control('table-3').getAttribute('class')).toContain('kerusi-group--selected');
+
+    click(control('table-3'));
+    expect(selection()).toEqual([]);
+    expect(details.at(-1)).toEqual({ selection: [], wholeUnits: [] });
+  });
+
+  it('reports a table picked seat by seat as booked whole too (§4.9.1)', () => {
+    const { control, click, details, seatOf, fixture } = mount();
+    for (const id of ['T1', 'T2', 'T3', 'T4']) click(seatOf(id));
+    expect(details.at(-1)!.wholeUnits.map((u) => u.id)).toEqual(['table-3']);
+    expect(control('table-3').getAttribute('aria-pressed')).toBe('true');
+    expect(fixture.componentInstance.summary().total).toEqual({ amount: 18000, currency: 'MYR' });
+  });
+
+  it('answers Enter and Space, moves into its seats on an arrow, and clears on Escape', () => {
+    const { control, key, click, seatOf, selection } = mount();
+    key(control('table-3'), 'Enter');
+    expect(control('table-3').getAttribute('aria-pressed')).toBe('true');
+    key(control('table-3'), ' ');
+    expect(control('table-3').getAttribute('aria-pressed')).toBe('false');
+
+    key(control('table-3'), 'ArrowRight');
+    expect(seatOf('T1').getAttribute('tabindex')).toBe('0');
+    expect(document.activeElement).toBe(seatOf('T1'));
+
+    click(seatOf('X1'));
+    expect(selection()).toEqual(['X1']);
+    key(control('table-3'), 'Escape');
+    expect(selection()).toEqual([]);
+  });
+
+  it('disables a whole unit while a seat of it is taken, with the reason, and refuses it', () => {
+    const { control, click, selection, seatOf } = mount();
+    const sofa = control('sofa');
+    expect(sofa.getAttribute('aria-disabled')).toBe('true');
+    expect(sofa.getAttribute('aria-description')).toBe(
+      'Sofa cannot be booked whole: a seat in it is unavailable.',
+    );
+    click(sofa);
+    expect(selection()).toEqual([]);
+    click(seatOf('S1'));
+    expect(selection()).toEqual(['S1']);
+  });
+
+  it('refuses a table bigger than maxSelection (D21)', () => {
+    const { control, click, selection } = mount({ maxSelection: 3 });
+    click(control('table-3'));
+    expect(selection()).toEqual([]);
+  });
+
+  it('draws no control on a read-only map: the shape is decoration again', () => {
+    const { el } = mount({ interactive: false });
+    expect(el.querySelector('.kerusi-group--whole')).toBeNull();
+    expect(
+      el.querySelector('g.kerusi-group[data-group-id="table-3"]')!.getAttribute('aria-hidden'),
+    ).toBe('true');
+  });
+
+  it('takes the booking unit on a tap: a pair booked whole, both seats', () => {
+    const { click, seatOf, selection } = mount();
+    click(seatOf('L2'));
+    expect(selection()).toEqual(['L1', 'L2']);
+  });
+
+  it('takes the seat alone under unitMode="seats" (D22)', () => {
+    const { click, seatOf, selection } = mount({ unitMode: 'seats' });
+    click(seatOf('L2'));
+    expect(selection()).toEqual(['L2']);
+    expect(seatOf('L1').getAttribute('aria-label')).not.toContain('booked with');
+  });
+
+  it('applies a session’s booking modes: a wedding sells the table whole (§5.3)', () => {
+    const { control, click, seatOf, selection } = mount({
+      session: {
+        kerusi: '1.0',
+        id: 'wedding',
+        mapId: 'supper-club',
+        bookingModes: { groups: { 'table-3': 'whole' } },
+      },
+    });
+    expect(control('table-3')).toBeNull();
+    expect(seatOf('T2').getAttribute('aria-label')).toContain(
+      'booked with 3 other seats at Table 3',
+    );
+    click(seatOf('T2'));
+    expect(selection()).toEqual(['T1', 'T2', 'T3', 'T4']);
+  });
+});
+
 describe('KerusiSeatmapComponent SVG parity with the React binding', () => {
+  it('draws booking units and whole-unit controls exactly as the shared signature says', () => {
+    const el = renderAlone({
+      map: PARITY_BOOKING_MAP,
+      state: PARITY_BOOKING_STATE,
+      selection: PARITY_BOOKING_SELECTION,
+    });
+    expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(
+      PARITY_BOOKING_SIGNATURE,
+    );
+  });
+
   it('draws groups exactly as the shared signature says', () => {
     const el = renderAlone({
       map: PARITY_GROUPS_MAP,

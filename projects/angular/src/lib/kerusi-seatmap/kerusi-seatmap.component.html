@@ -188,6 +188,7 @@
         [selection]="selectionSet()"
         [focusedSeatId]="focusedSeatIn(placed.section)"
         [ariaLabels]="ariaLabels()"
+        [wholeUnitLabels]="wholeUnitLabels()"
         [colors]="resolvedColors()"
         [typeColors]="typeColors()"
         [seatTemplate]="seatTemplate()?.template"
@@ -201,6 +202,8 @@
         (seatFocused)="onSeatFocused($event)"
         (seatBlurred)="onSeatBlurred($event)"
         (seatKeydown)="onKeydown(placed.section, $event)"
+        (wholeUnitActivate)="onWholeUnitActivate($event)"
+        (wholeUnitKeydown)="onWholeUnitKeydown(placed.section, $event)"
       ></g>
     }
   </svg>

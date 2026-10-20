@@ -14,6 +14,8 @@ import { LOUNGE_MAP, LOUNGE_STATE } from './fixtures/lounge.kerusi.fixture.js';
 import { STADIUM_MAP, STADIUM_STATE } from './fixtures/stadium.kerusi.fixture.js';
 import { TOWN_HALL_MAP, TOWN_HALL_STATE } from './fixtures/town-hall.kerusi.fixture.js';
 import { TRAIN_MAP, TRAIN_SESSION, TRAIN_STATE } from './fixtures/train.kerusi.fixture.js';
+import { VENUE_HIRE_MAP, VENUE_HIRE_STATE } from './fixtures/venue-hire.kerusi.fixture.js';
+import { WEDDING_MAP, WEDDING_SESSION, WEDDING_STATE } from './fixtures/wedding.kerusi.fixture.js';
 
 /** One showcased venue: its documents, and what about the standard it shows. */
 export interface Scenario {
@@ -29,6 +31,11 @@ export interface Scenario {
   map: KerusiMap;
   state: KerusiState;
   session?: KerusiSession;
+  /**
+   * Offer the map's whole units that have no shape to press (a room, the venue)
+   * with the app's own buttons, as the README shows (D19).
+   */
+  wholeUnitButtons?: boolean;
 }
 
 export const SCENARIOS: readonly Scenario[] = [
@@ -44,7 +51,7 @@ export const SCENARIOS: readonly Scenario[] = [
       'Two aisles as skipped cols split each row into three blocks (§4.3.5)',
       'Open space in front of row A holds the screen and its throw',
       'Screen and exits are non-bookable Elements',
-      'Love seats are symmetric companions — they book as a pair',
+      'Love seats are groups booked whole (§4.12): a tap takes both places',
       'A wheelchair bay declares accessibility, not an attribute tag',
     ],
     map: CINEMA_MAP,
@@ -80,7 +87,7 @@ export const SCENARIOS: readonly Scenario[] = [
       'One Section per carriage',
       'Tables are Elements in the space the facing seats leave between them',
       'forward-facing / rear-facing as attributes',
-      'An accessible bay with its required companion seat',
+      'An accessible bay booked whole with its required companion seat',
       'Its KerusiState is scoped by sessionId, not mapId',
     ],
     map: TRAIN_MAP,
@@ -118,9 +125,46 @@ export const SCENARIOS: readonly Scenario[] = [
       'Every chair is rotated to face the middle of its table (§4.3.1)',
       'A seat is announced by its table: "Table 3, seat 4"',
       'The footprint is decoration: a press on a tabletop selects nothing',
+      'Each table has a table price, ignored while the hall is sold by the seat (§4.9.1)',
     ],
     map: BANQUET_MAP,
     state: BANQUET_STATE,
+  },
+  {
+    id: 'wedding',
+    name: 'Wedding',
+    domain: 'banquet',
+    blurb:
+      'The banquet hall again, for a wedding: the same map, but this event sells every ' +
+      'table whole. A guest books a table, not a chair.',
+    highlights: [
+      'A KerusiSession overrides booking modes for one event (§4.12.1, §5.3)',
+      'Every table is booked whole: a tap on any chair takes the whole table',
+      'A seat says so: "booked with 7 other seats at Table 3"',
+      'The table price applies, in place of eight seat prices (§4.9.1)',
+      'One held chair makes its whole table unavailable (§4.12.3)',
+    ],
+    map: WEDDING_MAP,
+    state: WEDDING_STATE,
+    session: WEDDING_SESSION,
+  },
+  {
+    id: 'venue-hire',
+    name: 'Venue hire',
+    domain: 'bar',
+    blurb:
+      'A rooftop bar sold by the seat, by the table, by the room, or the whole place: ' +
+      'every booking level of the standard on one map.',
+    highlights: [
+      'The map is "either": book seats, or hire the whole venue (§4.12)',
+      'The venue has no shape, so the app offers it with its own button, from the map’s whole units',
+      'Table 1 is "either": press its tabletop to book it whole at the table price',
+      'The private room is "whole": a tap on any seat takes the room at the room price',
+      'Four seats of Table 1 picked one by one cost the table price, too (§4.9.1)',
+    ],
+    map: VENUE_HIRE_MAP,
+    state: VENUE_HIRE_STATE,
+    wholeUnitButtons: true,
   },
   {
     id: 'stadium',

@@ -25,12 +25,12 @@ describe('checkKerusiMap — non-throwing collection', () => {
     const map = clone(BUS_MAP);
     map.sections[0].seats[0].type = 'nope';
     map.sections[0].seats[1].priceTier = 'nope';
-    map.sections[0].seats[2].companions = ['ghost'];
+    (map.sections[0].seats[2] as { companions?: string[] }).companions = ['ghost'];
 
     expect(checkKerusiMap(map).map((v) => v.rule)).toEqual([
       'seat-type-reference',
       'seat-pricetier-reference',
-      'companion-reference',
+      'companions-retired',
     ]);
   });
 
@@ -638,5 +638,122 @@ describe('groups (§4.11)', () => {
     expect(
       rules([{ ...sofa, shape: { rect: { x: 100, y: 50, width: 100, height: 30 } } }]),
     ).toEqual([]);
+  });
+});
+
+describe('booking modes and whole prices (§4.9.1, §4.12)', () => {
+  const PRICED: KerusiMap = {
+    ...clone(BUS_MAP),
+    priceTiers: [
+      { id: 'seat', price: { amount: 1000, currency: 'MYR' } },
+      { id: 'hire', price: { amount: 9000, currency: 'MYR' } },
+    ],
+  };
+  const withGroup = (group: Record<string, unknown>): KerusiMap => {
+    const map = clone(PRICED);
+    map.sections[0].groups = [
+      { id: 'front', kind: 'bench', seats: ['1A', '1B'], ...group } as never,
+    ];
+    return map;
+  };
+  const rules = (map: KerusiMap) => checkKerusiMap(map).map((v) => v.rule);
+
+  it('accepts every booking mode on every level, with a whole price on each', () => {
+    const map = withGroup({ booking: 'either', wholePrice: { amount: 1800, currency: 'MYR' } });
+    map.booking = 'either';
+    map.wholePriceTier = 'hire';
+    map.sections[0].booking = 'whole';
+    map.sections[0].wholePriceTier = 'hire';
+    expect(checkKerusiMap(map)).toEqual([]);
+  });
+
+  it('accepts a whole price on a level booked by the seat: a session may make it either', () => {
+    expect(checkKerusiMap(withGroup({ wholePrice: { amount: 1800, currency: 'MYR' } }))).toEqual(
+      [],
+    );
+  });
+
+  it('rejects a booking mode it does not know, on the map, a section or a group', () => {
+    const map = withGroup({ booking: 'all' });
+    map.booking = 'exclusive' as never;
+    map.sections[0].booking = 'Whole' as never;
+    const found = checkKerusiMap(map);
+    expect(found.map((v) => v.rule)).toEqual([
+      'booking-mode-invalid',
+      'booking-mode-invalid',
+      'booking-mode-invalid',
+    ]);
+    expect(found.map((v) => v.path)).toEqual([
+      'booking',
+      'sections[0].booking',
+      'sections[0].groups[0].booking',
+    ]);
+  });
+
+  it('rejects a whole price tier the map does not declare, by the reference id', () => {
+    const map = withGroup({ wholePriceTier: 'ghost' });
+    expect(rules(map)).toEqual(['whole-price-tier-unresolved']);
+    expect(checkKerusiMap(map)[0].id).toBe('front');
+  });
+
+  it('counts a whole price toward the one currency of the map (§4.9)', () => {
+    expect(rules(withGroup({ wholePrice: { amount: 50, currency: 'USD' } }))).toEqual([
+      'single-currency',
+    ]);
+  });
+});
+
+describe('a session’s booking modes (§4.12.1, §5.3)', () => {
+  const SESSION: KerusiSession = { kerusi: '1.0', id: 'night', mapId: BUS_MAP.id };
+  const MAP: KerusiMap = {
+    ...clone(BUS_MAP),
+    sections: [
+      { ...clone(BUS_MAP.sections[0]), groups: [{ id: 'g', kind: 'bench', seats: ['1A'] }] },
+    ],
+  };
+
+  it('accepts overrides that name the map’s own sections and groups', () => {
+    const session = {
+      ...SESSION,
+      bookingModes: { map: 'either', sections: { main: 'seats' }, groups: { g: 'whole' } },
+    } satisfies KerusiSession;
+    expect(checkKerusiSession(session)).toEqual([]);
+    expect(validateDocumentSet({ map: MAP, session })).toEqual([]);
+  });
+
+  it('rejects a mode it does not know, wherever it is set', () => {
+    const session = {
+      ...SESSION,
+      bookingModes: { map: 'any', sections: { main: 'all' }, groups: { g: 'Whole' } },
+    } as unknown as KerusiSession;
+    const found = checkKerusiSession(session);
+    expect(found.map((v) => v.rule)).toEqual([
+      'session-booking-mode-invalid',
+      'session-booking-mode-invalid',
+      'session-booking-mode-invalid',
+    ]);
+    expect(found.map((v) => v.path)).toEqual([
+      'bookingModes.map',
+      'bookingModes.sections.main',
+      'bookingModes.groups.g',
+    ]);
+  });
+
+  it('rejects an override naming a section or group the map does not have, given the map', () => {
+    const session: KerusiSession = {
+      ...SESSION,
+      bookingModes: { sections: { balcony: 'whole' }, groups: { 'table-9': 'whole' } },
+    };
+    // Alone, a session cannot know which ids its map has.
+    expect(checkKerusiSession(session)).toEqual([]);
+    const found = validateDocumentSet({ map: MAP, session });
+    expect(found.map((v) => v.rule)).toEqual([
+      'session-booking-mode-unresolved',
+      'session-booking-mode-unresolved',
+    ]);
+    expect(found.map((v) => v.path)).toEqual([
+      'bookingModes.sections.balcony',
+      'bookingModes.groups.table-9',
+    ]);
   });
 });

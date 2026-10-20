@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bookingUnits,
   Bounds,
   checkKerusiMap,
   checkKerusiState,
   KerusiMap,
   KerusiSession,
   KerusiState,
+  priceSelection,
   validateDocumentSet,
 } from '@kerusiweb/core';
 import {
@@ -32,6 +34,16 @@ import {
   TRAIN_SESSION,
   TRAIN_STATE,
 } from '@kerusi/demo-scenarios/fixtures/train.kerusi.fixture';
+import { BANQUET_MAP, BANQUET_STATE } from '@kerusi/demo-scenarios/fixtures/banquet.kerusi.fixture';
+import {
+  VENUE_HIRE_MAP,
+  VENUE_HIRE_STATE,
+} from '@kerusi/demo-scenarios/fixtures/venue-hire.kerusi.fixture';
+import {
+  WEDDING_MAP,
+  WEDDING_SESSION,
+  WEDDING_STATE,
+} from '@kerusi/demo-scenarios/fixtures/wedding.kerusi.fixture';
 import { CINEMA_KERUSI_MAP, CINEMA_KERUSI_STATE } from './cinema-kerusi.fixture';
 
 /**
@@ -50,6 +62,9 @@ const SCENARIOS: {
   { name: 'stadium', map: STADIUM_MAP, state: STADIUM_STATE },
   { name: 'lecture-theatre', map: LECTURE_THEATRE_MAP, state: LECTURE_THEATRE_STATE },
   { name: 'town-hall', map: TOWN_HALL_MAP, state: TOWN_HALL_STATE },
+  { name: 'banquet', map: BANQUET_MAP, state: BANQUET_STATE },
+  { name: 'wedding', map: WEDDING_MAP, state: WEDDING_STATE, session: WEDDING_SESSION },
+  { name: 'venue hire', map: VENUE_HIRE_MAP, state: VENUE_HIRE_STATE },
   { name: 'curved cinema', map: CINEMA_KERUSI_MAP, state: CINEMA_KERUSI_STATE },
 ];
 
@@ -70,6 +85,32 @@ describe.each(SCENARIOS)('$name fixture', ({ map, state, session }) => {
     const seatIds = new Set(map.sections.flatMap((s) => s.seats.map((seat) => seat.id)));
     const unknown = Object.keys(state.seats).filter((id) => !seatIds.has(id));
     expect(unknown).toEqual([]);
+  });
+});
+
+describe('the scenarios sell by every booking level (§4.12)', () => {
+  it('sells the wedding’s every table whole through its session, not its map', () => {
+    const units = bookingUnits(WEDDING_MAP, WEDDING_SESSION).units;
+    expect(units.filter((u) => u.level === 'group').map((u) => u.seats.length)).toEqual([
+      10, 8, 8, 8, 8, 8, 8,
+    ]);
+    expect(bookingUnits(BANQUET_MAP).units.every((u) => u.level === 'seat')).toBe(true);
+  });
+
+  it('offers the rooftop whole, by the room and by the table, and prices each so (§4.9.1)', () => {
+    const { units, wholeUnits } = bookingUnits(VENUE_HIRE_MAP);
+    expect(wholeUnits.map((u) => `${u.level}:${u.id}`)).toEqual(['map:rooftop-bar', 'group:T1']);
+    expect(units.find((u) => u.level === 'section')?.id).toBe('private-room');
+    const table = wholeUnits.find((u) => u.id === 'T1')!;
+    expect(priceSelection(VENUE_HIRE_MAP, undefined, table.seats).total).toEqual({
+      amount: 18000,
+      currency: 'MYR',
+    });
+    const venue = wholeUnits.find((u) => u.level === 'map')!;
+    expect(priceSelection(VENUE_HIRE_MAP, undefined, venue.seats).total).toEqual({
+      amount: 500000,
+      currency: 'MYR',
+    });
   });
 });
 
@@ -115,8 +156,9 @@ describe('the scenarios exercise the rest of the standard', () => {
     expect(a11y.some((s) => s.accessibility?.companionRequired)).toBe(true);
   });
 
-  it('links companion seats symmetrically (§4.6)', () => {
-    expect(seats.filter((s) => s.companions?.length).length).toBeGreaterThan(0);
+  it('books some seats only together, as groups booked whole (§4.12)', () => {
+    const groups = SCENARIOS.flatMap(({ map }) => map.sections.flatMap((s) => s.groups ?? []));
+    expect(groups.filter((g) => g.booking === 'whole').length).toBeGreaterThan(0);
   });
 
   it('uses a spread of element kinds (§4.4)', () => {

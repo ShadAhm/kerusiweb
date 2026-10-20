@@ -83,6 +83,14 @@ export interface PlacedGroup {
    * screen reader meets them in, so a table's seat 1 comes before its seat 2.
    */
   seats: readonly PlacedSeat[];
+  /**
+   * Whether a binding draws the group's seats inside a
+   * `<g class="kerusi-group-seats">` wrapper: the group has seats, and a label
+   * to name the wrapper by, or a shape that books it whole (D19). The control
+   * then goes first in the wrapper, so it comes before its seats in keyboard
+   * order.
+   */
+  wrapped: boolean;
 }
 
 /** One section's placed seats, elements and groups. */
@@ -95,8 +103,8 @@ export interface PlacedSection {
   groups: readonly PlacedGroup[];
   /**
    * The seats a binding draws outside any group wrapper, in `seats` order: those
-   * in no group, and those in a group with no label (a `role="group"` with no
-   * name says nothing). The rest are drawn inside their group's wrapper.
+   * in no group, and those in a group that is not `wrapped`. The rest are drawn
+   * inside their group's wrapper.
    */
   loose: readonly PlacedSeat[];
   /**
@@ -155,14 +163,21 @@ export function computeMapLayout(map: RenderMap, options: MapLayoutOptions = {})
       placeSeat(seat, mirror(seat.x), seat.y, turn(seat.rotation)),
     );
     const placedById = new Map(seats.map((placed) => [placed.seat.id, placed]));
-    const groups = section.groups.map((group) => ({
-      group,
-      shape: placeGroupShape(group, mirror, turn),
-      seats: group.seatIds
+    const groups = section.groups.map((group): PlacedGroup => {
+      const shape = placeGroupShape(group, mirror, turn);
+      const seats = group.seatIds
         .map((id) => placedById.get(id))
-        .filter((placed): placed is PlacedSeat => placed !== undefined),
-    }));
-    const wrapped = new Set(groups.filter((g) => g.group.label).flatMap((g) => g.seats));
+        .filter((placed): placed is PlacedSeat => placed !== undefined);
+      return {
+        group,
+        shape,
+        seats,
+        // A role="group" with no name says nothing, so a group with no label is
+        // wrapped only to put its whole-unit control before its seats (D19).
+        wrapped: seats.length > 0 && (!!group.label || (!!group.wholeUnit && !!shape)),
+      };
+    });
+    const wrapped = new Set(groups.filter((g) => g.wrapped).flatMap((g) => g.seats));
     return {
       section,
       seats,

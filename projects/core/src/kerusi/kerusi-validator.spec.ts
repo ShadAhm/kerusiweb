@@ -28,32 +28,28 @@ describe('validateKerusiMap — valid documents', () => {
 });
 
 describe('validateKerusiMap — referential integrity (§4.6)', () => {
-  it('rejects a dangling companions reference and names the rule + id', () => {
+  it('rejects a leftover companions list, retired in rev 17, and says a group replaces it', () => {
     const map = clone(CINEMA_MAP);
-    map.sections[0].seats.find((s) => s.id === 'L1')!.companions = ['L9'];
-    // keep L2's back-reference so the failure is dangling, not asymmetry
+    // A rev 16 map: the pair as companions rather than a group.
+    (map.sections[0].seats.find((s) => s.id === 'L1') as { companions?: string[] }).companions = [
+      'L2',
+    ];
     try {
       validateKerusiMap(map);
       throw new Error('expected validation to throw');
     } catch (e) {
       expect(e).toBeInstanceOf(KerusiValidationError);
       const err = e as KerusiValidationError;
-      expect(err.rule).toBe('companion-reference');
+      expect(err.rule).toBe('companions-retired');
       expect(err.id).toBe('L1');
-      expect(err.message).toContain('L9');
+      expect(err.message).toMatch(/group/);
     }
   });
 
-  it('rejects an asymmetric companions pair', () => {
+  it('rejects an empty companions list too: the member is reserved (§4.12.4)', () => {
     const map = clone(CINEMA_MAP);
-    // L1 -> L2 stays, but drop L2's back-reference to L1
-    map.sections[0].seats.find((s) => s.id === 'L2')!.companions = [];
-    expect(() => validateKerusiMap(map)).toThrowError(/not symmetric/i);
-    try {
-      validateKerusiMap(map);
-    } catch (e) {
-      expect((e as KerusiValidationError).rule).toBe('companion-symmetry');
-    }
+    (map.sections[0].seats[0] as { companions?: string[] }).companions = [];
+    expect(() => validateKerusiMap(map)).toThrowError(/companions/);
   });
 
   it('rejects an unknown seat type', () => {

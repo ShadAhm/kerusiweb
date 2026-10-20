@@ -1,0 +1,10 @@
+{
+  "kerusi": "1.0",
+  "id": "sess",
+  "mapId": "m",
+  "bookingModes": {
+    "groups": {
+      "g": "all"
+    }
+  }
+}

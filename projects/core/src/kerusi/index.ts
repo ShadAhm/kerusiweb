@@ -16,5 +16,6 @@ export { areNeighbours, guidePoint, isOnGuide, seatSizeOf } from './kerusi-geome
 export * from './kerusi-rows.js';
 export * from './kerusi-locale.js';
 export * from './kerusi-price.js';
+export * from './kerusi-booking.js';
 export * from './kerusi-validator.js';
 export * from './kerusi-state.js';

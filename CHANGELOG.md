@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-10-25
+
 ### Added
 
 - **The rows view (§4.5.1, #38, D27, D28).** A new `view` input/prop, `'canonical'` (the
@@ -1019,6 +1021,7 @@ Carried over from the legacy directive:
 - Rendering is per-instance (no global element id lookup), so multiple pickers
   can coexist on one page.
 
+[4.1.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v4.1.0
 [4.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v4.0.0
 [3.1.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v3.1.0
 [3.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v3.0.0

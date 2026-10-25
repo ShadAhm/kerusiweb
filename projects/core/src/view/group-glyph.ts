@@ -1,5 +1,6 @@
 import { groupFootprint } from '../render/group-shapes.js';
 import { PlacedGroup } from '../render/map-layout.js';
+import { RenderBookingUnit, RenderGroup } from '../render/render-model.js';
 import { cssVar, KerusiSeatmapColors } from './kerusi-seatmap-colors.js';
 
 /**
@@ -107,6 +108,28 @@ export function isWholeUnitControl(placed: PlacedGroup, interactive: boolean): b
 }
 
 /**
+ * The groups whose shape is the control that books them whole (D19), by id: the
+ * same rule as {@link isWholeUnitControl}, over the map's groups. None while
+ * selection is off. Their cards anchor to the control (D25).
+ */
+export function wholeUnitControlGroups(
+  groupsById: ReadonlyMap<string, RenderGroup>,
+  interactive: boolean,
+): ReadonlyMap<string, RenderGroup> {
+  return interactive
+    ? new Map([...groupsById].filter(([, group]) => !!group.wholeUnit && !!group.shape))
+    : new Map();
+}
+
+/** Whether every seat of a whole unit is selected: it is booked whole (D19). */
+export function isWholeUnitSelected(
+  unit: RenderBookingUnit,
+  selection: ReadonlySet<string>,
+): boolean {
+  return unit.seatIds.length > 0 && unit.seatIds.every((id) => selection.has(id));
+}
+
+/**
  * Resolves a placed group's footprint, or `undefined` for a group with no shape,
  * which draws nothing of its own (§4.11: such a group is its seats alone).
  *
@@ -128,7 +151,7 @@ export function resolveGroupGlyph(
   const detailFill = groupPaint(kind, 'detail', colors);
   const unit = control ? placed.group.wholeUnit : undefined;
   const whole = unit && {
-    selected: unit.seatIds.length > 0 && unit.seatIds.every((s) => control!.selection.has(s)),
+    selected: isWholeUnitSelected(unit, control!.selection),
     available: unit.selectable,
   };
   return {

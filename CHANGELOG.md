@@ -35,6 +35,9 @@ kerusiWholeUnitClickCard>` in Angular, open on the control, so an app can say
 - **Core:** `KerusiWholeUnitCardContext`, `WholeUnitDisallowed`,
   `WholeUnitPriceFn`, `wholeUnitHoverKey()` / `wholeUnitOfHoverKey()`, which
   feed a control to `reduceSeatHover()`, and `wholeUnitCardDataAttributes()`.
+  The card rules both bindings follow are core's too: `wholeUnitControlGroups()`,
+  `isWholeUnitSelected()`, `wholeUnitCardGroup()`, `wholeUnitCardContext()`,
+  `seatCardKeyExists()` and `seatCardClickAction()`.
 - **Demos:** with seat cards on, an `either` table's top shows a card, and a
   refused tabletop shows a visible message, in both demos.
 

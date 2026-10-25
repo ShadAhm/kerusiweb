@@ -3,10 +3,14 @@ import {
   reduceSeatHover,
   resolveHoverCardDelay,
   seatAriaLabel,
+  seatCardClickAction,
   seatCardDataAttributes,
   seatCardId,
+  seatCardKeyExists,
   wholeUnitAriaLabel,
+  wholeUnitCardContext,
   wholeUnitCardDataAttributes,
+  wholeUnitCardGroup,
   wholeUnitHoverKey,
   wholeUnitOfHoverKey,
 } from '@kerusiweb/core';
@@ -249,22 +253,18 @@ export function useSeatCards(options: UseSeatCardsOptions): SeatCards {
    */
   const toggleClick = useCallback(
     (key: string, source: SeatClickSource, canOpen: boolean) => {
-      if (!canOpen) {
-        const open = clickRef.current;
-        if (
-          open !== null &&
-          (wholeUnitOfHoverKey(open) === undefined) !== (wholeUnitOfHoverKey(key) === undefined)
-        ) {
+      switch (seatCardClickAction(clickRef.current, key, canOpen)) {
+        case 'open':
+          setClickId(key);
+          setClickFromKeyboard(source === 'keyboard');
+          return;
+        case 'close':
+          closeClick(true);
+          return;
+        case 'give-way':
           closeClick(false);
-        }
-        return;
+          return;
       }
-      if (clickRef.current === key) {
-        closeClick(true);
-        return;
-      }
-      setClickId(key);
-      setClickFromKeyboard(source === 'keyboard');
     },
     [closeClick],
   );
@@ -296,15 +296,10 @@ export function useSeatCards(options: UseSeatCardsOptions): SeatCards {
     key !== null && wholeUnitOfHoverKey(key) === undefined
       ? renderMap.seatsById.get(key)
       : undefined;
-  const groupFor = (key: string | null): RenderGroup | undefined => {
-    const groupId = wholeUnitOfHoverKey(key);
-    return groupId === undefined ? undefined : controlGroups.get(groupId);
-  };
-
   const clickSeat = seatFor(clickId);
-  const clickGroup = groupFor(clickId);
+  const clickGroup = wholeUnitCardGroup(clickId, controlGroups);
   const hoverSeat = seatFor(hover.cardId);
-  const hoverGroup = groupFor(hover.cardId);
+  const hoverGroup = wholeUnitCardGroup(hover.cardId, controlGroups);
 
   const contextFor = (
     seat: RenderSeat,
@@ -318,27 +313,14 @@ export function useSeatCards(options: UseSeatCardsOptions): SeatCards {
     close,
   });
 
-  const unitContextFor = (
-    group: RenderGroup,
-    trigger: KerusiWholeUnitCardContext['trigger'],
-    close: () => void,
-  ): KerusiWholeUnitCardContext => {
-    const unit = group.wholeUnit!;
-    return {
-      unit,
-      group,
-      selected: unit.seatIds.length > 0 && unit.seatIds.every((id) => selection.has(id)),
-      trigger,
-      close,
-    };
-  };
-
   const closeClickCard = () => closeClick(true);
   const clickContent =
     renderClickCard && clickSeat
       ? renderClickCard(contextFor(clickSeat, 'click', closeClickCard))
       : renderWholeUnitClickCard && clickGroup
-        ? renderWholeUnitClickCard(unitContextFor(clickGroup, 'click', closeClickCard))
+        ? renderWholeUnitClickCard(
+            wholeUnitCardContext(clickGroup, selection, 'click', closeClickCard),
+          )
         : null;
   const clickShowing =
     (clickSeat !== undefined || clickGroup !== undefined) && !isEmptyContent(clickContent);
@@ -352,7 +334,9 @@ export function useSeatCards(options: UseSeatCardsOptions): SeatCards {
       : renderHoverCard && hoverSeat
         ? renderHoverCard(contextFor(hoverSeat, hoverTrigger, escapeHover))
         : renderWholeUnitHoverCard && hoverGroup
-          ? renderWholeUnitHoverCard(unitContextFor(hoverGroup, hoverTrigger, escapeHover))
+          ? renderWholeUnitHoverCard(
+              wholeUnitCardContext(hoverGroup, selection, hoverTrigger, escapeHover),
+            )
           : null;
   const hoverShowing =
     (hoverSeat !== undefined || hoverGroup !== undefined) && !isEmptyContent(hoverContent);
@@ -360,10 +344,7 @@ export function useSeatCards(options: UseSeatCardsOptions): SeatCards {
   // A seat or a control that goes away (a hidden section, a new map, selection
   // turned off) takes its cards with it.
   const exists = useCallback(
-    (key: string) => {
-      const groupId = wholeUnitOfHoverKey(key);
-      return groupId === undefined ? renderMap.seatsById.has(key) : controlGroups.has(groupId);
-    },
+    (key: string) => seatCardKeyExists(key, renderMap.seatsById, controlGroups),
     [renderMap, controlGroups],
   );
   useEffect(() => {

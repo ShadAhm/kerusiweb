@@ -53,6 +53,7 @@ import {
   KerusiValidationError,
   KerusiViewport,
   KerusiViolation,
+  KerusiWholeUnitCardContext,
   MapLayout,
   Money,
   NavigationGraph,
@@ -71,7 +72,9 @@ import {
   seatAriaLabel,
   selectedWholeUnits,
   SeatCardAppearance,
+  seatCardClickAction,
   seatCardId,
+  seatCardKeyExists,
   SeatCardPlacement,
   SeatClick,
   SeatClickSource,
@@ -94,9 +97,11 @@ import {
   viewportTouchAction,
   viewportTransform,
   wheelZoomFactor,
-  KerusiWholeUnitCardContext,
   wholeUnitAriaLabel,
+  wholeUnitCardContext,
+  wholeUnitCardGroup,
   wholeUnitControlAction,
+  wholeUnitControlGroups,
   WholeUnitDisallowed,
   wholeUnitDisallowedAnnouncement,
   wholeUnitHoverKey,
@@ -550,10 +555,7 @@ export class KerusiSeatmapComponent {
     effect(() => {
       const seats = this.renderMap().seatsById;
       const controls = this.controlGroups();
-      const exists = (key: string) => {
-        const groupId = wholeUnitOfHoverKey(key);
-        return groupId === undefined ? seats.has(key) : controls.has(groupId);
-      };
+      const exists = (key: string) => seatCardKeyExists(key, seats, controls);
       untracked(() => {
         const click = this.clickId();
         if (click !== null && !exists(click)) {
@@ -815,21 +817,17 @@ export class KerusiSeatmapComponent {
   });
 
   /** The groups whose shape is drawn as the control that books them whole (D19). */
-  private readonly controlGroups = computed<ReadonlyMap<string, RenderGroup>>(() =>
-    this.interactive()
-      ? new Map([...this.groupsById()].filter(([, group]) => group.wholeUnit && group.shape))
-      : new Map(),
+  private readonly controlGroups = computed(() =>
+    wholeUnitControlGroups(this.groupsById(), this.interactive()),
   );
 
   /** The group whose whole-unit hover card is showing (D25). */
-  private readonly hoverGroup = computed(() => {
-    const groupId = wholeUnitOfHoverKey(this.hoverState().cardId);
-    return groupId === undefined ? undefined : this.controlGroups().get(groupId);
-  });
-  private readonly clickGroup = computed(() => {
-    const groupId = wholeUnitOfHoverKey(this.clickId());
-    return groupId === undefined ? undefined : this.controlGroups().get(groupId);
-  });
+  private readonly hoverGroup = computed(() =>
+    wholeUnitCardGroup(this.hoverState().cardId, this.controlGroups()),
+  );
+  private readonly clickGroup = computed(() =>
+    wholeUnitCardGroup(this.clickId(), this.controlGroups()),
+  );
 
   /** A click card open for a control hides that control's hover card. */
   protected readonly hoverCardGroups = computed<readonly RenderGroup[]>(() => {
@@ -843,33 +841,22 @@ export class KerusiSeatmapComponent {
     return group && this.wholeUnitClickCardTemplate() ? [group] : [];
   });
 
-  private unitContext(
-    group: RenderGroup,
-    trigger: KerusiWholeUnitCardContext['trigger'],
-    close: () => void,
-  ): KerusiWholeUnitCardContext {
-    const unit = group.wholeUnit!;
-    const selection = this.selectionSet();
-    return {
-      unit,
-      group,
-      selected: unit.seatIds.length > 0 && unit.seatIds.every((id) => selection.has(id)),
-      trigger,
-      close,
-    };
-  }
-
   protected readonly hoverUnitContext = computed<KerusiWholeUnitCardContext | null>(() => {
     const group = this.hoverCardGroups()[0];
     return group
-      ? this.unitContext(group, this.hoverState().cardTrigger === 'focus' ? 'focus' : 'hover', () =>
-          this.feedHover({ type: 'escape' }),
+      ? wholeUnitCardContext(
+          group,
+          this.selectionSet(),
+          this.hoverState().cardTrigger === 'focus' ? 'focus' : 'hover',
+          () => this.feedHover({ type: 'escape' }),
         )
       : null;
   });
   protected readonly clickUnitContext = computed<KerusiWholeUnitCardContext | null>(() => {
     const group = this.clickCardGroups()[0];
-    return group ? this.unitContext(group, 'click', () => this.closeClick(true)) : null;
+    return group
+      ? wholeUnitCardContext(group, this.selectionSet(), 'click', () => this.closeClick(true))
+      : null;
   });
 
   protected readonly clickCardLabel = computed(() => {
@@ -1301,20 +1288,18 @@ export class KerusiSeatmapComponent {
    * gives way to it.
    */
   private toggleClickCard(key: string, source: SeatClickSource, canOpen: boolean): void {
-    const open = this.clickId();
-    if (!canOpen) {
-      const isUnit = (k: string) => wholeUnitOfHoverKey(k) !== undefined;
-      if (open !== null && isUnit(open) !== isUnit(key)) {
+    switch (seatCardClickAction(this.clickId(), key, canOpen)) {
+      case 'open':
+        this.clickId.set(key);
+        this.clickFromKeyboard.set(source === 'keyboard');
+        return;
+      case 'close':
+        this.closeClick(true);
+        return;
+      case 'give-way':
         this.closeClick(false);
-      }
-      return;
+        return;
     }
-    if (open === key) {
-      this.closeClick(true);
-      return;
-    }
-    this.clickId.set(key);
-    this.clickFromKeyboard.set(source === 'keyboard');
   }
 
   /**

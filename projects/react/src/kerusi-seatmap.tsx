@@ -26,6 +26,7 @@ import {
   viewportTransform,
   wholeUnitAriaLabel,
   wholeUnitControlAction,
+  wholeUnitControlGroups,
   wholeUnitDisallowedAnnouncement,
 } from '@kerusiweb/core';
 import type {
@@ -339,10 +340,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
 
     /** The groups whose shape is drawn as the control that books them whole (D19). */
     const controlGroups = useMemo<ReadonlyMap<string, RenderGroup>>(
-      () =>
-        interactive
-          ? new Map([...groupsById].filter(([, group]) => group.wholeUnit && group.shape))
-          : new Map(),
+      () => wholeUnitControlGroups(groupsById, interactive),
       [groupsById, interactive],
     );
 

@@ -106,6 +106,8 @@ export class KerusiSectionComponent {
   readonly reachable = input<boolean | undefined>(undefined);
   /** The seat that shows a hover card, and the card's `id`, for `aria-describedby`. */
   readonly describedBy = input<{ seatId: string; id: string } | null>(null);
+  /** The control that shows a hover card, and the card's `id`, for `aria-describedby` (D25). */
+  readonly unitDescribedBy = input<{ groupId: string; id: string } | null>(null);
 
   readonly seatActivate = output<string>();
   readonly seatFocused = output<string>();
@@ -114,6 +116,9 @@ export class KerusiSectionComponent {
   /** A whole unit's control was pressed: book or release the group whole (D19). */
   readonly wholeUnitActivate = output<string>();
   readonly wholeUnitKeydown = output<{ groupId: string; event: KeyboardEvent }>();
+  /** A whole unit's control took or lost focus, for a hover card that follows it (D25). */
+  readonly wholeUnitFocused = output<string>();
+  readonly wholeUnitBlurred = output<string>();
 
   private readonly live = computed(() => this.reachable() ?? this.interactive());
 
@@ -211,6 +216,11 @@ export class KerusiSectionComponent {
   protected describedById(placed: PlacedSeat): string | null {
     const described = this.describedBy();
     return described?.seatId === placed.seat.id ? described.id : null;
+  }
+
+  protected unitDescribedById(groupId: string): string | null {
+    const described = this.unitDescribedBy();
+    return described?.groupId === groupId ? described.id : null;
   }
 
   /** Disabled too when another seat of its booking unit is taken (§4.12.3). */

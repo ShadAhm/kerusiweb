@@ -6,6 +6,7 @@ import {
   type SeatHoverResult,
   type SeatHoverState,
 } from './seat-hover.js';
+import { wholeUnitHoverKey } from './seat-card.js';
 
 const DELAY = { open: 150, close: 100 };
 
@@ -264,5 +265,46 @@ describe('reduceSeatHover: keyboard focus', () => {
       { type: 'blur', seatId: 'A1' },
     ]).state;
     expect(state).toMatchObject({ cardId: 'A1', cardTrigger: 'hover' });
+  });
+});
+
+describe('reduceSeatHover: whole units (D25)', () => {
+  const T3 = wholeUnitHoverKey('T3');
+
+  it('opens a card on a whole unit’s control as on a seat', () => {
+    const { state, timers } = run([enter(T3), { type: 'timer', kind: 'open' }]);
+    expect(timers[0]).toEqual({ action: 'start', kind: 'open', ms: 150 });
+    expect(state).toMatchObject({ cardId: T3, cardTrigger: 'hover' });
+  });
+
+  it('reports a control as no seat: nothing on its own, null when coming from a seat', () => {
+    expect(run([enter(T3), leave(T3)]).reports).toEqual([]);
+    expect(run([enter('T3-1'), leave('T3-1'), enter(T3), leave(T3)]).reports).toEqual([
+      'T3-1',
+      null,
+    ]);
+    // A pointer that lands on a seat from the tabletop reports the seat.
+    expect(run([enter(T3), leave(T3), enter('T3-1')]).reports).toEqual(['T3-1']);
+  });
+
+  it('moves the one card between a seat and the control without the open delay', () => {
+    const { state } = run([
+      enter('T3-1'),
+      { type: 'timer', kind: 'open' },
+      leave('T3-1'),
+      enter(T3),
+    ]);
+    expect(state).toMatchObject({ cardId: T3, closing: false });
+  });
+
+  it('follows focus, is dismissed by Escape, and reports nothing on a gesture or reset', () => {
+    const focused = run([{ type: 'focus', seatId: T3 }]).state;
+    expect(focused).toMatchObject({ cardId: T3, cardTrigger: 'focus' });
+    expect(run([{ type: 'escape' }], DELAY, focused).state).toMatchObject({
+      cardId: null,
+      dismissedId: T3,
+    });
+    expect(run([enter(T3), { type: 'gesture' }]).reports).toEqual([]);
+    expect(run([enter(T3), { type: 'reset' }]).reports).toEqual([]);
   });
 });

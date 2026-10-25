@@ -9,6 +9,9 @@ import {
   seatCardClassName,
   seatCardDataAttributes,
   seatCardId,
+  wholeUnitCardDataAttributes,
+  wholeUnitHoverKey,
+  wholeUnitOfHoverKey,
 } from './seat-card.js';
 
 const map: KerusiMap = {
@@ -93,5 +96,29 @@ describe('cssLengthToPx', () => {
     expect(cssLengthToPx(null, 8)).toBe(8);
     expect(cssLengthToPx('calc(1px + 2px)', 8)).toBe(8);
     expect(cssLengthToPx('50%', 8)).toBe(8);
+  });
+});
+
+describe('whole-unit card helpers (D25)', () => {
+  it('keys a control so it cannot be taken for a seat id, and reads the key back', () => {
+    const key = wholeUnitHoverKey('T3');
+    expect(key).not.toBe('T3');
+    expect(wholeUnitOfHoverKey(key)).toBe('T3');
+    expect(wholeUnitOfHoverKey('T3')).toBeUndefined();
+    expect(wholeUnitOfHoverKey('unit:T3')).toBeUndefined();
+    expect(wholeUnitOfHoverKey(null)).toBeUndefined();
+  });
+
+  it('mirrors the group as data attributes on its card', () => {
+    const group = {
+      id: 'T3',
+      kind: 'table',
+      sectionId: 'floor',
+    } as Parameters<typeof wholeUnitCardDataAttributes>[0];
+    expect(wholeUnitCardDataAttributes(group)).toEqual({
+      'data-group-id': 'T3',
+      'data-group-kind': 'table',
+      'data-section-id': 'floor',
+    });
   });
 });

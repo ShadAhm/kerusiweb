@@ -81,9 +81,20 @@ export interface KerusiSectionProps {
   onSeatPointer?: (type: 'enter' | 'leave' | 'move', seatId: string, pointerType: string) => void;
   /** Called with each seat's `<g>` as it mounts and unmounts, for focus moves. */
   registerSeat?: (seatId: string, node: SVGGElement | null) => void;
+  /** The control that shows a hover card, and the card's `id`, for `aria-describedby` (D25). */
+  unitDescribedBy?: { groupId: string; id: string } | null;
   /** A whole unit's control was pressed: book or release the group whole (D19). */
-  onWholeUnitActivate?: (groupId: string) => void;
+  onWholeUnitActivate?: (groupId: string, source: 'pointer') => void;
   onWholeUnitKeyDown?: (groupId: string, event: ReactKeyboardEvent<SVGGElement>) => void;
+  /** Present only when a whole-unit hover card is set (D25). */
+  onWholeUnitPointer?: (
+    type: 'enter' | 'leave' | 'move',
+    groupId: string,
+    pointerType: string,
+  ) => void;
+  /** Present only when a whole-unit hover card follows keyboard focus (D12, D25). */
+  onWholeUnitFocused?: (groupId: string) => void;
+  onWholeUnitBlurred?: (groupId: string) => void;
 }
 
 const EMPTY_SELECTION: ReadonlySet<string> = new Set();
@@ -122,8 +133,12 @@ export function KerusiSection({
   onSeatKeyDown,
   onSeatPointer,
   registerSeat,
+  unitDescribedBy = null,
   onWholeUnitActivate,
   onWholeUnitKeyDown,
+  onWholeUnitPointer,
+  onWholeUnitFocused,
+  onWholeUnitBlurred,
 }: KerusiSectionProps) {
   const section = layout.section;
   const anchor = layout.labelAnchor;
@@ -214,8 +229,14 @@ export function KerusiSection({
                 colors={colors}
                 selection={selection}
                 names={wholeUnitLabels.get(placed.group.id)}
+                describedById={
+                  unitDescribedBy?.groupId === placed.group.id ? unitDescribedBy.id : undefined
+                }
                 onActivate={onWholeUnitActivate}
                 onKeyDown={onWholeUnitKeyDown}
+                onPointer={onWholeUnitPointer}
+                onFocused={onWholeUnitFocused}
+                onBlurred={onWholeUnitBlurred}
               />
             )}
             {placed.seats.map(seatNode)}
@@ -263,21 +284,31 @@ function SectionGroup({
  * A group's footprint as the control that books it whole (D19): a focusable
  * button, pressed while every seat of the group is selected, and disabled while
  * any of them is taken. Drawn under the group's seats, first in their wrapper.
+ * While its hover card shows, it points at the card with `aria-describedby`,
+ * as a seat does (D25).
  */
 function WholeUnitControl({
   placed,
   colors,
   selection,
   names,
+  describedById,
   onActivate,
   onKeyDown,
+  onPointer,
+  onFocused,
+  onBlurred,
 }: {
   placed: PlacedGroup;
   colors: Required<KerusiSeatmapColors>;
   selection: ReadonlySet<string>;
   names?: { label: string; reason?: string };
-  onActivate?: (groupId: string) => void;
+  describedById?: string;
+  onActivate?: (groupId: string, source: 'pointer') => void;
   onKeyDown?: (groupId: string, event: ReactKeyboardEvent<SVGGElement>) => void;
+  onPointer?: (type: 'enter' | 'leave' | 'move', groupId: string, pointerType: string) => void;
+  onFocused?: (groupId: string) => void;
+  onBlurred?: (groupId: string) => void;
 }) {
   const glyph = resolveGroupGlyph(placed, colors, { selection });
   if (!glyph?.whole) return null;
@@ -290,11 +321,23 @@ function WholeUnitControl({
       aria-pressed={glyph.whole.selected}
       aria-disabled={!glyph.whole.available}
       aria-description={names?.reason}
+      aria-describedby={describedById}
       data-group-id={glyph.id}
       data-group-kind={glyph.kind}
       transform={glyph.transform ?? undefined}
-      onClick={() => onActivate?.(glyph.id)}
+      onClick={() => onActivate?.(glyph.id, 'pointer')}
       onKeyDown={(event) => onKeyDown?.(glyph.id, event)}
+      onFocus={onFocused ? () => onFocused(glyph.id) : undefined}
+      onBlur={onBlurred ? () => onBlurred(glyph.id) : undefined}
+      onPointerEnter={
+        onPointer ? (event) => onPointer('enter', glyph.id, event.pointerType) : undefined
+      }
+      onPointerMove={
+        onPointer ? (event) => onPointer('move', glyph.id, event.pointerType) : undefined
+      }
+      onPointerLeave={
+        onPointer ? (event) => onPointer('leave', glyph.id, event.pointerType) : undefined
+      }
     >
       <path
         className="kerusi-group__body"

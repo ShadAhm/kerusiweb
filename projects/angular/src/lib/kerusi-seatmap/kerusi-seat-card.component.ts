@@ -17,20 +17,23 @@ import {
 import {
   cssLengthToPx,
   placeSeatCard,
+  RenderGroup,
   RenderSeat,
   SeatCardAppearance,
   seatCardClassName,
   seatCardDataAttributes,
   SeatCardPlacement,
   SeatCardPosition,
+  wholeUnitCardDataAttributes,
 } from '@kerusiweb/core';
-import { SeatCardOutletContext } from './kerusi-seat-card.directive';
+import { SeatCardOutletContext, WholeUnitCardOutletContext } from './kerusi-seat-card.directive';
 
 const DEFAULT_OFFSET = 8;
 const DEFAULT_ARROW = 6;
 
 /**
- * One seat card: a floating element anchored to a seat.
+ * One seat card: a floating element anchored to a seat, or, given a `group` in
+ * place of a `seat`, to that whole unit's control (D25).
  *
  * It sits inside the map's root, outside the clipped viewport, so it shows in
  * full screen and inherits the map's `--kerusi-*` properties. Where it goes is
@@ -59,10 +62,12 @@ const DEFAULT_ARROW = 6;
     '[attr.aria-label]': "kind() === 'click' ? label() : null",
     '[attr.tabindex]': "kind() === 'click' ? -1 : null",
     '[attr.data-placement]': 'side()',
-    '[attr.data-seat-id]': 'data()["data-seat-id"]',
-    '[attr.data-seat-status]': 'data()["data-seat-status"]',
-    '[attr.data-seat-type]': 'data()["data-seat-type"]',
-    '[attr.data-section-id]': 'data()["data-section-id"]',
+    '[attr.data-seat-id]': 'data()["data-seat-id"] ?? null',
+    '[attr.data-seat-status]': 'data()["data-seat-status"] ?? null',
+    '[attr.data-seat-type]': 'data()["data-seat-type"] ?? null',
+    '[attr.data-group-id]': 'data()["data-group-id"] ?? null',
+    '[attr.data-group-kind]': 'data()["data-group-kind"] ?? null',
+    '[attr.data-section-id]': 'data()["data-section-id"] ?? null',
     '[attr.hidden]': "empty() ? '' : null",
     '[style.left.px]': 'position()?.x ?? 0',
     '[style.top.px]': 'position()?.y ?? 0',
@@ -77,18 +82,27 @@ export class KerusiSeatCardComponent {
   readonly kind = input.required<'hover' | 'click'>();
   /** The card's `id`: a hover card is named by the seat's `aria-describedby`. */
   readonly id = input.required<string>();
-  readonly seat = input.required<RenderSeat>();
+  /** The seat the card is for. */
+  readonly seat = input<RenderSeat | undefined>(undefined);
+  /** In place of `seat`: the group whose whole-unit control the card is for (D25). */
+  readonly group = input<RenderGroup | undefined>(undefined);
   /** Names a click card's dialog. */
   readonly label = input<string>('');
   readonly placement = input<SeatCardPlacement>('top');
   readonly appearance = input<SeatCardAppearance>('default');
   readonly extraClass = input<string | undefined>(undefined);
   /** The content: the consumer's template, and what it is handed. */
-  readonly template = input.required<TemplateRef<SeatCardOutletContext>>();
-  readonly context = input.required<SeatCardOutletContext['$implicit']>();
+  readonly template = input.required<
+    TemplateRef<SeatCardOutletContext> | TemplateRef<WholeUnitCardOutletContext>
+  >();
+  readonly context = input.required<
+    SeatCardOutletContext['$implicit'] | WholeUnitCardOutletContext['$implicit']
+  >();
   /** The map's root element: the card is positioned in it and kept inside it. */
   readonly rootEl = input.required<HTMLElement>();
   readonly seatNode = input.required<(seatId: string) => SVGGElement | null>();
+  /** Finds a whole unit's control by its group id, for a card given a `group`. */
+  readonly controlNode = input<((groupId: string) => SVGGElement | null) | undefined>(undefined);
   /** Moves focus into the card on mount: a click card opened from the keyboard. */
   readonly focusOnOpen = input<boolean>(false);
 
@@ -107,7 +121,11 @@ export class KerusiSeatCardComponent {
   protected readonly cardClass = computed(() =>
     seatCardClassName(this.kind(), this.appearance(), this.extraClass()),
   );
-  protected readonly data = computed(() => seatCardDataAttributes(this.seat()));
+  protected readonly data = computed<Readonly<Partial<Record<string, string>>>>(() => {
+    const seat = this.seat();
+    const group = this.group();
+    return seat ? seatCardDataAttributes(seat) : group ? wholeUnitCardDataAttributes(group) : {};
+  });
   protected readonly side = computed(
     () => this.position()?.side ?? (this.placement() === 'auto' ? 'top' : this.placement()),
   );
@@ -147,7 +165,13 @@ export class KerusiSeatCardComponent {
   private measure(): void {
     const root = this.rootEl();
     const card = this.host.nativeElement;
-    const seatNode = this.seatNode()(this.seat().id);
+    const seat = this.seat();
+    const group = this.group();
+    const seatNode = seat
+      ? this.seatNode()(seat.id)
+      : group
+        ? (this.controlNode()?.(group.id) ?? null)
+        : null;
     if (!seatNode) {
       return;
     }

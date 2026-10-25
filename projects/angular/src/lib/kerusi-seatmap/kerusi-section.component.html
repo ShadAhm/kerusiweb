@@ -219,11 +219,14 @@
         [attr.aria-pressed]="control.whole!.selected"
         [attr.aria-disabled]="!control.whole!.available"
         [attr.aria-description]="grouped.names?.reason ?? null"
+        [attr.aria-describedby]="unitDescribedById(control.id)"
         [attr.data-group-id]="control.id"
         [attr.data-group-kind]="control.kind"
         [attr.transform]="control.transform"
         (click)="onWholeUnitClick(control.id)"
         (keydown)="onWholeUnitKeydown(control.id, $event)"
+        (focus)="wholeUnitFocused.emit(control.id)"
+        (blur)="wholeUnitBlurred.emit(control.id)"
       >
         <svg:path
           class="kerusi-group__body"

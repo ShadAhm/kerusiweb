@@ -5,14 +5,17 @@ import {
   formatMoney,
   KerusiSeatCardContext,
   KerusiViolation,
+  KerusiWholeUnitCardContext,
   SeatStyleFn,
   summarizeSelection,
+  WholeUnitDisallowed,
 } from '@kerusiweb/core';
 import {
   KerusiSeatClickCardDirective,
   KerusiSeatHoverCardDirective,
   KerusiSeatmapComponent,
   KerusiSeatTemplateDirective,
+  KerusiWholeUnitHoverCardDirective,
   SeatDisallowed,
 } from '@kerusiweb/angular';
 import {
@@ -25,6 +28,8 @@ import {
   toggleWholeUnitButton,
   WholeUnitButton,
   wholeUnitButtons,
+  wholeUnitCardText,
+  wholeUnitDisallowedText,
   wholeUnitName,
 } from '@kerusi/demo-scenarios';
 
@@ -40,6 +45,7 @@ type Theme = 'light' | 'dark';
     KerusiSeatTemplateDirective,
     KerusiSeatHoverCardDirective,
     KerusiSeatClickCardDirective,
+    KerusiWholeUnitHoverCardDirective,
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -147,12 +153,22 @@ export class App {
     this.lastDisallowed.set(`${where} — ${DISALLOWED_TEXT[event.reason]}`);
   }
 
+  /** A refused tabletop gets the same visible message a refused seat does (D25). */
+  protected onWholeUnitDisallowed(event: WholeUnitDisallowed): void {
+    this.lastDisallowed.set(wholeUnitDisallowedText(event));
+  }
+
   /**
    * What the cards say. The library positions a card, dismisses it and names it,
    * and never decides its content (D10); this is the app's own.
    */
   protected cardText(ctx: KerusiSeatCardContext) {
     return seatCardText(ctx.seat, this.locale());
+  }
+
+  /** The card on an `either` table's top: the whole table, its seats and its price (D25). */
+  protected unitCardText(ctx: KerusiWholeUnitCardContext) {
+    return wholeUnitCardText(ctx, this.locale());
   }
 
   /** Resolved selection: the seats picked, their prices, and the total. */

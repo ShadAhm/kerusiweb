@@ -54,6 +54,8 @@ or follow its steps by hand.
 | [D22](#d22-companionmode-becomes-unitmode)                           | `companionMode` becomes `unitMode`                         | Shipped 4.0.0 |
 | [D23](#d23-new-validator-rules-use-the-reference-ids)                | New validator rules use the reference ids                  | Shipped 4.0.0 |
 | [D24](#d24-seat-form-outlines-are-drawn-in-house)                    | Seat form outlines are drawn in-house                      | Shipped 4.0.0 |
+| [D25](#d25-whole-unit-controls-get-cards-of-their-own)               | Whole-unit controls get cards of their own                 | Accepted      |
+| [D26](#d26-a-visible-cue-on-the-whole-unit-control-is-separate)      | A visible cue on the whole-unit control is separate        | Accepted      |
 
 ---
 
@@ -404,3 +406,44 @@ an icon set.
 
 **Why:** maintainer's call in #51. It avoids a licence dependency. The outlines
 must also turn with the seat and stay readable at about 8 CSS px.
+
+## Whole-unit controls (planned for 4.1.0)
+
+From [#56](https://github.com/ShadAhm/kerusiweb/issues/56), 2026-10-25.
+
+### D25. Whole-unit controls get cards of their own
+
+- **Status:** Accepted
+- **Source:** [#56](https://github.com/ShadAhm/kerusiweb/issues/56)
+
+The control that books an `either` group whole (D19) gets what a seat already
+has, through a surface of its own, so `KerusiSeatCardContext` is unchanged:
+
+- **Cards.** `renderWholeUnitHoverCard` and `renderWholeUnitClickCard` in React,
+  `<ng-template kerusiWholeUnitHoverCard>` and `<ng-template
+kerusiWholeUnitClickCard>` in Angular, handed a `KerusiWholeUnitCardContext`
+  (`unit`, `group`, `selected`, `trigger`, `close`). They share the seat cards'
+  placement, appearance, delay, dismissal and `hoverCardOnFocus`, and the
+  control points at its hover card with `aria-describedby`. A control goes by
+  core's `wholeUnitHoverKey()` in `reduceSeatHover()`, so one hover card shows
+  at a time across seats and controls, and `onSeatHover` / `seatHover` still
+  reports seats only.
+- **Refusals.** `onWholeUnitDisallowed` / `wholeUnitDisallowed` with `{ unit,
+group, reason }` for a refused click, Enter or Space. The live-region
+  announcement is made as before.
+- **Price.** `wholeUnitPrice?: (unit) => string | undefined` gives the formatted
+  price said in the control's name, in place of the map's `wholePrice`;
+  `undefined` falls back to it.
+
+**Why:** maintainer's call in this issue's planning: separate renderers keep the
+seat card context exactly as it is, so the change is additive.
+
+### D26. A visible cue on the whole-unit control is separate
+
+- **Status:** Accepted
+- **Source:** [#56](https://github.com/ShadAhm/kerusiweb/issues/56)
+
+The open question from #53, a visible cue that a tabletop can be pressed, is not
+part of the whole-unit cards. It is left for its own issue.
+
+**Why:** maintainer's call in #56.

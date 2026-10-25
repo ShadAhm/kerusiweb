@@ -133,17 +133,18 @@ error boundary catches it. `collect` never throws.
 
 ### Callbacks
 
-| Prop                              | Payload                                      |                                                                                                                     |
-| --------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `onSelectionChange`               | `readonly string[]`, `KerusiSelectionChange` | The selection after the change, and `{ selection, wholeUnits }` (D20).                                              |
-| `onSeatSelect` / `onSeatDeselect` | `SeatInteraction`                            | The `RenderSeat`, the resulting selection, and every seat that changed (its booking unit included).                 |
-| `onSeatDisallowed`                | `SeatDisallowed`                             | `reason` is `booked`, `held`, `blocked`, `not-selectable`, `max-selection`, `unit-unavailable` or `unit-too-large`. |
-| `onSeatFocus`                     | `RenderSeat`                                 |                                                                                                                     |
-| `onSeatHover`                     | `RenderSeat \| null`                         | The seat under the pointer, then `null` when it leaves. See [Hover and click](#hover-and-click).                    |
-| `onSeatClick`                     | `SeatClick`                                  | Every seat activation: `{ seat, selected, source }`. Read-only; fires before the selection callbacks.               |
-| `onValidationIssues`              | `readonly KerusiViolation[]`                 | Called whenever the documents change.                                                                               |
-| `onViewportChange`                | `KerusiViewport`                             | `{ zoom, x, y }`, whenever the zoom or pan changes. Only with `zoomable`.                                           |
-| `onMaximizedChange`               | `boolean`                                    | When the map is maximized or restored. Only with `maximizable`.                                                     |
+| Prop                              | Payload                                      |                                                                                                                               |
+| --------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `onSelectionChange`               | `readonly string[]`, `KerusiSelectionChange` | The selection after the change, and `{ selection, wholeUnits }` (D20).                                                        |
+| `onSeatSelect` / `onSeatDeselect` | `SeatInteraction`                            | The `RenderSeat`, the resulting selection, and every seat that changed (its booking unit included).                           |
+| `onSeatDisallowed`                | `SeatDisallowed`                             | `reason` is `booked`, `held`, `blocked`, `not-selectable`, `max-selection`, `unit-unavailable` or `unit-too-large`.           |
+| `onWholeUnitDisallowed`           | `WholeUnitDisallowed`                        | A whole unit's control was refused: `{ unit, group, reason }`. See [Whole-unit cards](#whole-unit-cards-refusals-and-prices). |
+| `onSeatFocus`                     | `RenderSeat`                                 |                                                                                                                               |
+| `onSeatHover`                     | `RenderSeat \| null`                         | The seat under the pointer, then `null` when it leaves. See [Hover and click](#hover-and-click).                              |
+| `onSeatClick`                     | `SeatClick`                                  | Every seat activation: `{ seat, selected, source }`. Read-only; fires before the selection callbacks.                         |
+| `onValidationIssues`              | `readonly KerusiViolation[]`                 | Called whenever the documents change.                                                                                         |
+| `onViewportChange`                | `KerusiViewport`                             | `{ zoom, x, y }`, whenever the zoom or pan changes. Only with `zoomable`.                                                     |
+| `onMaximizedChange`               | `boolean`                                    | When the map is maximized or restored. Only with `maximizable`.                                                               |
 
 ### The `ref`
 
@@ -800,6 +801,38 @@ Both functions are handed a `KerusiSeatCardContext`:
 - **`Escape`** closes a card before it does anything else: a second `Escape` then clears the selection, or leaves a maximized map.
 
 `openSeatCard(seatId)`, `closeSeatCard()` and `openSeatCardId` are on the [`ref`](#the-ref), to open a click card from a search result, say.
+
+### Whole-unit cards, refusals and prices
+
+An `either` table's top is the control that books it whole (D19). It has what a seat has, through props of its own, so `KerusiSeatCardContext` is unchanged (D25):
+
+```tsx
+<KerusiSeatmap
+  map={map}
+  state={state}
+  // "Table 3: the whole table, 8 seats, EUR 800.00", where the customer is looking.
+  renderWholeUnitHoverCard={({ group, unit }) => (
+    <span>
+      {group.label}: the whole table, {unit.seatIds.length} seats, {prices.get(unit.id)}
+    </span>
+  )}
+  // A visible reason, in your own words, when the tabletop is refused.
+  onWholeUnitDisallowed={({ group, reason }) => showMessage(group.label, reason)}
+  // Your own per-event price, said in the control's name. Memoize it.
+  wholeUnitPrice={wholeUnitPrice}
+/>
+```
+
+| Prop                       | Type                                               |                                                                                                                                                                                                   |
+| -------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `renderWholeUnitHoverCard` | `(ctx: KerusiWholeUnitCardContext) => ReactNode`   | Shown while the control is hovered, or focused with `hoverCardOnFocus`. The control points at it with `aria-describedby`.                                                                         |
+| `renderWholeUnitClickCard` | `(ctx: KerusiWholeUnitCardContext) => ReactNode`   | Opened by a click, tap or Enter/Space on the control. The press still books or releases the unit.                                                                                                 |
+| `onWholeUnitDisallowed`    | `(event: WholeUnitDisallowed) => void`             | A refused press, by click, Enter or Space: `{ unit, group, reason }`, where `reason` is `unit-unavailable`, `unit-too-large` or `max-selection`.                                                  |
+| `wholeUnitPrice`           | `(unit: RenderBookingUnit) => string \| undefined` | The formatted price said in the control's name, in place of the map's `wholePrice`, so prices worked out on your server need not be written into the map. `undefined` falls back to `wholePrice`. |
+
+A `KerusiWholeUnitCardContext` has `unit` (the group as one booking: its seats, its whole price, whether it can be had now), `group` (the table, sofa or pew), `selected` (booked whole), `trigger` and `close`. The whole-unit cards share the seat cards' placement, class, appearance, delays, dismissal and touch rules, and only one hover card shows at a time across seats and controls. The card element carries `data-group-id`, `data-group-kind` and `data-section-id` in place of the seat attributes. `onSeatHover` stays about seats: the pointer on a tabletop is on no seat.
+
+The map's own live-region announcement of a refusal is still made. While a hover card shows, the control's `aria-describedby` names the card, which a screen reader reads in place of the control's `aria-description`; put the reason in the card if you show one on a disabled control. With none of these props set, nothing changes.
 
 ### Styling seat cards
 

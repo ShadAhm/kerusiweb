@@ -94,9 +94,14 @@ import {
   viewportTouchAction,
   viewportTransform,
   wheelZoomFactor,
+  KerusiWholeUnitCardContext,
   wholeUnitAriaLabel,
   wholeUnitControlAction,
+  WholeUnitDisallowed,
   wholeUnitDisallowedAnnouncement,
+  wholeUnitHoverKey,
+  wholeUnitOfHoverKey,
+  WholeUnitPriceFn,
   zoomLimits,
   zoomViewportBy,
   zoomViewportTo,
@@ -107,6 +112,8 @@ import { KerusiSeatCardComponent } from './kerusi-seat-card.component';
 import {
   KerusiSeatClickCardDirective,
   KerusiSeatHoverCardDirective,
+  KerusiWholeUnitClickCardDirective,
+  KerusiWholeUnitHoverCardDirective,
 } from './kerusi-seat-card.directive';
 import { KerusiSeatTemplateDirective } from './kerusi-seat-template.directive';
 
@@ -310,6 +317,17 @@ export class KerusiSeatmapComponent {
    * by a click, a tap or Enter/Space on a seat. See {@link KerusiSeatClickCardDirective}.
    */
   protected readonly clickCardTemplate = contentChild(KerusiSeatClickCardDirective);
+  /**
+   * A `<ng-template kerusiWholeUnitHoverCard let-ctx>` is shown while a whole
+   * unit's control, such as an `either` tabletop, is hovered (D25). See
+   * {@link KerusiWholeUnitHoverCardDirective}.
+   */
+  protected readonly wholeUnitHoverCardTemplate = contentChild(KerusiWholeUnitHoverCardDirective);
+  /**
+   * A `<ng-template kerusiWholeUnitClickCard let-ctx>` is opened by a press on a
+   * whole unit's control (D25). See {@link KerusiWholeUnitClickCardDirective}.
+   */
+  protected readonly wholeUnitClickCardTemplate = contentChild(KerusiWholeUnitClickCardDirective);
   /** The side a card prefers; it flips when it would overflow the map. Default `top`. */
   readonly seatCardPlacement = input<SeatCardPlacement>('top');
   /** Extra classes on the card element, for Tailwind or a design-system class (D11). */
@@ -326,6 +344,13 @@ export class KerusiSeatmapComponent {
    * `false`. Setting it makes seats keyboard-reachable even on a read-only map.
    */
   readonly hoverCardOnFocus = input<boolean>(false);
+  /**
+   * The price said in a whole unit's control name, already formatted ("EUR
+   * 800.00"), for an app that prices on its own server rather than in the map.
+   * Takes precedence over the map's `wholePrice`; `undefined` falls back to it
+   * (D25).
+   */
+  readonly wholeUnitPrice = input<WholeUnitPriceFn | undefined>(undefined);
 
   // --- validation -----------------------------------------------------------
 
@@ -343,6 +368,12 @@ export class KerusiSeatmapComponent {
   readonly seatSelect = output<SeatInteraction>();
   readonly seatDeselect = output<SeatInteraction>();
   readonly seatDisallowed = output<SeatDisallowed>();
+  /**
+   * A whole unit's control was pressed, by a click, Enter or Space, and refused:
+   * `unit-unavailable`, `unit-too-large` or `max-selection` (D25). The map's own
+   * live-region announcement is made as well.
+   */
+  readonly wholeUnitDisallowed = output<WholeUnitDisallowed>();
   readonly seatFocus = output<RenderSeat>();
   /**
    * The seat under the pointer when it enters a seat, and `null` when it leaves
@@ -387,7 +418,7 @@ export class KerusiSeatmapComponent {
   private readonly hoverState = signal<SeatHoverState>(IDLE_SEAT_HOVER);
   private hoverRaw: SeatHoverState = IDLE_SEAT_HOVER;
   private hoverTimer: ReturnType<typeof setTimeout> | undefined;
-  /** The seat whose click card is open. */
+  /** The seat, or a whole unit's hover key, whose click card is open. */
   private readonly clickId = signal<string | null>(null);
   /** Set when the card is opened from the keyboard, so focus moves into it. */
   protected readonly clickFromKeyboard = signal(false);
@@ -467,12 +498,32 @@ export class KerusiSeatmapComponent {
       }
       const seatOf = (target: EventTarget | null): SVGGElement | null =>
         (target as Element | null)?.closest?.('g[data-seat-id]') ?? null;
+      const controlOf = (target: EventTarget | null): SVGGElement | null =>
+        (target as Element | null)?.closest?.('g.kerusi-group--whole') ?? null;
       const over = (type: 'enter' | 'leave' | 'move') => (e: Event) => {
         const event = e as PointerEvent;
         const seat = seatOf(event.target);
         const seatId = seat?.dataset['seatId'];
+        if (!seat) {
+          // A whole unit's control, followed only for its own hover card (D25).
+          const control = this.wholeUnitHoverCardTemplate() ? controlOf(event.target) : null;
+          const groupId = control?.dataset['groupId'];
+          if (
+            !control ||
+            !groupId ||
+            (type !== 'move' && controlOf(event.relatedTarget) === control)
+          ) {
+            return;
+          }
+          this.feedHover({
+            type,
+            seatId: wholeUnitHoverKey(groupId),
+            pointerType: event.pointerType,
+          });
+          return;
+        }
         // Moving between a seat's own parts is not leaving it.
-        if (!seat || !seatId || (type !== 'move' && seatOf(event.relatedTarget) === seat)) {
+        if (!seatId || (type !== 'move' && seatOf(event.relatedTarget) === seat)) {
           return;
         }
         this.feedHover({ type, seatId, pointerType: event.pointerType });
@@ -494,16 +545,22 @@ export class KerusiSeatmapComponent {
       });
     });
 
-    // A seat that goes away (a hidden section, a new map) takes its cards with it.
+    // A seat or a control that goes away (a hidden section, a new map, selection
+    // turned off) takes its cards with it.
     effect(() => {
       const seats = this.renderMap().seatsById;
+      const controls = this.controlGroups();
+      const exists = (key: string) => {
+        const groupId = wholeUnitOfHoverKey(key);
+        return groupId === undefined ? seats.has(key) : controls.has(groupId);
+      };
       untracked(() => {
         const click = this.clickId();
-        if (click !== null && !seats.has(click)) {
+        if (click !== null && !exists(click)) {
           this.closeClick(false);
         }
         const hovered = this.hoverRaw.cardId;
-        if (hovered !== null && !seats.has(hovered)) {
+        if (hovered !== null && !exists(hovered)) {
           this.feedHover({ type: 'reset' });
         }
       });
@@ -511,7 +568,13 @@ export class KerusiSeatmapComponent {
 
     // A card whose template is taken away has nothing to show.
     effect(() => {
-      if (!this.clickCardTemplate() && untracked(this.clickId) !== null) {
+      const seatTemplate = this.clickCardTemplate();
+      const unitTemplate = this.wholeUnitClickCardTemplate();
+      const click = untracked(this.clickId);
+      if (
+        click !== null &&
+        !(wholeUnitOfHoverKey(click) === undefined ? seatTemplate : unitTemplate)
+      ) {
         untracked(() => this.closeClick(false));
       }
     });
@@ -547,7 +610,9 @@ export class KerusiSeatmapComponent {
           return;
         }
         const inCard = target.closest?.('.kerusi-seat-card--click');
-        const onSeat = root.contains(target) && target.closest?.('[data-seat-id]');
+        // A whole unit's control, like a seat, opens and closes cards itself.
+        const onSeat =
+          root.contains(target) && target.closest?.('[data-seat-id], .kerusi-group--whole');
         if (!inCard && !onSeat) {
           this.zone.run(() => this.closeClick(false));
         }
@@ -749,9 +814,77 @@ export class KerusiSeatmapComponent {
       : null;
   });
 
+  /** The groups whose shape is drawn as the control that books them whole (D19). */
+  private readonly controlGroups = computed<ReadonlyMap<string, RenderGroup>>(() =>
+    this.interactive()
+      ? new Map([...this.groupsById()].filter(([, group]) => group.wholeUnit && group.shape))
+      : new Map(),
+  );
+
+  /** The group whose whole-unit hover card is showing (D25). */
+  private readonly hoverGroup = computed(() => {
+    const groupId = wholeUnitOfHoverKey(this.hoverState().cardId);
+    return groupId === undefined ? undefined : this.controlGroups().get(groupId);
+  });
+  private readonly clickGroup = computed(() => {
+    const groupId = wholeUnitOfHoverKey(this.clickId());
+    return groupId === undefined ? undefined : this.controlGroups().get(groupId);
+  });
+
+  /** A click card open for a control hides that control's hover card. */
+  protected readonly hoverCardGroups = computed<readonly RenderGroup[]>(() => {
+    const group = this.hoverGroup();
+    return group && this.wholeUnitHoverCardTemplate() && this.hoverState().cardId !== this.clickId()
+      ? [group]
+      : [];
+  });
+  protected readonly clickCardGroups = computed<readonly RenderGroup[]>(() => {
+    const group = this.clickGroup();
+    return group && this.wholeUnitClickCardTemplate() ? [group] : [];
+  });
+
+  private unitContext(
+    group: RenderGroup,
+    trigger: KerusiWholeUnitCardContext['trigger'],
+    close: () => void,
+  ): KerusiWholeUnitCardContext {
+    const unit = group.wholeUnit!;
+    const selection = this.selectionSet();
+    return {
+      unit,
+      group,
+      selected: unit.seatIds.length > 0 && unit.seatIds.every((id) => selection.has(id)),
+      trigger,
+      close,
+    };
+  }
+
+  protected readonly hoverUnitContext = computed<KerusiWholeUnitCardContext | null>(() => {
+    const group = this.hoverCardGroups()[0];
+    return group
+      ? this.unitContext(group, this.hoverState().cardTrigger === 'focus' ? 'focus' : 'hover', () =>
+          this.feedHover({ type: 'escape' }),
+        )
+      : null;
+  });
+  protected readonly clickUnitContext = computed<KerusiWholeUnitCardContext | null>(() => {
+    const group = this.clickCardGroups()[0];
+    return group ? this.unitContext(group, 'click', () => this.closeClick(true)) : null;
+  });
+
   protected readonly clickCardLabel = computed(() => {
     const seat = this.clickCardSeats()[0];
-    return seat ? seatAriaLabel(seat, this.resolvedLocale(), this.ariaStrings()) : '';
+    const group = this.clickCardGroups()[0];
+    return seat
+      ? seatAriaLabel(seat, this.resolvedLocale(), this.ariaStrings())
+      : group
+        ? wholeUnitAriaLabel(
+            group.wholeUnit!,
+            this.resolvedLocale(),
+            this.ariaStrings(),
+            this.wholeUnitPrice(),
+          )
+        : '';
   });
 
   /** The seat → card `id` link, for the seat showing a hover card. */
@@ -760,12 +893,23 @@ export class KerusiSeatmapComponent {
     return seat ? { seatId: seat.id, id: this.hoverCardId } : null;
   });
 
+  /** The control → card `id` link, for the whole unit showing a hover card (D25). */
+  protected readonly unitDescribedBy = computed(() => {
+    const group = this.hoverCardGroups()[0];
+    return group ? { groupId: group.id, id: this.hoverCardId } : null;
+  });
+
   /** The seat whose click card is showing, or `null`. */
   readonly openSeatCardId = computed(() => this.clickCardSeats()[0]?.id ?? null);
 
   /** Whether seats need focus and blur handling for a hover card (D12). */
   private tracksFocus(): boolean {
     return this.hoverCardOnFocus() && !!this.hoverCardTemplate();
+  }
+
+  /** Whether whole units' controls need focus and blur handling (D12, D25). */
+  private tracksUnitFocus(): boolean {
+    return this.hoverCardOnFocus() && !!this.wholeUnitHoverCardTemplate();
   }
 
   /**
@@ -783,6 +927,12 @@ export class KerusiSeatmapComponent {
   }
 
   protected readonly seatNodeOf = (seatId: string): SVGGElement | null => this.seatNode(seatId);
+  /** A whole unit's control, found in the map by its group id. */
+  protected readonly controlNodeOf = (groupId: string): SVGGElement | null => {
+    const controls =
+      this.rootRef()?.nativeElement.querySelectorAll<SVGGElement>('g.kerusi-group--whole');
+    return [...(controls ?? [])].find((node) => node.dataset['groupId'] === groupId) ?? null;
+  };
   protected readonly rootElement = computed(() => this.rootRef()?.nativeElement);
 
   protected readonly limits = computed(() => zoomLimits(this.maxZoom()));
@@ -855,6 +1005,7 @@ export class KerusiSeatmapComponent {
   >(() => {
     const locale = this.resolvedLocale();
     const strings = this.ariaStrings();
+    const price = this.wholeUnitPrice();
     return new Map(
       [...this.groupsById().values()].flatMap((group) =>
         group.wholeUnit
@@ -862,7 +1013,7 @@ export class KerusiSeatmapComponent {
               [
                 group.id,
                 {
-                  label: wholeUnitAriaLabel(group.wholeUnit, locale, strings),
+                  label: wholeUnitAriaLabel(group.wholeUnit, locale, strings, price),
                   reason: group.wholeUnit.selectable
                     ? undefined
                     : wholeUnitDisallowedAnnouncement(group.wholeUnit, 'unit-unavailable', strings),
@@ -939,19 +1090,22 @@ export class KerusiSeatmapComponent {
    * A whole unit's control (D19): books every seat of an `either` table, or
    * releases them all when the table is already booked whole. The seat outputs
    * do not fire, since no one seat was pressed; `selectionChange` and
-   * `selectionDetail` do.
+   * `selectionDetail` do, and `wholeUnitDisallowed` when it is refused (D25).
    */
-  protected onWholeUnitActivate(groupId: string): void {
-    const unit = this.groupsById().get(groupId)?.wholeUnit;
-    if (!unit || !this.interactive()) {
+  protected onWholeUnitActivate(groupId: string, source: SeatClickSource = 'pointer'): void {
+    const group = this.groupsById().get(groupId);
+    const unit = group?.wholeUnit;
+    if (!group || !unit || !this.interactive()) {
       return;
     }
+    this.toggleClickCard(wholeUnitHoverKey(groupId), source, !!this.wholeUnitClickCardTemplate());
     const outcome = toggleWholeUnit(this.selection(), unit, {
       seatsById: this.renderMap().seatsById,
       maxSelection: this.maxSelection(),
     });
     if (outcome.kind === 'disallowed') {
       this.announce(wholeUnitDisallowedAnnouncement(unit, outcome.reason!, this.ariaStrings()));
+      this.wholeUnitDisallowed.emit({ unit, group, reason: outcome.reason! });
       return;
     }
     this.commitSelection(outcome.selection);
@@ -966,7 +1120,7 @@ export class KerusiSeatmapComponent {
     switch (wholeUnitControlAction(event.key)) {
       case 'toggle':
         event.preventDefault();
-        this.onWholeUnitActivate(groupId);
+        this.onWholeUnitActivate(groupId, 'keyboard');
         return;
       case 'enter-seats': {
         const first = this.groupsById().get(groupId)?.seatIds[0];
@@ -1081,6 +1235,18 @@ export class KerusiSeatmapComponent {
     }
   }
 
+  protected onWholeUnitFocused(groupId: string): void {
+    if (this.tracksUnitFocus()) {
+      this.feedHover({ type: 'focus', seatId: wholeUnitHoverKey(groupId) });
+    }
+  }
+
+  protected onWholeUnitBlurred(groupId: string): void {
+    if (this.tracksUnitFocus()) {
+      this.feedHover({ type: 'blur', seatId: wholeUnitHoverKey(groupId) });
+    }
+  }
+
   // --- hover and seat cards (D10) -----------------------------------------------
 
   /**
@@ -1126,28 +1292,48 @@ export class KerusiSeatmapComponent {
 
   /** Opens or closes the click card for an activated seat. */
   private activateCard(seatId: string, source: SeatClickSource): void {
-    if (!this.clickCardTemplate()) {
+    this.toggleClickCard(seatId, source, !!this.clickCardTemplate());
+  }
+
+  /**
+   * Opens or closes the click card for a seat id or a whole unit's key. With no
+   * template for it, the press opens nothing, and only the other kind's card
+   * gives way to it.
+   */
+  private toggleClickCard(key: string, source: SeatClickSource, canOpen: boolean): void {
+    const open = this.clickId();
+    if (!canOpen) {
+      const isUnit = (k: string) => wholeUnitOfHoverKey(k) !== undefined;
+      if (open !== null && isUnit(open) !== isUnit(key)) {
+        this.closeClick(false);
+      }
       return;
     }
-    if (this.clickId() === seatId) {
+    if (open === key) {
       this.closeClick(true);
       return;
     }
-    this.clickId.set(seatId);
+    this.clickId.set(key);
     this.clickFromKeyboard.set(source === 'keyboard');
   }
 
   /**
-   * Closes the click card. Focus goes back to the seat only when it was inside
-   * the card, so a press elsewhere on the page keeps the focus it just took.
+   * Closes the click card. Focus goes back to the seat or control only when it
+   * was inside the card, so a press elsewhere on the page keeps the focus it
+   * just took.
    */
   private closeClick(restoreFocus: boolean): void {
     const current = this.clickId();
     if (current !== null && restoreFocus) {
       const card = this.rootRef()?.nativeElement.querySelector('.kerusi-seat-card--click');
       if (card?.contains(card.ownerDocument.activeElement)) {
+        const groupId = wholeUnitOfHoverKey(current);
         // After the card is gone, so nothing fights the focus move.
-        queueMicrotask(() => this.seatNode(current)?.focus?.({ preventScroll: true }));
+        queueMicrotask(() =>
+          (groupId === undefined ? this.seatNode(current) : this.controlNodeOf(groupId))?.focus?.({
+            preventScroll: true,
+          }),
+        );
       }
     }
     this.clickId.set(null);
@@ -1157,12 +1343,12 @@ export class KerusiSeatmapComponent {
   /** Closes what is open, click card first. True if a card was showing. */
   private dismissCards(): boolean {
     if (this.clickId() !== null) {
-      const showing = this.clickCardSeats().length > 0;
+      const showing = this.clickCardSeats().length > 0 || this.clickCardGroups().length > 0;
       this.closeClick(true);
       return showing;
     }
     if (this.hoverRaw.cardId !== null || this.hoverRaw.pendingId !== null) {
-      const showing = this.hoverCardSeats().length > 0;
+      const showing = this.hoverCardSeats().length > 0 || this.hoverCardGroups().length > 0;
       this.feedHover({ type: 'escape' });
       return showing;
     }

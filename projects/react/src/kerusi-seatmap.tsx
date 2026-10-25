@@ -134,6 +134,10 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       onSeatClick,
       renderHoverCard,
       renderClickCard,
+      renderWholeUnitHoverCard,
+      renderWholeUnitClickCard,
+      onWholeUnitDisallowed,
+      wholeUnitPrice,
       seatCardPlacement = 'top',
       seatCardClassName,
       seatCardAppearance = 'default',
@@ -311,7 +315,12 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
                   [
                     group.id,
                     {
-                      label: wholeUnitAriaLabel(group.wholeUnit, resolvedLocale, ariaStrings),
+                      label: wholeUnitAriaLabel(
+                        group.wholeUnit,
+                        resolvedLocale,
+                        ariaStrings,
+                        wholeUnitPrice,
+                      ),
                       reason: group.wholeUnit.selectable
                         ? undefined
                         : wholeUnitDisallowedAnnouncement(
@@ -325,7 +334,16 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
               : [],
           ),
         ),
-      [groupsById, resolvedLocale, ariaStrings],
+      [groupsById, resolvedLocale, ariaStrings, wholeUnitPrice],
+    );
+
+    /** The groups whose shape is drawn as the control that books them whole (D19). */
+    const controlGroups = useMemo<ReadonlyMap<string, RenderGroup>>(
+      () =>
+        interactive
+          ? new Map([...groupsById].filter(([, group]) => group.wholeUnit && group.shape))
+          : new Map(),
+      [groupsById, interactive],
     );
 
     // --- focus and announcements --------------------------------------------
@@ -347,6 +365,10 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       onSeatHover,
       renderHoverCard,
       renderClickCard,
+      controlGroups,
+      renderWholeUnitHoverCard,
+      renderWholeUnitClickCard,
+      wholeUnitPrice,
       placement: seatCardPlacement,
       className: seatCardClassName,
       appearance: seatCardAppearance,
@@ -474,20 +496,24 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
     /**
      * A whole unit's control (D19): books every seat of an `either` table, or
      * releases them all when the table is already booked whole. The seat events
-     * do not fire, since no one seat was pressed; `onSelectionChange` does.
+     * do not fire, since no one seat was pressed; `onSelectionChange` does, and
+     * `onWholeUnitDisallowed` when it is refused (D25).
      */
     const onWholeUnitActivate = useCallback(
-      (groupId: string) => {
-        const unit = groupsById.get(groupId)?.wholeUnit;
-        if (!unit || !interactive) {
+      (groupId: string, source: SeatClickSource = 'pointer') => {
+        const group = groupsById.get(groupId);
+        const unit = group?.wholeUnit;
+        if (!group || !unit || !interactive) {
           return;
         }
+        cards.activateUnit(groupId, source);
         const outcome = toggleWholeUnit(selection, unit, {
           seatsById: renderMap.seatsById,
           maxSelection,
         });
         if (outcome.kind === 'disallowed') {
           announce(wholeUnitDisallowedAnnouncement(unit, outcome.reason!, ariaStrings));
+          onWholeUnitDisallowed?.({ unit, group, reason: outcome.reason! });
           return;
         }
         commitSelection(outcome.selection);
@@ -496,11 +522,13 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       [
         groupsById,
         interactive,
+        cards.activateUnit,
         selection,
         renderMap,
         maxSelection,
         announce,
         ariaStrings,
+        onWholeUnitDisallowed,
         commitSelection,
         announceSelection,
       ],
@@ -512,7 +540,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
         switch (wholeUnitControlAction(event.key)) {
           case 'toggle':
             event.preventDefault();
-            onWholeUnitActivate(groupId);
+            onWholeUnitActivate(groupId, 'keyboard');
             return;
           case 'enter-seats': {
             const first = groupsById.get(groupId)?.seatIds[0];
@@ -781,10 +809,14 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
             onSeatFocused={onSeatFocused}
             onSeatBlurred={cards.tracksFocus ? cards.blur : undefined}
             onSeatKeyDown={(event) => onKeyDown(placed.section.id, event)}
+            unitDescribedBy={cards.unitDescribedBy}
             onWholeUnitActivate={onWholeUnitActivate}
             onWholeUnitKeyDown={(groupId, event) =>
               onWholeUnitKeyDown(placed.section.id, groupId, event)
             }
+            onWholeUnitPointer={cards.tracksUnitPointer ? cards.unitPointer : undefined}
+            onWholeUnitFocused={cards.tracksUnitFocus ? cards.unitFocus : undefined}
+            onWholeUnitBlurred={cards.tracksUnitFocus ? cards.unitBlur : undefined}
             onSeatPointer={cards.tracksPointer ? cards.pointer : undefined}
             registerSeat={registerSeat}
           />

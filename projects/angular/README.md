@@ -99,18 +99,19 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 
 ### Outputs
 
-| Output                        | Payload                      |                                                                                                                     |
-| ----------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `selectionChange`             | `readonly string[]`          | From the `selection` model.                                                                                         |
-| `selectionDetail`             | `KerusiSelectionChange`      | With `selectionChange` when the map changes the selection: `{ selection, wholeUnits }` (D20).                       |
-| `seatSelect` / `seatDeselect` | `SeatInteraction`            | The `RenderSeat`, the resulting selection, and every seat that changed (its booking unit included).                 |
-| `seatDisallowed`              | `SeatDisallowed`             | `reason` is `booked`, `held`, `blocked`, `not-selectable`, `max-selection`, `unit-unavailable` or `unit-too-large`. |
-| `seatFocus`                   | `RenderSeat`                 |                                                                                                                     |
-| `seatHover`                   | `RenderSeat \| null`         | The seat under the pointer, then `null` when it leaves. See [Hover and click](#hover-and-click).                    |
-| `seatClick`                   | `SeatClick`                  | Every seat activation: `{ seat, selected, source }`. Read-only; fires before the selection outputs.                 |
-| `validationIssues`            | `readonly KerusiViolation[]` | Emitted whenever the documents change.                                                                              |
-| `viewportChange`              | `KerusiViewport`             | `{ zoom, x, y }`, whenever the zoom or pan changes. Only with `zoomable`.                                           |
-| `maximizedChange`             | `boolean`                    | When the map is maximized or restored. Only with `maximizable`.                                                     |
+| Output                        | Payload                      |                                                                                                                               |
+| ----------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `selectionChange`             | `readonly string[]`          | From the `selection` model.                                                                                                   |
+| `selectionDetail`             | `KerusiSelectionChange`      | With `selectionChange` when the map changes the selection: `{ selection, wholeUnits }` (D20).                                 |
+| `seatSelect` / `seatDeselect` | `SeatInteraction`            | The `RenderSeat`, the resulting selection, and every seat that changed (its booking unit included).                           |
+| `seatDisallowed`              | `SeatDisallowed`             | `reason` is `booked`, `held`, `blocked`, `not-selectable`, `max-selection`, `unit-unavailable` or `unit-too-large`.           |
+| `wholeUnitDisallowed`         | `WholeUnitDisallowed`        | A whole unit's control was refused: `{ unit, group, reason }`. See [Whole-unit cards](#whole-unit-cards-refusals-and-prices). |
+| `seatFocus`                   | `RenderSeat`                 |                                                                                                                               |
+| `seatHover`                   | `RenderSeat \| null`         | The seat under the pointer, then `null` when it leaves. See [Hover and click](#hover-and-click).                              |
+| `seatClick`                   | `SeatClick`                  | Every seat activation: `{ seat, selected, source }`. Read-only; fires before the selection outputs.                           |
+| `validationIssues`            | `readonly KerusiViolation[]` | Emitted whenever the documents change.                                                                                        |
+| `viewportChange`              | `KerusiViewport`             | `{ zoom, x, y }`, whenever the zoom or pan changes. Only with `zoomable`.                                                     |
+| `maximizedChange`             | `boolean`                    | When the map is maximized or restored. Only with `maximizable`.                                                               |
 
 ### The seat glyph
 
@@ -855,6 +856,36 @@ Both templates are handed a `KerusiSeatCardContext` as `let-ctx`:
 - **`Escape`** closes a card before it does anything else: a second `Escape` then clears the selection, or leaves a maximized map.
 
 `openSeatCard(seatId)`, `closeSeatCard()` and the `openSeatCardId` signal are on the component, to open a click card from a search result, say.
+
+### Whole-unit cards, refusals and prices
+
+An `either` table's top is the control that books it whole (D19). It has what a seat has, through templates and bindings of its own, so `KerusiSeatCardContext` is unchanged (D25):
+
+```html
+<kerusi-seatmap
+  [map]="map"
+  [state]="state"
+  [wholeUnitPrice]="wholeUnitPrice"
+  (wholeUnitDisallowed)="showMessage($event.group.label, $event.reason)"
+>
+  <!-- "Table 3: the whole table, 8 seats, EUR 800.00", where the customer is looking. -->
+  <ng-template kerusiWholeUnitHoverCard let-ctx>
+    {{ ctx.group.label }}: the whole table, {{ ctx.unit.seatIds.length }} seats, {{
+    prices.get(ctx.unit.id) }}
+  </ng-template>
+</kerusi-seatmap>
+```
+
+|                                                  | Type                                               |                                                                                                                                                                                                   |
+| ------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<ng-template kerusiWholeUnitHoverCard let-ctx>` | `KerusiWholeUnitCardContext`                       | Shown while the control is hovered, or focused with `hoverCardOnFocus`. The control points at it with `aria-describedby`.                                                                         |
+| `<ng-template kerusiWholeUnitClickCard let-ctx>` | `KerusiWholeUnitCardContext`                       | Opened by a click, tap or Enter/Space on the control. The press still books or releases the unit.                                                                                                 |
+| `(wholeUnitDisallowed)`                          | `WholeUnitDisallowed`                              | A refused press, by click, Enter or Space: `{ unit, group, reason }`, where `reason` is `unit-unavailable`, `unit-too-large` or `max-selection`.                                                  |
+| `[wholeUnitPrice]`                               | `(unit: RenderBookingUnit) => string \| undefined` | The formatted price said in the control's name, in place of the map's `wholePrice`, so prices worked out on your server need not be written into the map. `undefined` falls back to `wholePrice`. |
+
+A `KerusiWholeUnitCardContext` has `unit` (the group as one booking: its seats, its whole price, whether it can be had now), `group` (the table, sofa or pew), `selected` (booked whole), `trigger` and `close`. The whole-unit cards share the seat cards' placement, class, appearance, delays, dismissal and touch rules, and only one hover card shows at a time across seats and controls. The card element carries `data-group-id`, `data-group-kind` and `data-section-id` in place of the seat attributes. `(seatHover)` stays about seats: the pointer on a tabletop is on no seat.
+
+The map's own live-region announcement of a refusal is still made. While a hover card shows, the control's `aria-describedby` names the card, which a screen reader reads in place of the control's `aria-description`; put the reason in the card if you show one on a disabled control. With none of these set, nothing changes.
 
 ### Styling seat cards
 

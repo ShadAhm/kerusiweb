@@ -297,6 +297,27 @@ describe('booking units in what a screen reader says (§4.9.1, §4.12)', () => {
     expect(said(wholeUnitAriaLabel(unpriced, 'en'))).toBe('book the whole love seat, 8 seats');
   });
 
+  it('says the app’s own price for a whole unit in place of the map’s (D25)', () => {
+    const table = model().wholeUnits[0]!;
+    const seen: string[] = [];
+    const price = (unit: typeof table) => {
+      seen.push(unit.id);
+      return unit.id === 'T3' ? 'EUR 800.00' : undefined;
+    };
+    expect(said(wholeUnitAriaLabel(table, 'en', undefined, price))).toBe(
+      'Table 3, book the whole table, 8 seats, EUR 800.00',
+    );
+    expect(seen).toEqual(['T3']);
+    // `undefined` keeps the map's own whole price, and no price says none.
+    expect(said(wholeUnitAriaLabel(table, 'en', undefined, () => undefined))).toBe(
+      'Table 3, book the whole table, 8 seats, MYR 180.00',
+    );
+    const unpriced = { ...table, wholePrice: undefined };
+    expect(said(wholeUnitAriaLabel(unpriced, 'en', undefined, () => 'EUR 800.00'))).toBe(
+      'Table 3, book the whole table, 8 seats, EUR 800.00',
+    );
+  });
+
   it('says why a whole unit cannot be booked', () => {
     const table = model().wholeUnits[0]!;
     expect(wholeUnitDisallowedAnnouncement(table, 'unit-unavailable')).toBe(

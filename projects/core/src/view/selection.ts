@@ -1,6 +1,6 @@
 import { Money } from '../kerusi/kerusi-map.model.js';
 import { priceSelection, WholeCharge } from '../kerusi/kerusi-booking.js';
-import { RenderBookingUnit, RenderMap, RenderSeat } from '../render/render-model.js';
+import { RenderBookingUnit, RenderGroup, RenderMap, RenderSeat } from '../render/render-model.js';
 
 /**
  * Seat selection, as a pure reducer over a set of seat ids.
@@ -28,6 +28,19 @@ export type DisallowedReason =
   | 'unit-unavailable'
   /** Its booking unit alone holds more seats than `maxSelection` allows (D21). */
   | 'unit-too-large';
+
+/**
+ * What `onWholeUnitDisallowed` / `wholeUnitDisallowed` reports (D25): a whole
+ * unit's control was pressed, by a click, Enter or Space, and refused.
+ */
+export interface WholeUnitDisallowed {
+  /** The group as one booking. */
+  unit: RenderBookingUnit;
+  /** The group whose shape is the control. */
+  group: RenderGroup;
+  /** `unit-unavailable`, `unit-too-large` or `max-selection`. */
+  reason: DisallowedReason;
+}
 
 export type SelectionOutcomeKind = 'select' | 'deselect' | 'disallowed';
 

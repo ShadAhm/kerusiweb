@@ -17,6 +17,9 @@ import { KerusiMap, KerusiState, Seat, SeatForm } from '@kerusiweb/core';
  * and a group's shape is a footprint the seats sit on, centred on its `x`/`y` and
  * turned like an element. Its front is the top edge at rotation 0, so a sofa's
  * back is its bottom edge, and the turned pew's back is its left.
+ *
+ * The sofa is `either` (§4.12): its places are sold one by one, or the whole sofa
+ * from its seat. One place is sold, so the whole sofa is refused.
  */
 
 /** Every form, in the order the legend lists them. `standard` declares none. */
@@ -122,6 +125,9 @@ export const LOUNGE_MAP: KerusiMap = {
           label: 'Sofa',
           seats: ['S1', 'S2', 'S3'],
           shape: { rect: { x: 122, y: 270, width: 152, height: 60 } },
+          // Sold by the place, or whole from its seat (§4.12). S2 is sold, so the
+          // whole sofa cannot be had: pressing it shows a refusal (D25).
+          booking: 'either',
         },
         {
           id: 'pew-1',

@@ -1,4 +1,4 @@
-import { canHover, type HoverCardDelay } from './seat-card.js';
+import { canHover, type HoverCardDelay, wholeUnitOfHoverKey } from './seat-card.js';
 
 /**
  * Seat hover as a reducer, the way `reduceGesture()` does pan and pinch.
@@ -19,6 +19,10 @@ import { canHover, type HoverCardDelay } from './seat-card.js';
  *   until the pointer or focus has left that seat (WCAG 1.4.13 "dismissible").
  * - Keyboard focus shows the card only when the binding feeds `focus` events,
  *   which it does only with `hoverCardOnFocus` (D12).
+ * - A whole unit's control, such as a tabletop, is fed by its
+ *   `wholeUnitHoverKey()` in place of a seat id, so its card follows the same
+ *   rules and only one card shows at a time (D25). `report` stays about seats:
+ *   the pointer on a control is reported as on no seat.
  */
 
 export interface SeatHoverState {
@@ -73,13 +77,41 @@ export type SeatHoverTimer =
 
 export interface SeatHoverResult {
   state: SeatHoverState;
-  /** Present when `onSeatHover` should be called: with this seat, or `null`. */
+  /**
+   * Present when `onSeatHover` should be called: with this seat, or `null`.
+   * Never a whole unit's key (D25).
+   */
   report?: { seatId: string | null };
   /** Absent when the timer is to be left as it is. */
   timer?: SeatHoverTimer;
 }
 
 export function reduceSeatHover(
+  state: SeatHoverState,
+  event: SeatHoverEvent,
+  delay: HoverCardDelay,
+): SeatHoverResult {
+  const result = reduce(state, event, delay);
+  if (!result.report) {
+    return result;
+  }
+  // The keys in the state are seats and whole units alike; the report is the
+  // seat under the pointer, so a control counts as no seat, and moving between
+  // a control and the space around it reports nothing (D25).
+  const before = seatOf(state.hoveredId);
+  const after = seatOf(result.report.seatId);
+  if (before === after && after === null) {
+    return { state: result.state, timer: result.timer };
+  }
+  return after === result.report.seatId ? result : { ...result, report: { seatId: after } };
+}
+
+/** A hover key as a seat id, or `null` for no seat or a whole unit's control. */
+function seatOf(key: string | null): string | null {
+  return key === null || wholeUnitOfHoverKey(key) !== undefined ? null : key;
+}
+
+function reduce(
   state: SeatHoverState,
   event: SeatHoverEvent,
   delay: HoverCardDelay,

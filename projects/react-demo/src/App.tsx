@@ -1,5 +1,12 @@
 import { buildRenderModel, formatMoney, summarizeSelection } from '@kerusiweb/core';
-import type { Bounds, KerusiSeatCardContext, KerusiViolation, SeatStyleFn } from '@kerusiweb/core';
+import type {
+  Bounds,
+  KerusiSeatCardContext,
+  KerusiViolation,
+  KerusiWholeUnitCardContext,
+  SeatStyleFn,
+  WholeUnitDisallowed,
+} from '@kerusiweb/core';
 import { KerusiSeatmap } from '@kerusiweb/react';
 import type { KerusiSeatmapHandle, SeatDisallowed, SeatRenderContext } from '@kerusiweb/react';
 import {
@@ -10,6 +17,8 @@ import {
   seatCardText,
   toggleWholeUnitButton,
   wholeUnitButtons as wholeUnitButtonsOf,
+  wholeUnitCardText,
+  wholeUnitDisallowedText,
   wholeUnitName,
 } from '@kerusi/demo-scenarios';
 import type { WholeUnitButton } from '@kerusi/demo-scenarios';
@@ -75,6 +84,12 @@ export function App() {
     setLastDisallowed(`${where} — ${DISALLOWED_TEXT[event.reason]}`);
   }, []);
 
+  /** A refused tabletop gets the same visible message a refused seat does (D25). */
+  const onWholeUnitDisallowed = useCallback(
+    (event: WholeUnitDisallowed) => setLastDisallowed(wholeUnitDisallowedText(event)),
+    [],
+  );
+
   /**
    * The cards' content is the app's own markup: the library positions it,
    * dismisses it and names it, and never decides what it says (D10).
@@ -89,6 +104,27 @@ export function App() {
             {text.type}
             {text.price && ` · ${text.price}`} · {text.status}
             {trigger === 'focus' && ' · focused'}
+          </span>
+        </>
+      );
+    },
+    [locale],
+  );
+
+  /** The card on an `either` table's top: the whole table, its seats and its price (D25). */
+  const renderWholeUnitHoverCard = useCallback(
+    (ctx: KerusiWholeUnitCardContext) => {
+      const text = wholeUnitCardText(ctx, locale);
+      return (
+        <>
+          <span className="demo-card__title">{text.title}</span>
+          <span className="demo-card__meta">
+            {text.type}
+            {text.price && ` · ${text.price}`}
+          </span>
+          <span className="demo-card__meta">
+            {text.status}
+            {ctx.trigger === 'focus' && ' · focused'}
           </span>
         </>
       );
@@ -356,8 +392,10 @@ export function App() {
                 renderSeat={roundSeats ? renderRoundSeat : undefined}
                 renderHoverCard={hoverCard ? renderHoverCard : undefined}
                 renderClickCard={clickCard ? renderClickCard : undefined}
+                renderWholeUnitHoverCard={hoverCard ? renderWholeUnitHoverCard : undefined}
                 hoverCardOnFocus={hoverCard}
                 onSeatDisallowed={onDisallowed}
+                onWholeUnitDisallowed={onWholeUnitDisallowed}
                 onValidationIssues={setIssues}
               />
 

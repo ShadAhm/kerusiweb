@@ -82,6 +82,7 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 | ------------------ | ------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------- |
 | `locale`           | `string`                        | `KerusiMap.locale` ?? `'en'` | BCP-47. Resolves `Section.label` / `SeatType.label` locale maps.                         |
 | `rtl`              | `boolean \| 'auto'`             | `'auto'`                     | Mirrors the whole canvas, and the arrow keys with it. `auto` derives it from the locale. |
+| `view`             | `'canonical' \| 'rows'`         | `'canonical'`                | `rows` draws every row as a straight line (§4.5.1). Never switched for you.              |
 | `ariaStrings`      | `SeatAriaStrings`               | English                      | Every announced phrase, for translation.                                                 |
 | `validate`         | `'collect' \| 'throw' \| 'off'` | `'collect'`                  | `collect` reports through `validationIssues` and renders anyway.                         |
 | `expireHolds`      | `boolean`                       | `false`                      | Revert a lapsed `holdExpires` to available on a ticker.                                  |

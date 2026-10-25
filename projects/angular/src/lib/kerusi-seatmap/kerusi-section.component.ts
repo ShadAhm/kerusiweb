@@ -59,9 +59,9 @@ export class KerusiSectionComponent {
   /** The section's name: its accessible name, and its drawn label when one is shown. */
   readonly label = input<string | undefined>(undefined);
   /**
-   * Draw `label` inside the SVG, at the top-left of the section's bounds. Only
-   * a section that declares `bounds` gets one (D5); otherwise the label is the
-   * group's accessible name alone.
+   * Draw `label` inside the SVG, at the top-left of the section's bounds. In
+   * the canonical view only a section that declares `bounds` gets one (D5);
+   * otherwise the label is the group's accessible name alone.
    */
   readonly showLabel = input<boolean>(true);
 
@@ -122,9 +122,9 @@ export class KerusiSectionComponent {
 
   private readonly live = computed(() => this.reachable() ?? this.interactive());
 
-  /** Whether the label is drawn: asked for, present, and with declared bounds to sit in. */
+  /** Whether the label is drawn: asked for, present, and allowed by the layout (D5). */
   protected readonly drawsLabel = computed(
-    () => this.showLabel() && !!this.label() && this.layout().section.boundsDeclared,
+    () => this.showLabel() && !!this.label() && this.layout().drawsLabel,
   );
 
   protected readonly labelFill = computed(() =>

@@ -82,6 +82,9 @@ unit, at most, shrinking to fit a narrower container) and may zoom, pan, or
 mirror the whole drawing for a right-to-left locale. It never otherwise moves,
 resizes, or reflows anything.
 
+That is the **canonical view**, and it is the default. The one exception is the
+optional [rows view](#the-rows-view-451), which an app turns on itself.
+
 ```ts
 // A seat 40 units square, centred at (320, 400), tilted to follow a curve.
 { id: 'A1', row: 'A', col: 1, x: 320, y: 400, rotation: -8, type: 'standard' }
@@ -175,6 +178,40 @@ A row may record the line, arc or circle an editor placed its seats along, as
 `RowMeta.shape` (§4.2.3). Renderers ignore it: each seat is drawn at its own
 `x`/`y`, on the guide or not. Core exports `guidePoint` and `isOnGuide` for
 editors that need it.
+
+## The rows view (§4.5.1)
+
+Set `view` to `'rows'` and the map is drawn from `row` and `col` alone, as a
+reflowed grid for a narrow phone screen or a long venue:
+
+```html
+<kerusi-seatmap [map]="map" [state]="state" [view]="narrow ? 'rows' : 'canonical'" />
+```
+
+- Every row becomes one straight line, in the §4.2.1 row order. Curved rows,
+  round tables and seats off their guide all go back in line, and no seat is
+  turned.
+- Seats follow `col`. A skipped `col` stays a gap the width of one seat, so an
+  aisle still reads as one.
+- Each row's label is drawn in a gutter before it, and each section's label
+  above it. Sections are stacked top to bottom, in their usual order.
+- Seats with no `row` follow the rows as a last line with no label.
+- Empty rows (§4.2.2) take no line.
+- Elements and group footprints are not drawn: they have no `row` or `col`.
+  So a table booked on its shape (D19) has no control in this view; its seats
+  are still wrapped and named as their group, and an app can offer the whole
+  unit with its own button, as it does for a room.
+
+The view has a canvas of its own, sized to what it draws, so zoom resets when
+`view` changes. Everything else is shared with the canonical view: selection,
+booking units, keyboard navigation (which follows adjacency in both), seat
+styles, cards and right-to-left, which mirrors the whole drawing as usual.
+
+`view` is never switched for you: there is no width breakpoint. Offer it as an
+option and keep the canonical view one action away. Core exports
+`computeRowsLayout(renderMap, options)`, which returns the same `MapLayout` as
+`computeMapLayout`, and `computeViewLayout(renderMap, view, options)`, which
+picks between them.
 
 ## Elements (§4.4)
 

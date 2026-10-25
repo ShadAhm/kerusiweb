@@ -9,6 +9,7 @@
 export * from './render-model.js';
 export * from './build-render-model.js';
 export * from './map-layout.js';
+export * from './rows-layout.js';
 export * from './navigation-order.js';
 export * from './element-shapes.js';
 export * from './group-shapes.js';

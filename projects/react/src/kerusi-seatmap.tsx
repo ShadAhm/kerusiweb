@@ -1,7 +1,7 @@
 import {
   buildNavigationGraph,
   buildRenderModel,
-  computeMapLayout,
+  computeViewLayout,
   controlStyle,
   cssVar,
   DEFAULT_MAX_ZOOM,
@@ -102,6 +102,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       onSelectionChange,
       locale,
       rtl = 'auto',
+      view = 'canonical',
       ariaStrings = DEFAULT_SEAT_ARIA_STRINGS,
       colors,
       typeColors = true,
@@ -268,10 +269,13 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
     const resolvedColors = useMemo(() => resolveColors(colors), [colors]);
     const selectionSet = useMemo(() => new Set(selection), [selection]);
 
-    /** Every seat and element placed on the canvas, mirrored as a whole in RTL (D3). */
+    /**
+     * Every seat and element placed on the canvas, mirrored as a whole in RTL
+     * (D3): the document's own drawing, or the rows view (§4.5.1).
+     */
     const layout = useMemo<MapLayout>(
-      () => computeMapLayout(renderMap, { rtl: isRtl }),
-      [renderMap, isRtl],
+      () => computeViewLayout(renderMap, view, { rtl: isRtl }),
+      [renderMap, view, isRtl],
     );
 
     /** Navigation graphs per section — arrows move within, Tab moves between. */
@@ -390,6 +394,14 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       onViewportChange,
       onGestureStart: cards.gesture,
     });
+    // The two views share no geometry, so a zoom into one means nothing in the other.
+    const shownView = useRef(view);
+    useEffect(() => {
+      if (shownView.current !== view) {
+        shownView.current = view;
+        zoom.resetZoom();
+      }
+    }, [view, zoom.resetZoom]);
     const { maximized, toggleMaximized, setMaximized } = useMaximized({
       enabled: maximizable,
       rootRef,
@@ -831,7 +843,12 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       '--kerusi-control-fg-input': controlColors.buttonColor,
       '--kerusi-control-border-input': controlColors.buttonBorder,
     } as CSSProperties;
-    const classes = ['kerusi-seatmap', className, maximized && 'kerusi-seatmap--maximized']
+    const classes = [
+      'kerusi-seatmap',
+      className,
+      view === 'rows' && 'kerusi-seatmap--rows',
+      maximized && 'kerusi-seatmap--maximized',
+    ]
       .filter(Boolean)
       .join(' ');
 

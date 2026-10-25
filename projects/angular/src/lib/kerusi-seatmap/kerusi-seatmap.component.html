@@ -1,6 +1,7 @@
 <div
   #root
   class="kerusi-seatmap"
+  [class.kerusi-seatmap--rows]="view() === 'rows'"
   [class.kerusi-seatmap--maximized]="maximized()"
   role="group"
   [attr.aria-label]="mapLabel()"

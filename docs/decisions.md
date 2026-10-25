@@ -28,34 +28,36 @@ or follow its steps by hand.
 
 ## Index
 
-| #                                                                    | Decision                                                   | Status        |
-| -------------------------------------------------------------------- | ---------------------------------------------------------- | ------------- |
-| [D1](#d1-one-svg-for-the-whole-map)                                  | One `<svg>` for the whole map                              | Shipped 3.0.0 |
-| [D2](#d2-no-sizing-inputs-beyond-unitscale)                          | No sizing inputs beyond `unitScale`                        | Shipped 3.0.0 |
-| [D3](#d3-rtl-mirrors-the-whole-canvas)                               | RTL mirrors the whole canvas                               | Shipped 3.0.0 |
-| [D4](#d4-a-hidden-section-leaves-its-space-empty)                    | A hidden section leaves its space empty                    | Shipped 3.0.0 |
-| [D5](#d5-section-labels-only-for-sections-with-bounds)               | Section labels only for sections with `bounds`             | Shipped 3.0.0 |
-| [D6](#d6-keyboard-navigation-follows-adjacency)                      | Keyboard navigation follows adjacency                      | Shipped 3.0.0 |
-| [D7](#d7-validator-rule-ids-match-the-reference)                     | Validator rule ids match the reference validator           | Shipped 3.0.0 |
-| [D8](#d8-no-rev-14--15-upgrader)                                     | No rev 14 → 15 upgrader                                    | Shipped 3.0.0 |
-| [D9](#d9-no-rows-view-in-300)                                        | No §4.5.1 rows view in 3.0.0                               | Shipped 3.0.0 |
-| [D10](#d10-hover-and-click-are-independent-and-optional)             | Hover and click are independent and optional               | Accepted      |
-| [D11](#d11-the-consuming-app-owns-seat-card-styling)                 | The consuming app owns seat card styling                   | Accepted      |
-| [D12](#d12-hover-card-on-keyboard-focus-is-opt-in)                   | Hover card on keyboard focus is opt-in                     | Accepted      |
-| [D13](#d13-the-click-event-is-read-only)                             | The click event is read-only                               | Accepted      |
-| [D14](#d14-read-only-maps-infer-clicks)                              | Read-only maps infer clicks from a configured click action | Accepted      |
-| [D15](#d15-events-and-seat-cards-ship-together)                      | Events and seat cards ship together                        | Accepted      |
-| [D16](#d16-the-zoom-and-full-screen-controls-are-styled-by-tokens)   | The zoom and full-screen controls are styled by tokens     | Accepted      |
-| [D17](#d17-a-seat-form-sets-the-default-outline-the-apps-shapes-win) | A seat form sets the default outline; the app's shapes win | Shipped 4.0.0 |
-| [D18](#d18-group-footprints-are-drawn-by-core-and-styled-by-tokens)  | Group footprints are drawn by core and styled by tokens    | Shipped 4.0.0 |
-| [D19](#d19-either-is-offered-on-the-shape-or-by-the-app)             | `either` is offered on the shape, or by the app            | Shipped 4.0.0 |
-| [D20](#d20-selection-stays-a-list-of-seat-ids)                       | `selection` stays a list of seat ids                       | Shipped 4.0.0 |
-| [D21](#d21-maxselection-counts-seats)                                | `maxSelection` counts seats                                | Shipped 4.0.0 |
-| [D22](#d22-companionmode-becomes-unitmode)                           | `companionMode` becomes `unitMode`                         | Shipped 4.0.0 |
-| [D23](#d23-new-validator-rules-use-the-reference-ids)                | New validator rules use the reference ids                  | Shipped 4.0.0 |
-| [D24](#d24-seat-form-outlines-are-drawn-in-house)                    | Seat form outlines are drawn in-house                      | Shipped 4.0.0 |
-| [D25](#d25-whole-unit-controls-get-cards-of-their-own)               | Whole-unit controls get cards of their own                 | Accepted      |
-| [D26](#d26-a-visible-cue-on-the-whole-unit-control-is-separate)      | A visible cue on the whole-unit control is separate        | Accepted      |
+| #                                                                    | Decision                                                   | Status            |
+| -------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------- |
+| [D1](#d1-one-svg-for-the-whole-map)                                  | One `<svg>` for the whole map                              | Shipped 3.0.0     |
+| [D2](#d2-no-sizing-inputs-beyond-unitscale)                          | No sizing inputs beyond `unitScale`                        | Shipped 3.0.0     |
+| [D3](#d3-rtl-mirrors-the-whole-canvas)                               | RTL mirrors the whole canvas                               | Shipped 3.0.0     |
+| [D4](#d4-a-hidden-section-leaves-its-space-empty)                    | A hidden section leaves its space empty                    | Shipped 3.0.0     |
+| [D5](#d5-section-labels-only-for-sections-with-bounds)               | Section labels only for sections with `bounds`             | Shipped 3.0.0     |
+| [D6](#d6-keyboard-navigation-follows-adjacency)                      | Keyboard navigation follows adjacency                      | Shipped 3.0.0     |
+| [D7](#d7-validator-rule-ids-match-the-reference)                     | Validator rule ids match the reference validator           | Shipped 3.0.0     |
+| [D8](#d8-no-rev-14--15-upgrader)                                     | No rev 14 → 15 upgrader                                    | Shipped 3.0.0     |
+| [D9](#d9-no-rows-view-in-300)                                        | No §4.5.1 rows view in 3.0.0                               | Superseded by D27 |
+| [D10](#d10-hover-and-click-are-independent-and-optional)             | Hover and click are independent and optional               | Accepted          |
+| [D11](#d11-the-consuming-app-owns-seat-card-styling)                 | The consuming app owns seat card styling                   | Accepted          |
+| [D12](#d12-hover-card-on-keyboard-focus-is-opt-in)                   | Hover card on keyboard focus is opt-in                     | Accepted          |
+| [D13](#d13-the-click-event-is-read-only)                             | The click event is read-only                               | Accepted          |
+| [D14](#d14-read-only-maps-infer-clicks)                              | Read-only maps infer clicks from a configured click action | Accepted          |
+| [D15](#d15-events-and-seat-cards-ship-together)                      | Events and seat cards ship together                        | Accepted          |
+| [D16](#d16-the-zoom-and-full-screen-controls-are-styled-by-tokens)   | The zoom and full-screen controls are styled by tokens     | Accepted          |
+| [D17](#d17-a-seat-form-sets-the-default-outline-the-apps-shapes-win) | A seat form sets the default outline; the app's shapes win | Shipped 4.0.0     |
+| [D18](#d18-group-footprints-are-drawn-by-core-and-styled-by-tokens)  | Group footprints are drawn by core and styled by tokens    | Shipped 4.0.0     |
+| [D19](#d19-either-is-offered-on-the-shape-or-by-the-app)             | `either` is offered on the shape, or by the app            | Shipped 4.0.0     |
+| [D20](#d20-selection-stays-a-list-of-seat-ids)                       | `selection` stays a list of seat ids                       | Shipped 4.0.0     |
+| [D21](#d21-maxselection-counts-seats)                                | `maxSelection` counts seats                                | Shipped 4.0.0     |
+| [D22](#d22-companionmode-becomes-unitmode)                           | `companionMode` becomes `unitMode`                         | Shipped 4.0.0     |
+| [D23](#d23-new-validator-rules-use-the-reference-ids)                | New validator rules use the reference ids                  | Shipped 4.0.0     |
+| [D24](#d24-seat-form-outlines-are-drawn-in-house)                    | Seat form outlines are drawn in-house                      | Shipped 4.0.0     |
+| [D25](#d25-whole-unit-controls-get-cards-of-their-own)               | Whole-unit controls get cards of their own                 | Accepted          |
+| [D26](#d26-a-visible-cue-on-the-whole-unit-control-is-separate)      | A visible cue on the whole-unit control is separate        | Accepted          |
+| [D27](#d27-the-rows-view-is-a-view-input-set-by-the-app)             | The rows view is a `view` input, set by the app            | Accepted          |
+| [D28](#d28-the-rows-view-draws-seats-and-labels-only)                | The rows view draws seats and labels only                  | Accepted          |
 
 ---
 
@@ -163,7 +165,7 @@ produce any more.
 
 ### D9. No rows view in 3.0.0
 
-- **Status:** Shipped in 3.0.0 (as a deferral)
+- **Status:** Superseded by D27 (shipped in 3.0.0 as a deferral)
 - **Source:** [#32](https://github.com/ShadAhm/kerusiweb/issues/32)
 
 The §4.5.1 "rows view" (a reflowed grid for phones) is not part of 3.0.0. It
@@ -447,3 +449,49 @@ The open question from #53, a visible cue that a tabletop can be pressed, is not
 part of the whole-unit cards. It is left for its own issue.
 
 **Why:** maintainer's call in #56.
+
+---
+
+## Rows view (planned for 4.1.0)
+
+From [#38](https://github.com/ShadAhm/kerusiweb/issues/38), 2026-10-25.
+
+### D27. The rows view is a `view` input, set by the app
+
+- **Status:** Accepted
+- **Source:** [#38](https://github.com/ShadAhm/kerusiweb/issues/38)
+
+Replaces D9: the §4.5.1 rows view ships as an option beside the canonical view.
+
+- **Core.** `computeRowsLayout(renderMap, options)` returns the same `MapLayout`
+  shape as `computeMapLayout`, so a binding draws it with no other changes.
+  `computeViewLayout(renderMap, view, options)` picks between the two, and
+  `KerusiSeatmapView` is `'canonical' | 'rows'`.
+- **Bindings.** A `view` input/prop spelled the same in both, defaulting to
+  `'canonical'`. The map gets a `kerusi-seatmap--rows` class in the rows view,
+  and zoom resets when `view` changes.
+- **Switching** is explicit only: there is no width breakpoint and no `'auto'`.
+  The app keeps the canonical view one action away.
+
+**Why:** maintainer's call in #38. The same `MapLayout` keeps the bindings'
+drawing code shared and the parity test meaningful.
+
+### D28. The rows view draws seats and labels only
+
+- **Status:** Accepted
+- **Source:** [#38](https://github.com/ShadAhm/kerusiweb/issues/38)
+
+- Every row is one straight line in §4.2.1 order, seats in `col` order with no
+  rotation. A skipped `col` leaves one empty slot, so an aisle stays a gap.
+- Seats with no `row` follow as a last line with no label. Empty rows (§4.2.2)
+  take no line.
+- Row labels go in a gutter before each row (`PlacedSection.rowLabels`), and
+  every section's label is drawn above it, `bounds` or not
+  (`PlacedSection.drawsLabel`; the canonical view keeps D5).
+- Elements and group footprints are not drawn. A group's seats are still
+  wrapped and named, but a whole unit booked on its shape has no control in
+  this view, as for any shapeless whole unit (D19).
+
+**Why:** rowless seats as a last line is the maintainer's call in #38, so they
+stay bookable in this view. Elements and footprints have no `row` or `col` to
+place them by.

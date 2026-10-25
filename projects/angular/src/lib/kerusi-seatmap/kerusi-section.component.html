@@ -15,6 +15,22 @@
   </svg:text>
 }
 
+<!-- The rows view's row labels. Hidden: each seat's name already says its row. -->
+@for (row of layout().rowLabels; track row.rowId) {
+  <svg:text
+    class="kerusi-row-label"
+    aria-hidden="true"
+    text-anchor="middle"
+    dominant-baseline="central"
+    [attr.x]="row.x"
+    [attr.y]="row.y"
+    [attr.font-size]="row.fontSize"
+    [style.fill]="labelFill()"
+  >
+    {{ row.label }}
+  </svg:text>
+}
+
 <!-- Elements first, so a screen or stage sits behind the seats it faces. -->
 @for (placed of layout().elements; track placed.element.id) {
   @if (drawsElement(placed)) {

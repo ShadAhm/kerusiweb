@@ -109,16 +109,16 @@ Status key: ✅ supported · ⚠️ partial · ❌ not supported
 
 ## §4.5 The canvas
 
-| Feature                               | Status | Notes                                                                                                           |
-| ------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------- |
-| One canvas per map                    | ✅     | The map is one `<svg>` whose `viewBox` is `canvas`. No per-section SVGs, no per-section proportions.            |
-| Same scale on both axes               | ✅     | The `viewBox` is drawn with `preserveAspectRatio="xMidYMid meet"`, so a circle stays a circle.                  |
-| No layout arithmetic                  | ✅     | No cell sizes, no row spacing, no percentages. Placement copies the document: the top-left is `x − size/2`.     |
-| Scale chosen by the renderer          | ✅     | `unitScale` CSS pixels per canvas unit, at most; the drawing shrinks to a narrower container.                   |
-| Crop, zoom, pan                       | ✅     | Opt-in `zoomable`: pinch, wheel, drag, keys, buttons, and zoom to a section.                                    |
-| Mirror the whole drawing              | ✅     | Right-to-left mirrors the whole canvas, `x' = canvas.width − x` with rotation negated. Nothing else moves.      |
-| Never move, resize or reflow anything | ✅     | Asserted per seat in core and in both bindings. A hidden section leaves its space empty rather than closing it. |
-| The §4.5.1 rows view                  | ❌     | Optional (MAY), and not in 3.0.0.                                                                               |
+| Feature                               | Status | Notes                                                                                                                 |
+| ------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| One canvas per map                    | ✅     | The map is one `<svg>` whose `viewBox` is `canvas`. No per-section SVGs, no per-section proportions.                  |
+| Same scale on both axes               | ✅     | The `viewBox` is drawn with `preserveAspectRatio="xMidYMid meet"`, so a circle stays a circle.                        |
+| No layout arithmetic                  | ✅     | No cell sizes, no row spacing, no percentages. Placement copies the document: the top-left is `x − size/2`.           |
+| Scale chosen by the renderer          | ✅     | `unitScale` CSS pixels per canvas unit, at most; the drawing shrinks to a narrower container.                         |
+| Crop, zoom, pan                       | ✅     | Opt-in `zoomable`: pinch, wheel, drag, keys, buttons, and zoom to a section.                                          |
+| Mirror the whole drawing              | ✅     | Right-to-left mirrors the whole canvas, `x' = canvas.width − x` with rotation negated. Nothing else moves.            |
+| Never move, resize or reflow anything | ✅     | Asserted per seat in core and in both bindings. A hidden section leaves its space empty rather than closing it.       |
+| The §4.5.1 rows view                  | ✅     | Optional `view: 'rows'`: rows straightened in §4.2.1 order, aisles kept as gaps, rowless seats last. Never automatic. |
 
 ## §4.6 Referential integrity
 
@@ -223,5 +223,3 @@ names keyboard and screen-reader navigation as a purpose of adjacency, and
    dedicated field would save consumers a hop.
 4. **Transport.** Left out on purpose. The spec defines a data format, and a
    renderer should not own the socket.
-5. **The §4.5.1 rows view.** An optional reflowed grid for narrow screens, or
-   a list for assistive technology. Everything it needs is on the render model.

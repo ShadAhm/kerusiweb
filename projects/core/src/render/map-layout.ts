@@ -1,6 +1,14 @@
 import { Bounds } from '../kerusi/kerusi-map.model.js';
 import { elementStyle } from './element-shapes.js';
 import {
+  GLYPH_WIDTH,
+  labelAnchorOf,
+  looseSeats,
+  mirrorBounds,
+  placeGroups,
+  placeSeat,
+} from './placement.js';
+import {
   RenderElement,
   RenderGroup,
   RenderMap,
@@ -122,6 +130,26 @@ export interface PlacedSection {
    * from it, so it stays readable.
    */
   labelAnchor: SectionLabelAnchor;
+  /**
+   * Whether a binding draws the section's label at `labelAnchor`, when it has
+   * one. The canonical view draws it only for a section that declares `bounds`
+   * (D5); the rows view always does, since each section is a block of its own.
+   */
+  drawsLabel: boolean;
+  /** Row labels to draw beside the rows: the rows view's alone, empty in the canonical view. */
+  rowLabels: readonly PlacedRowLabel[];
+}
+
+/**
+ * A row's label in the rows view (§4.5.1), centred in the gutter beside its
+ * row. Draw it with `text-anchor="middle"` and `dominant-baseline="central"`.
+ */
+export interface PlacedRowLabel {
+  rowId: string;
+  label: string;
+  x: number;
+  y: number;
+  fontSize: number;
 }
 
 export interface SectionLabelAnchor {
@@ -162,27 +190,12 @@ export function computeMapLayout(map: RenderMap, options: MapLayoutOptions = {})
     const seats = section.seats.map((seat) =>
       placeSeat(seat, mirror(seat.x), seat.y, turn(seat.rotation)),
     );
-    const placedById = new Map(seats.map((placed) => [placed.seat.id, placed]));
-    const groups = section.groups.map((group): PlacedGroup => {
-      const shape = placeGroupShape(group, mirror, turn);
-      const seats = group.seatIds
-        .map((id) => placedById.get(id))
-        .filter((placed): placed is PlacedSeat => placed !== undefined);
-      return {
-        group,
-        shape,
-        seats,
-        // A role="group" with no name says nothing, so a group with no label is
-        // wrapped only to put its whole-unit control before its seats (D19).
-        wrapped: seats.length > 0 && (!!group.label || (!!group.wholeUnit && !!shape)),
-      };
-    });
-    const wrapped = new Set(groups.filter((g) => g.wrapped).flatMap((g) => g.seats));
+    const groups = placeGroups(section, seats, (group) => placeGroupShape(group, mirror, turn));
     return {
       section,
       seats,
       groups,
-      loose: seats.filter((placed) => !wrapped.has(placed)),
+      loose: looseSeats(seats, groups),
       elements: section.elements.map((element) =>
         placeElement(
           element,
@@ -194,6 +207,8 @@ export function computeMapLayout(map: RenderMap, options: MapLayoutOptions = {})
       ),
       bounds,
       labelAnchor: labelAnchorOf(bounds, section.seatSize, !!options.rtl),
+      drawsLabel: section.boundsDeclared,
+      rowLabels: [],
     };
   });
 
@@ -225,26 +240,6 @@ function placeGroupShape(
   };
 }
 
-function placeSeat(
-  seat: RenderSeat,
-  centerX: number,
-  centerY: number,
-  rotation: number,
-): PlacedSeat {
-  const size = seat.size;
-  return {
-    seat,
-    x: centerX - size / 2,
-    y: centerY - size / 2,
-    width: size,
-    height: size,
-    centerX,
-    centerY,
-    fontSize: size * 0.4,
-    rotation,
-  };
-}
-
 function placeElement(
   element: RenderElement,
   centerX: number,
@@ -265,33 +260,6 @@ function placeElement(
     rotation,
   };
 }
-
-/** The label's inset from the bounds' corner and its size, as fractions of the seat size. */
-const LABEL_INSET_RATIO = 0.25;
-const LABEL_FONT_RATIO = 0.5;
-
-function labelAnchorOf(bounds: Bounds, seatSize: number, rtl: boolean): SectionLabelAnchor {
-  const inset = seatSize * LABEL_INSET_RATIO;
-  const fontSize = seatSize * LABEL_FONT_RATIO;
-  const above = bounds.y - inset - fontSize;
-  const edge = above >= 0 ? 0 : inset;
-  return {
-    x: rtl ? bounds.x + bounds.width - edge : bounds.x + edge,
-    y: above >= 0 ? above : bounds.y + inset,
-    fontSize,
-  };
-}
-
-/** A box, mirrored about a canvas of width `canvasWidth` when one is given. */
-function mirrorBounds(bounds: Bounds, canvasWidth: number | undefined): Bounds {
-  if (canvasWidth === undefined) {
-    return { ...bounds };
-  }
-  return { ...bounds, x: canvasWidth - bounds.x - bounds.width };
-}
-
-/** Average glyph advance as a fraction of the font size, for fitting text to a width. */
-const GLYPH_WIDTH = 0.6;
 
 /**
  * The smallest element font, as a fraction of the section's seat size. Canvas

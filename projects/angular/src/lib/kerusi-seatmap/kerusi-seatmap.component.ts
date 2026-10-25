@@ -23,7 +23,7 @@ import {
   buildRenderModel,
   canvasRectToContent,
   clampViewport,
-  computeMapLayout,
+  computeViewLayout,
   controlStyle,
   cssVar,
   DEFAULT_MAX_ZOOM,
@@ -38,6 +38,7 @@ import {
   GestureEvent,
   GestureState,
   HoverCardDelay,
+  KerusiSeatmapView,
   IDLE_GESTURE,
   IDLE_SEAT_HOVER,
   isRtlLocale,
@@ -216,6 +217,17 @@ export class KerusiSeatmapComponent {
   readonly locale = input<string | undefined>(undefined);
   /** Right-to-left rendering. `auto` derives it from the resolved locale. */
   readonly rtl = input<boolean | 'auto'>('auto');
+
+  // --- view -----------------------------------------------------------------
+
+  /**
+   * Which view to draw (§4.5.1). `canonical`, the default, draws every seat at
+   * its document `x`/`y`. `rows` straightens every row into a line, in row
+   * order, for a narrow screen: aisles stay as gaps, and elements and group
+   * footprints are not drawn. Switch it from the app; the canonical view is
+   * never replaced on its own.
+   */
+  readonly view = input<KerusiSeatmapView>('canonical');
   /** Overrides the built-in English announcement strings. */
   readonly ariaStrings = input<SeatAriaStrings>(DEFAULT_SEAT_ARIA_STRINGS);
 
@@ -458,6 +470,16 @@ export class KerusiSeatmapComponent {
           throw new KerusiValidationError(first.message, first.rule, first.id, issues);
         }
       }
+    });
+
+    // The two views share no geometry, so a zoom into one means nothing in the other.
+    let shownView: KerusiSeatmapView | undefined;
+    effect(() => {
+      const view = this.view();
+      if (shownView !== undefined && shownView !== view) {
+        untracked(() => this.resetZoom());
+      }
+      shownView = view;
     });
 
     // Keep every section's tab stop pointing at a seat that still exists.
@@ -937,9 +959,12 @@ export class KerusiSeatmapComponent {
   );
   protected readonly atFit = computed(() => this.viewportState().zoom <= 1 + 1e-4);
 
-  /** Every seat and element placed on the canvas, mirrored as a whole in RTL (D3). */
+  /**
+   * Every seat and element placed on the canvas, mirrored as a whole in RTL
+   * (D3): the document's own drawing, or the rows view (§4.5.1).
+   */
   protected readonly layout = computed<MapLayout>(() =>
-    computeMapLayout(this.renderMap(), { rtl: this.isRtl() }),
+    computeViewLayout(this.renderMap(), this.view(), { rtl: this.isRtl() }),
   );
 
   protected readonly viewBox = computed(() => `0 0 ${this.layout().width} ${this.layout().height}`);

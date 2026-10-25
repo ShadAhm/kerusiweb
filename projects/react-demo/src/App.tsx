@@ -37,6 +37,7 @@ export function App() {
   const [typeColors, setTypeColors] = useState(true);
   const [zoomable, setZoomable] = useState(true);
   const [maximizable, setMaximizable] = useState(true);
+  const [rowsView, setRowsView] = useState(false);
   const [roundSeats, setRoundSeats] = useState(false);
   const [aisleCss, setAisleCss] = useState(false);
   const [goldPremium, setGoldPremium] = useState(false);
@@ -250,6 +251,14 @@ export function App() {
       initial: true,
     },
     {
+      key: 'rowsView',
+      label: 'Rows view',
+      hint: "view: 'rows'",
+      value: rowsView,
+      set: setRowsView,
+      initial: false,
+    },
+    {
       key: 'goldPremium',
       label: 'Gold premium seats',
       hint: 'seatTypeStyles',
@@ -397,6 +406,7 @@ export function App() {
                 showLegend={showLegend}
                 zoomable={zoomable}
                 maximizable={maximizable}
+                view={rowsView ? 'rows' : 'canonical'}
                 seatTypeStyles={seatTypeStyles}
                 seatStyle={customShape ? blobSeats : circleShape ? circleSeats : undefined}
                 renderSeat={roundSeats ? renderRoundSeat : undefined}
@@ -621,7 +631,7 @@ interface Option {
 
 /** How the options panel groups its switches. */
 const OPTION_GROUPS: readonly { name: string; keys: readonly string[] }[] = [
-  { name: 'Map', keys: ['typeColors', 'showLegend', 'zoomable', 'maximizable'] },
+  { name: 'Map', keys: ['typeColors', 'showLegend', 'zoomable', 'maximizable', 'rowsView'] },
   { name: 'Seats', keys: ['goldPremium', 'circleShape', 'customShape', 'aisleCss', 'roundSeats'] },
   { name: 'Seat cards', keys: ['hoverCard', 'clickCard', 'restyledCards'] },
 ];

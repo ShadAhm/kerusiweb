@@ -8,6 +8,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The rows view (§4.5.1, #38, D27, D28).** A new `view` input/prop, `'canonical'` (the
+  default, unchanged) or `'rows'`, identical in both bindings. The rows view
+  draws every row as a straight line in §4.2.1 order with its label beside it,
+  keeps skipped `col`s as gaps, puts seats with no `row` in a last line, and
+  draws no elements or group footprints. It is never switched on automatically.
+  Core exports `computeRowsLayout()`, `computeViewLayout()` and the
+  `KerusiSeatmapView` type; `PlacedSection` gains `drawsLabel` and `rowLabels`
+  (`PlacedRowLabel`), and the map gets a `kerusi-seatmap--rows` class in that
+  view.
+
 The control that books an `either` group whole (D19), such as a tabletop, gets
 the three things a seat already has (#56, D25). All three are additive: with
 none of them set, seats and controls behave and render exactly as in 4.0.0, and

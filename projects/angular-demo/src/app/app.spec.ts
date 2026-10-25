@@ -92,6 +92,23 @@ describe('App', () => {
     expect(d.split(' A ').length - 1).toBe(2);
   });
 
+  it('draws every seat as a custom blob from its toggle, and back off again', () => {
+    const box = () => el.querySelector('.kerusi-seat__box')!.getAttribute('d')!;
+    const stock = box();
+    const toggle = toggleNamed('Custom seat shape');
+
+    toggle.click();
+    fixture.detectChanges();
+    const d = box();
+    expect(d.split(' C ').length - 1).toBe(7);
+    expect(d).not.toContain(' A ');
+    expect(d.endsWith(' Z')).toBe(true);
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(box()).toBe(stock);
+  });
+
   it('shows no seat card until a card toggle is on', () => {
     const seat = () => el.querySelector<SVGGElement>('g.kerusi-seat')!;
     seat().dispatchEvent(new MouseEvent('click', { bubbles: true }));

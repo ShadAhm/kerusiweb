@@ -52,7 +52,8 @@ export interface SeatAriaStrings {
   /**
    * The accessible name of a whole unit's control, an `either` table's shape
    * (D19): "Table 3, book the whole table, 8 seats, MYR 180.00". `kind` is
-   * `Group.kind`; `price` is the whole price (§4.9.1), when there is one.
+   * `Group.kind`; `price` is the app's `wholeUnitPrice`, else the whole price
+   * (§4.9.1), when there is one (D25).
    */
   wholeUnit?: (
     label: string | undefined,
@@ -264,17 +265,28 @@ export function formatTime(iso: string, locale: string): string {
 /**
  * The accessible name of a whole unit's control (D19): "Table 3, book the whole
  * table, 8 seats, MYR 180.00". Its availability rides on `aria-disabled`, and
- * whether it is booked on `aria-pressed`.
+ * whether it is booked on `aria-pressed`. The price is `wholeUnitPrice`'s when it
+ * gives one, else the map's `wholePrice` (D25).
  */
 export function wholeUnitAriaLabel(
   unit: RenderBookingUnit,
   locale: string,
   strings: SeatAriaStrings = DEFAULT_SEAT_ARIA_STRINGS,
+  wholeUnitPrice?: WholeUnitPriceFn,
 ): string {
   const label = strings.wholeUnit ?? DEFAULT_SEAT_ARIA_STRINGS.wholeUnit!;
-  const price = unit.wholePrice ? formatMoney(unit.wholePrice, locale) : undefined;
+  const price =
+    wholeUnitPrice?.(unit) ?? (unit.wholePrice ? formatMoney(unit.wholePrice, locale) : undefined);
   return label(unit.label, unit.kind, unit.seatIds.length, price);
 }
+
+/**
+ * The price an app works out for a whole unit, already formatted: "EUR 800.00".
+ * It is said in the control's name in place of the map's `wholePrice`, so an app
+ * that prices per event on its own server need not write prices into the map it
+ * renders (D25). `undefined` falls back to the map's `wholePrice`.
+ */
+export type WholeUnitPriceFn = (unit: RenderBookingUnit) => string | undefined;
 
 /**
  * Why a whole unit cannot be booked, as a sentence: "Table 3 cannot be booked

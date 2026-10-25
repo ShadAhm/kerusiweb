@@ -154,6 +154,43 @@
       [focusOnOpen]="clickFromKeyboard()"
     ></div>
   }
+  <!-- The same two cards on a whole unit's control (D25). -->
+  @for (group of hoverCardGroups(); track group.id) {
+    <div
+      kerusi-seat-card
+      [kind]="'hover'"
+      [id]="hoverCardElementId"
+      [group]="group"
+      [placement]="seatCardPlacement()"
+      [appearance]="seatCardAppearance()"
+      [extraClass]="seatCardClass()"
+      [template]="wholeUnitHoverCardTemplate()!.template"
+      [context]="hoverUnitContext()!"
+      [rootEl]="rootElement()!"
+      [seatNode]="seatNodeOf"
+      [controlNode]="controlNodeOf"
+      (cardEnter)="onCardEnter()"
+      (cardLeave)="onCardLeave()"
+    ></div>
+  }
+  @for (group of clickCardGroups(); track group.id) {
+    <div
+      kerusi-seat-card
+      [kind]="'click'"
+      [id]="clickCardId"
+      [group]="group"
+      [label]="clickCardLabel()"
+      [placement]="seatCardPlacement()"
+      [appearance]="seatCardAppearance()"
+      [extraClass]="seatCardClass()"
+      [template]="wholeUnitClickCardTemplate()!.template"
+      [context]="clickUnitContext()!"
+      [rootEl]="rootElement()!"
+      [seatNode]="seatNodeOf"
+      [controlNode]="controlNodeOf"
+      [focusOnOpen]="clickFromKeyboard()"
+    ></div>
+  }
 
   <p class="kerusi-sr-only" aria-live="polite" aria-atomic="true">{{ liveMessage() }}</p>
 </div>
@@ -198,12 +235,15 @@
         [clickable]="clickable()"
         [reachable]="reachable()"
         [describedBy]="describedBy()"
+        [unitDescribedBy]="unitDescribedBy()"
         (seatActivate)="onSeatActivate($event, 'pointer')"
         (seatFocused)="onSeatFocused($event)"
         (seatBlurred)="onSeatBlurred($event)"
         (seatKeydown)="onKeydown(placed.section, $event)"
-        (wholeUnitActivate)="onWholeUnitActivate($event)"
+        (wholeUnitActivate)="onWholeUnitActivate($event, 'pointer')"
         (wholeUnitKeydown)="onWholeUnitKeydown(placed.section, $event)"
+        (wholeUnitFocused)="onWholeUnitFocused($event)"
+        (wholeUnitBlurred)="onWholeUnitBlurred($event)"
       ></g>
     }
   </svg>

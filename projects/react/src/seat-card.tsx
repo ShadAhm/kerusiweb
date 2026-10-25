@@ -1,14 +1,10 @@
-import {
-  cssLengthToPx,
-  placeSeatCard,
-  seatCardClassName,
-  seatCardDataAttributes,
-} from '@kerusiweb/core';
+import { cssLengthToPx, placeSeatCard, seatCardClassName } from '@kerusiweb/core';
 import type {
-  RenderSeat,
   SeatCardAppearance,
+  SeatCardDataAttributes,
   SeatCardPlacement,
   SeatCardPosition,
+  WholeUnitCardDataAttributes,
 } from '@kerusiweb/core';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
@@ -17,7 +13,10 @@ export interface SeatCardProps {
   kind: 'hover' | 'click';
   /** The card's `id`: a hover card is named by the seat's `aria-describedby`. */
   id: string;
-  seat: RenderSeat;
+  /** What the card is for: a seat id, or a whole unit's hover key (D25). */
+  anchorKey: string;
+  /** The `data-*` attributes mirrored from the seat or the group. */
+  data: SeatCardDataAttributes | WholeUnitCardDataAttributes;
   /** Names a click card's dialog. */
   label: string;
   placement: SeatCardPlacement;
@@ -25,7 +24,8 @@ export interface SeatCardProps {
   className?: string;
   /** The map's root element: the card is positioned in it and kept inside it. */
   rootRef: RefObject<HTMLElement | null>;
-  getSeatNode: (seatId: string) => SVGGElement | null;
+  /** The seat's `<g>`, or the whole unit's control: what the card is placed against. */
+  getAnchorNode: () => Element | null;
   /** Moves focus into the card on mount; a click card opened from the keyboard. */
   focusOnOpen?: boolean;
   /** A hover card is hoverable (WCAG 1.4.13): the pointer may enter it. */
@@ -38,7 +38,8 @@ const DEFAULT_OFFSET = 8;
 const DEFAULT_ARROW = 6;
 
 /**
- * One seat card: a floating element anchored to a seat.
+ * One seat card: a floating element anchored to a seat, or to a whole unit's
+ * control (D25).
  *
  * It sits inside the map's root, outside the clipped viewport, so it shows in
  * full screen and inherits the `--kerusi-*` properties set on the map. Where it
@@ -52,13 +53,14 @@ const DEFAULT_ARROW = 6;
 export function SeatCard({
   kind,
   id,
-  seat,
+  anchorKey,
+  data,
   label,
   placement,
   appearance,
   className,
   rootRef,
-  getSeatNode,
+  getAnchorNode,
   focusOnOpen = false,
   onPointerEnter,
   onPointerLeave,
@@ -72,7 +74,7 @@ export function SeatCard({
   const measure = () => {
     const root = rootRef.current;
     const card = cardRef.current;
-    const seatNode = getSeatNode(seat.id);
+    const seatNode = getAnchorNode();
     if (!root || !card || !seatNode) {
       return;
     }
@@ -139,7 +141,7 @@ export function SeatCard({
     return () => observer.disconnect();
     // `measure` closes over props that are stable for as long as the card is this seat's.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seat.id, placement]);
+  }, [anchorKey, placement]);
 
   useLayoutEffect(() => {
     if (!focusOnOpen) {
@@ -153,7 +155,7 @@ export function SeatCard({
       'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );
     (first ?? card).focus({ preventScroll: true });
-  }, [focusOnOpen, seat.id]);
+  }, [focusOnOpen, anchorKey]);
 
   const style = {
     left: position?.x ?? 0,
@@ -170,7 +172,7 @@ export function SeatCard({
       aria-label={kind === 'click' ? label : undefined}
       tabIndex={kind === 'click' ? -1 : undefined}
       data-placement={position?.side ?? (placement === 'auto' ? 'top' : placement)}
-      {...seatCardDataAttributes(seat)}
+      {...data}
       style={style}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}

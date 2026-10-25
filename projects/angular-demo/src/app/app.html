@@ -69,6 +69,7 @@
           [seatStyle]="circleShape() ? circleSeats : undefined"
           [hoverCardOnFocus]="hoverCard()"
           (seatDisallowed)="onDisallowed($event)"
+          (wholeUnitDisallowed)="onWholeUnitDisallowed($event)"
           (validationIssues)="issues.set($event)"
         >
           <!-- The "Custom seat template" toggle: round seats, drawn from the
@@ -138,6 +139,16 @@
               <span class="demo-card__meta">
                 {{ text.type }}{{ text.price ? ' · ' + text.price : '' }} · {{ text.status
                 }}{{ ctx.trigger === 'focus' ? ' · focused' : '' }}
+              </span>
+            </ng-template>
+            <ng-template kerusiWholeUnitHoverCard let-ctx>
+              @let text = unitCardText(ctx);
+              <span class="demo-card__title">{{ text.title }}</span>
+              <span class="demo-card__meta">
+                {{ text.type }}{{ text.price ? ' · ' + text.price : '' }}
+              </span>
+              <span class="demo-card__meta">
+                {{ text.status }}{{ ctx.trigger === 'focus' ? ' · focused' : '' }}
               </span>
             </ng-template>
           }

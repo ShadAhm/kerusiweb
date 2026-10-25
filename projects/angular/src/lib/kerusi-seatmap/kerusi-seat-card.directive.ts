@@ -1,9 +1,14 @@
 import { Directive, inject, TemplateRef } from '@angular/core';
-import { KerusiSeatCardContext } from '@kerusiweb/core';
+import { KerusiSeatCardContext, KerusiWholeUnitCardContext } from '@kerusiweb/core';
 
 /** The context object a seat card template is stamped with. */
 export interface SeatCardOutletContext {
   $implicit: KerusiSeatCardContext;
+}
+
+/** The context object a whole unit's card template is stamped with (D25). */
+export interface WholeUnitCardOutletContext {
+  $implicit: KerusiWholeUnitCardContext;
 }
 
 /**
@@ -65,6 +70,52 @@ export class KerusiSeatClickCardDirective {
     _dir: KerusiSeatClickCardDirective,
     ctx: unknown,
   ): ctx is SeatCardOutletContext {
+    return true;
+  }
+}
+
+/**
+ * Marks an `<ng-template>` inside `<kerusi-seatmap>` as the card shown while a
+ * whole unit's control is hovered, or focused with `[hoverCardOnFocus]` (D25):
+ * the shape that books an `either` table, sofa or pew whole (D19). The same rules
+ * as {@link KerusiSeatHoverCardDirective}, with `ctx.unit` and `ctx.group` in
+ * place of `ctx.seat`. The control points at the card with `aria-describedby`.
+ *
+ * ```html
+ * <ng-template kerusiWholeUnitHoverCard let-ctx>
+ *   {{ ctx.group.label }}: the whole table, {{ ctx.unit.seatIds.length }} seats,
+ *   {{ prices[ctx.unit.id] }}
+ * </ng-template>
+ * ```
+ */
+@Directive({ selector: 'ng-template[kerusiWholeUnitHoverCard]' })
+export class KerusiWholeUnitHoverCardDirective {
+  readonly template = inject<TemplateRef<WholeUnitCardOutletContext>>(TemplateRef);
+
+  /** Types `let-ctx` as a {@link KerusiWholeUnitCardContext}. */
+  static ngTemplateContextGuard(
+    _dir: KerusiWholeUnitHoverCardDirective,
+    ctx: unknown,
+  ): ctx is WholeUnitCardOutletContext {
+    return true;
+  }
+}
+
+/**
+ * Marks an `<ng-template>` inside `<kerusi-seatmap>` as the card opened by a
+ * click, a tap, or Enter/Space on a whole unit's control (D25), as
+ * {@link KerusiSeatClickCardDirective} is on a seat. The press still books or
+ * releases the unit.
+ */
+@Directive({ selector: 'ng-template[kerusiWholeUnitClickCard]' })
+export class KerusiWholeUnitClickCardDirective {
+  readonly template = inject<TemplateRef<WholeUnitCardOutletContext>>(TemplateRef);
+
+  /** Types `let-ctx` as a {@link KerusiWholeUnitCardContext}. */
+  static ngTemplateContextGuard(
+    _dir: KerusiWholeUnitClickCardDirective,
+    ctx: unknown,
+  ): ctx is WholeUnitCardOutletContext {
     return true;
   }
 }

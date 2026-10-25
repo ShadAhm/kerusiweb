@@ -108,6 +108,7 @@ export const SCENARIOS: readonly Scenario[] = [
       'The same forms again, turned, to show an outline turns with its seat',
       'A form is a drawing hint: it changes no price, neighbour or footprint',
       'The sofa and two pews are groups (§4.11): each names its places and draws the piece under them',
+      'The sofa is "either", but a place on it is sold: press its seat to see the whole sofa refused',
     ],
     map: LOUNGE_MAP,
     state: LOUNGE_STATE,

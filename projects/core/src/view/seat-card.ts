@@ -1,4 +1,5 @@
-import type { RenderGroup, RenderSeat } from '../render/render-model.js';
+import type { RenderBookingUnit, RenderGroup, RenderSeat } from '../render/render-model.js';
+import { isWholeUnitSelected } from './group-glyph.js';
 import { seatDataAttributes } from './seat-glyph.js';
 
 /**
@@ -55,6 +56,112 @@ export interface KerusiSeatCardContext {
   close: () => void;
 }
 
+/**
+ * What a whole unit's card is handed (D25): the card on the control that books
+ * an `either` group whole (D19), such as a tabletop. A separate context from a
+ * seat's, so `KerusiSeatCardContext` is unchanged.
+ */
+export interface KerusiWholeUnitCardContext {
+  /** The group as one booking: its seats, its whole price, whether it can be had now. */
+  unit: RenderBookingUnit;
+  /** The group whose shape is the control: its table, sofa or pew. */
+  group: RenderGroup;
+  /** Whether every seat of the unit is selected: it is booked whole. */
+  selected: boolean;
+  /** What opened the card. */
+  trigger: SeatCardTrigger;
+  /** Closes the card. Most useful for a click card's own buttons. */
+  close: () => void;
+}
+
+/**
+ * The key a whole unit's control goes by in `reduceSeatHover()` (D25), so one
+ * reducer, and so one hover card at a time, covers seats and controls alike.
+ * The prefix holds a character no document id is written with, so a group's
+ * key cannot be taken for a seat id.
+ */
+export function wholeUnitHoverKey(groupId: string): string {
+  return `${WHOLE_UNIT_KEY_PREFIX}${groupId}`;
+}
+
+/** The group id in a whole unit's hover key, or `undefined` for a seat id. */
+export function wholeUnitOfHoverKey(key: string | null): string | undefined {
+  return key !== null && key.startsWith(WHOLE_UNIT_KEY_PREFIX)
+    ? key.slice(WHOLE_UNIT_KEY_PREFIX.length)
+    : undefined;
+}
+
+const WHOLE_UNIT_KEY_PREFIX = '\u0000unit:';
+
+/**
+ * The group a card key names, from {@link wholeUnitControlGroups}: `undefined`
+ * for a seat id, or for a group that is no longer drawn as a control (D25).
+ */
+export function wholeUnitCardGroup(
+  key: string | null,
+  controlGroups: ReadonlyMap<string, RenderGroup>,
+): RenderGroup | undefined {
+  const groupId = wholeUnitOfHoverKey(key);
+  return groupId === undefined ? undefined : controlGroups.get(groupId);
+}
+
+/**
+ * What a whole unit's card is handed, for a group from
+ * {@link wholeUnitControlGroups} (D25).
+ */
+export function wholeUnitCardContext(
+  group: RenderGroup,
+  selection: ReadonlySet<string>,
+  trigger: SeatCardTrigger,
+  close: () => void,
+): KerusiWholeUnitCardContext {
+  const unit = group.wholeUnit!;
+  return { unit, group, selected: isWholeUnitSelected(unit, selection), trigger, close };
+}
+
+/**
+ * Whether what a card key names is still on the map: the seat, or the group's
+ * control (D25). A card whose seat or control goes away (a hidden section, a new
+ * map, selection turned off) closes with it.
+ */
+export function seatCardKeyExists(
+  key: string,
+  seatsById: ReadonlyMap<string, unknown>,
+  controlGroups: ReadonlyMap<string, RenderGroup>,
+): boolean {
+  const groupId = wholeUnitOfHoverKey(key);
+  return groupId === undefined ? seatsById.has(key) : controlGroups.has(groupId);
+}
+
+/**
+ * What a press on a seat or a whole unit's control does to the click card
+ * (D14, D25):
+ * - `open`: open the card for this key;
+ * - `close`: it is this key's card that is open, so close it, focus going back
+ *   to the seat or control;
+ * - `give-way`: there is no renderer for this kind, so nothing opens, but the
+ *   other kind's open card closes, leaving focus where the press put it;
+ * - `none`: nothing changes.
+ */
+export type SeatCardClickAction = 'open' | 'close' | 'give-way' | 'none';
+
+/**
+ * Decides {@link SeatCardClickAction} for a press on `key` (a seat id or a
+ * {@link wholeUnitHoverKey}) while `openKey`'s card is open. `canOpen` says
+ * whether a card is configured for the pressed kind.
+ */
+export function seatCardClickAction(
+  openKey: string | null,
+  key: string,
+  canOpen: boolean,
+): SeatCardClickAction {
+  if (canOpen) {
+    return openKey === key ? 'close' : 'open';
+  }
+  const isUnit = (k: string) => wholeUnitOfHoverKey(k) !== undefined;
+  return openKey !== null && isUnit(openKey) !== isUnit(key) ? 'give-way' : 'none';
+}
+
 /** Milliseconds before a hover card opens and, after the pointer leaves, closes. */
 export interface HoverCardDelay {
   open: number;
@@ -105,6 +212,21 @@ export function seatCardDataAttributes(seat: RenderSeat): SeatCardDataAttributes
     'data-seat-status': data.status,
     'data-seat-type': data.type,
     'data-section-id': data.section,
+  };
+}
+
+/** The `data-*` attributes a whole unit's card mirrors from its group (D25). */
+export interface WholeUnitCardDataAttributes {
+  'data-group-id': string;
+  'data-group-kind': string;
+  'data-section-id': string;
+}
+
+export function wholeUnitCardDataAttributes(group: RenderGroup): WholeUnitCardDataAttributes {
+  return {
+    'data-group-id': group.id,
+    'data-group-kind': group.kind,
+    'data-section-id': group.sectionId,
   };
 }
 

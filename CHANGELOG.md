@@ -6,6 +6,43 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+The control that books an `either` group whole (D19), such as a tabletop, gets
+the three things a seat already has (#56, D25). All three are additive: with
+none of them set, seats and controls behave and render exactly as in 4.0.0, and
+`KerusiSeatCardContext` is unchanged.
+
+- **Whole-unit cards.** `renderWholeUnitHoverCard` and `renderWholeUnitClickCard`
+  in React, `<ng-template kerusiWholeUnitHoverCard>` and `<ng-template
+kerusiWholeUnitClickCard>` in Angular, open on the control, so an app can say
+  "Table 3: the whole table, 8 seats, EUR 800.00" where the customer is looking.
+  They are handed a new `KerusiWholeUnitCardContext` (`unit`, `group`,
+  `selected`, `trigger`, `close`), honour `hoverCardOnFocus`, and position,
+  dismiss and follow zoom and full screen as seat cards do. The control points
+  at its hover card with `aria-describedby`, and only one hover card shows at a
+  time across seats and controls. `onSeatHover` / `seatHover` still reports
+  seats only.
+- **A refusal callback.** `onWholeUnitDisallowed` / `(wholeUnitDisallowed)`
+  fires with `{ unit, group, reason }` when the control is refused by a click,
+  Enter or Space (`unit-unavailable`, `unit-too-large` or `max-selection`), so an
+  app can show a visible message of its own. The live-region announcement is
+  made as before.
+- **The price from the app.** `wholeUnitPrice?: (unit) => string | undefined`
+  supplies the formatted price said in the control's name, in place of the map's
+  `wholePrice`, for apps that price per event on their own server.
+  `wholeUnitAriaLabel()` in core takes it as a fourth argument.
+- **Core:** `KerusiWholeUnitCardContext`, `WholeUnitDisallowed`,
+  `WholeUnitPriceFn`, `wholeUnitHoverKey()` / `wholeUnitOfHoverKey()`, which
+  feed a control to `reduceSeatHover()`, and `wholeUnitCardDataAttributes()`.
+  The card rules both bindings follow are core's too: `wholeUnitControlGroups()`,
+  `isWholeUnitSelected()`, `wholeUnitCardGroup()`, `wholeUnitCardContext()`,
+  `seatCardKeyExists()` and `seatCardClickAction()`.
+- **Demos:** with seat cards on, an `either` table's top shows a card, and a
+  refused tabletop shows a visible message, in both demos.
+
+A visible cue on the control itself is left for a separate issue (D26).
+
 ## [4.0.0] - 2026-10-20
 
 **4.0.0, a breaking release** of `@kerusiweb/core`, `@kerusiweb/angular` and

@@ -2,6 +2,7 @@ import type {
   KerusiMap,
   KerusiState,
   KerusiViolation,
+  KerusiWholeUnitCardContext,
   SeatStyleFn,
   SeatTypeStyles,
 } from '@kerusiweb/core';
@@ -1255,6 +1256,156 @@ describe('KerusiSeatmap booking units (§4.12, D19–D22)', () => {
     fireEvent.click(control(el, 'table-3'));
     expect(control(el, 'table-3').getAttribute('aria-pressed')).toBe('false');
     expect(live(el)).toBe('Table 3 has more seats than the seat limit allows.');
+  });
+
+  describe('whole-unit cards, refusals and prices (D25)', () => {
+    const pointer = (target: Element, type: 'pointerover' | 'pointerout') =>
+      act(() => {
+        fireEvent(
+          target,
+          new PointerEvent(type, { pointerType: 'mouse', pointerId: 1, bubbles: true }),
+        );
+      });
+    const card = (el: HTMLElement, kind: 'hover' | 'click') =>
+      el.querySelector<HTMLElement>(`.kerusi-seat-card--${kind}`);
+    const NOW = { open: 0, close: 0 };
+    const said = (text: string | null | undefined) => text?.replace(/ /g, ' ');
+
+    it('opens a hover card on the control, with the unit, and points the control at it', () => {
+      const seen: KerusiWholeUnitCardContext[] = [];
+      const onSeatHover = vi.fn();
+      const el = render(
+        <Host
+          hoverCardDelay={NOW}
+          onSeatHover={onSeatHover}
+          renderWholeUnitHoverCard={(ctx) => {
+            seen.push(ctx);
+            return `${ctx.group.label}: ${ctx.unit.seatIds.length} seats`;
+          }}
+        />,
+      ).container;
+      const table = control(el, 'table-3');
+      pointer(table, 'pointerover');
+
+      const hover = card(el, 'hover')!;
+      expect(hover.textContent).toBe('Table 3: 4 seats');
+      expect(hover.getAttribute('role')).toBe('tooltip');
+      expect(hover.dataset['groupId']).toBe('table-3');
+      expect(hover.dataset['groupKind']).toBe('table');
+      expect(hover.hasAttribute('data-seat-id')).toBe(false);
+      expect(table.getAttribute('aria-describedby')).toBe(hover.id);
+      expect(seen.at(-1)).toMatchObject({ trigger: 'hover', selected: false });
+      expect(seen.at(-1)!.unit.id).toBe('table-3');
+      // The control is no seat: onSeatHover hears nothing of it.
+      expect(onSeatHover).not.toHaveBeenCalled();
+
+      pointer(table, 'pointerout');
+      expect(card(el, 'hover')).toBeNull();
+      expect(table.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it('follows focus with hoverCardOnFocus, and is dismissed by Escape', () => {
+      const el = render(
+        <Host hoverCardOnFocus renderWholeUnitHoverCard={(ctx) => ctx.trigger} />,
+      ).container;
+      const table = control(el, 'table-3');
+      act(() => table.focus());
+      expect(card(el, 'hover')!.textContent).toBe('focus');
+      fireEvent.keyDown(table, { key: 'Escape' });
+      expect(card(el, 'hover')).toBeNull();
+      act(() => table.blur());
+      act(() => table.focus());
+      expect(card(el, 'hover')).not.toBeNull();
+      act(() => table.blur());
+      expect(card(el, 'hover')).toBeNull();
+    });
+
+    it('leaves the control alone with only seat cards set, and seat cards as they were', () => {
+      const el = render(
+        <Host hoverCardDelay={NOW} renderHoverCard={(ctx) => ctx.seat.id} />,
+      ).container;
+      pointer(control(el, 'table-3'), 'pointerover');
+      expect(card(el, 'hover')).toBeNull();
+      expect(control(el, 'table-3').hasAttribute('aria-describedby')).toBe(false);
+      pointer(seatOf(el, 'T1'), 'pointerover');
+      expect(card(el, 'hover')!.textContent).toBe('T1');
+    });
+
+    it('opens a click card on a press that still books the table, and closes on the next', () => {
+      const el = render(
+        <Host
+          renderWholeUnitClickCard={(ctx) => (
+            <button onClick={ctx.close}>{ctx.selected ? 'booked whole' : 'not booked'}</button>
+          )}
+        />,
+      ).container;
+      fireEvent.click(control(el, 'table-3'));
+      const dialog = card(el, 'click')!;
+      expect(dialog.getAttribute('role')).toBe('dialog');
+      expect(said(dialog.getAttribute('aria-label'))).toBe(
+        'Table 3, book the whole table, 4 seats, MYR 180.00',
+      );
+      expect(dialog.textContent).toBe('booked whole');
+      expect(control(el, 'table-3').getAttribute('aria-pressed')).toBe('true');
+
+      fireEvent.click(control(el, 'table-3'));
+      expect(card(el, 'click')).toBeNull();
+      expect(control(el, 'table-3').getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('moves focus into a click card opened from the keyboard, and back on Escape', async () => {
+      const el = render(
+        <Host renderWholeUnitClickCard={() => <button>Details</button>} />,
+      ).container;
+      const table = control(el, 'table-3');
+      act(() => table.focus());
+      fireEvent.keyDown(table, { key: 'Enter' });
+      expect(document.activeElement?.textContent).toBe('Details');
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+      await act(async () => {});
+      expect(card(el, 'click')).toBeNull();
+      expect(document.activeElement).toBe(control(el, 'table-3'));
+    });
+
+    it('calls onWholeUnitDisallowed for a refused press, by click or key, and still announces', () => {
+      const refused = vi.fn();
+      const el = render(<Host maxSelection={3} onWholeUnitDisallowed={refused} />).container;
+      fireEvent.click(control(el, 'sofa'));
+      expect(refused).toHaveBeenLastCalledWith(
+        expect.objectContaining({ reason: 'unit-unavailable' }),
+      );
+      expect(refused.mock.lastCall![0].unit.id).toBe('sofa');
+      expect(refused.mock.lastCall![0].group.id).toBe('sofa');
+      expect(live(el)).toBe('Sofa cannot be booked whole: a seat in it is unavailable.');
+
+      fireEvent.keyDown(control(el, 'table-3'), { key: ' ' });
+      expect(refused).toHaveBeenLastCalledWith(
+        expect.objectContaining({ reason: 'unit-too-large' }),
+      );
+      expect(live(el)).toBe('Table 3 has more seats than the seat limit allows.');
+
+      fireEvent.click(control(el, 'bench'));
+      expect(refused).toHaveBeenCalledTimes(2);
+    });
+
+    it('says the app’s price in the control’s name in place of the map’s', () => {
+      const price = (unit: { id: string }) => (unit.id === 'table-3' ? 'EUR 800.00' : undefined);
+      const el = draw({ wholeUnitPrice: price });
+      expect(control(el, 'table-3').getAttribute('aria-label')).toBe(
+        'Table 3, book the whole table, 4 seats, EUR 800.00',
+      );
+      expect(control(el, 'bench').getAttribute('aria-label')).toBe('book the whole bench, 2 seats');
+    });
+
+    it('opens nothing on a read-only map, which draws no control', () => {
+      const el = draw({
+        interactive: false,
+        hoverCardDelay: NOW,
+        renderWholeUnitHoverCard: () => 'card',
+      });
+      pointer(el.querySelector('g.kerusi-group[data-group-id="table-3"]')!, 'pointerover');
+      expect(card(el, 'hover')).toBeNull();
+    });
   });
 
   it('draws no control on a read-only map: the shape is decoration again', () => {

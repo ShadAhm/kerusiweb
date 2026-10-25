@@ -5,6 +5,7 @@ import type {
   KerusiMap,
   KerusiSeatCardContext,
   KerusiSeatContext,
+  KerusiWholeUnitCardContext,
   KerusiSeatmapColors,
   KerusiSelectionChange,
   KerusiSession,
@@ -21,6 +22,8 @@ import type {
   SeatTypeStyles,
   SelectionSummary,
   UnitMode,
+  WholeUnitDisallowed,
+  WholeUnitPriceFn,
 } from '@kerusiweb/core';
 import type { CSSProperties, ReactNode } from 'react';
 
@@ -140,6 +143,13 @@ export interface KerusiSeatmapProps {
   rtl?: boolean | 'auto';
   /** Overrides the built-in English announcement strings. */
   ariaStrings?: SeatAriaStrings;
+  /**
+   * The price said in a whole unit's control name, already formatted ("EUR
+   * 800.00"), for an app that prices on its own server rather than in the map.
+   * Takes precedence over the map's `wholePrice`; `undefined` falls back to it
+   * (D25). Memoize it, as the control names are rebuilt when it changes.
+   */
+  wholeUnitPrice?: WholeUnitPriceFn;
 
   // --- appearance -----------------------------------------------------------
 
@@ -265,6 +275,18 @@ export interface KerusiSeatmapProps {
    * `selectableStatuses={[]}` or `seatSelectable`.
    */
   renderClickCard?: (ctx: KerusiSeatCardContext) => ReactNode;
+  /**
+   * Shown while a whole unit's control, such as an `either` tabletop (D19), is
+   * hovered, or focused with `hoverCardOnFocus`. The same rules as
+   * `renderHoverCard`, with a context of its own: `unit` and `group` in place of
+   * `seat` (D25). The control points at the card with `aria-describedby`.
+   */
+  renderWholeUnitHoverCard?: (ctx: KerusiWholeUnitCardContext) => ReactNode;
+  /**
+   * Opened by a click, tap or Enter/Space on a whole unit's control, as
+   * `renderClickCard` is on a seat. The press still books or releases the unit.
+   */
+  renderWholeUnitClickCard?: (ctx: KerusiWholeUnitCardContext) => ReactNode;
   /** The side a card prefers; it flips when it would overflow the map. Default `top`. */
   seatCardPlacement?: SeatCardPlacement;
   /** Extra classes on the card element, for Tailwind or a design-system class (D11). */
@@ -291,6 +313,12 @@ export interface KerusiSeatmapProps {
   onSeatSelect?: (event: SeatInteraction) => void;
   onSeatDeselect?: (event: SeatInteraction) => void;
   onSeatDisallowed?: (event: SeatDisallowed) => void;
+  /**
+   * A whole unit's control was pressed, by a click, Enter or Space, and refused:
+   * `unit-unavailable`, `unit-too-large` or `max-selection` (D25). The map's own
+   * live-region announcement is made as well.
+   */
+  onWholeUnitDisallowed?: (event: WholeUnitDisallowed) => void;
   onSeatFocus?: (seat: RenderSeat) => void;
   /**
    * The seat under the pointer when it enters a seat, and `null` when it leaves

@@ -208,6 +208,10 @@ Two layers ship: **events** that report the seat and nothing more, and optional 
 
 The hover card shows on a mouse or pen, never on touch, and on keyboard focus only with `hoverCardOnFocus`. The click card opens on a click, a tap or Enter, and stays until `Escape`, a press outside, a second click on the same seat, or `close()`. Both follow zoom and pan, flip and clamp at the map's edges, and show in full screen. Full details: the [React](projects/react/README.md#seat-cards) and [Angular](projects/angular/README.md#seat-cards) READMEs.
 
+### Whole-unit controls
+
+An `either` table's top, the control that books it whole, has the same three things a seat has (D25): a hover or click card of its own (`renderWholeUnitHoverCard` / `renderWholeUnitClickCard`, or the `kerusiWholeUnitHoverCard` / `kerusiWholeUnitClickCard` templates), a callback when it is refused (`onWholeUnitDisallowed` / `wholeUnitDisallowed`, with `{ unit, group, reason }`), and `wholeUnitPrice`, your own price for its accessible name in place of the map's `wholePrice`. See the [React](projects/react/README.md#whole-unit-cards-refusals-and-prices) and [Angular](projects/angular/README.md#whole-unit-cards-refusals-and-prices) READMEs.
+
 ### Styling seat cards
 
 The library sets structure and a plain default look from custom properties. You own the rest: set a token on `.kerusi-seatmap` or any ancestor, hook a class or `data-*` attribute, add your own classes, or drop the chrome with `seatCardAppearance="none"`.
@@ -232,7 +236,7 @@ The library sets structure and a plain default look from custom properties. You 
 }
 ```
 
-The class and attribute hooks are `.kerusi-seat-card`, `.kerusi-seat-card--hover` / `--click`, `.kerusi-seat-card__body`, `.kerusi-seat-card__arrow`, `data-placement`, `data-seat-id`, `data-seat-status`, `data-seat-type` and `data-section-id`.
+The class and attribute hooks are `.kerusi-seat-card`, `.kerusi-seat-card--hover` / `--click`, `.kerusi-seat-card__body`, `.kerusi-seat-card__arrow`, `data-placement`, `data-seat-id`, `data-seat-status`, `data-seat-type` and `data-section-id`. A whole unit's card carries `data-group-id`, `data-group-kind` and `data-section-id` instead.
 
 ## Repository layout
 

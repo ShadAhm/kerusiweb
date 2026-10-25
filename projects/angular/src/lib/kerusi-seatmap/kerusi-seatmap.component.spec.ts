@@ -7,9 +7,12 @@ import {
   KerusiSelectionChange,
   KerusiState,
   KerusiViolation,
+  RenderSeat,
   SeatStyleFn,
   SeatTypeStyles,
   seatBodyPath,
+  WholeUnitDisallowed,
+  WholeUnitPriceFn,
 } from '@kerusiweb/core';
 import {
   PARITY_BOOKING_MAP,
@@ -32,6 +35,11 @@ import {
 } from '../../../../core/src/testing/parity.fixture';
 import { KerusiSeatmapComponent, SeatDisallowed } from './kerusi-seatmap.component';
 import { KerusiSeatTemplateDirective } from './kerusi-seat-template.directive';
+import {
+  KerusiSeatHoverCardDirective,
+  KerusiWholeUnitClickCardDirective,
+  KerusiWholeUnitHoverCardDirective,
+} from './kerusi-seat-card.directive';
 
 /**
  * Two sections side by side on one canvas: stalls in a row with an aisle and
@@ -1250,6 +1258,213 @@ describe('KerusiSeatmapComponent booking units (§4.12, D19–D22)', () => {
     );
     click(seatOf('T2'));
     expect(selection()).toEqual(['T1', 'T2', 'T3', 'T4']);
+  });
+});
+
+/** Whole-unit cards on the booking map, each template behind a flag (D25). */
+@Component({
+  selector: 'kerusi-test-unit-host',
+  imports: [
+    KerusiSeatmapComponent,
+    KerusiSeatHoverCardDirective,
+    KerusiWholeUnitHoverCardDirective,
+    KerusiWholeUnitClickCardDirective,
+  ],
+  template: `<kerusi-seatmap
+    [map]="map"
+    [state]="state"
+    [(selection)]="selection"
+    [interactive]="interactive()"
+    [maxSelection]="maxSelection()"
+    [hoverCardOnFocus]="onFocus()"
+    [hoverCardDelay]="{ open: 0, close: 0 }"
+    [wholeUnitPrice]="price()"
+    (seatHover)="hovered.push($event)"
+    (wholeUnitDisallowed)="refused.push($event)"
+  >
+    @if (seatHover()) {
+      <ng-template kerusiSeatHoverCard let-ctx>{{ ctx.seat.id }}</ng-template>
+    }
+    @if (unitHover()) {
+      <ng-template kerusiWholeUnitHoverCard let-ctx
+        >{{ ctx.group.label }}: {{ ctx.unit.seatIds.length }} seats:{{ ctx.trigger }}</ng-template
+      >
+    }
+    @if (unitClick() === 'generic') {
+      <ng-template kerusiWholeUnitClickCard let-ctx>
+        <button type="button" (click)="ctx.close()">
+          {{ ctx.selected ? 'booked whole' : 'not booked' }}
+        </button>
+      </ng-template>
+    }
+    @if (unitClick() === 'details') {
+      <ng-template kerusiWholeUnitClickCard><button type="button">Details</button></ng-template>
+    }
+  </kerusi-seatmap>`,
+})
+class UnitCardHost {
+  readonly map = PARITY_BOOKING_MAP;
+  readonly state = PARITY_BOOKING_STATE;
+  readonly selection = signal<readonly string[]>([]);
+  readonly interactive = signal(true);
+  readonly maxSelection = signal<number | undefined>(undefined);
+  readonly onFocus = signal(false);
+  readonly price = signal<WholeUnitPriceFn | undefined>(undefined);
+  readonly seatHover = signal(false);
+  readonly unitHover = signal(false);
+  readonly unitClick = signal<'none' | 'generic' | 'details'>('none');
+  readonly hovered: (RenderSeat | null)[] = [];
+  readonly refused: WholeUnitDisallowed[] = [];
+}
+
+describe('KerusiSeatmapComponent whole-unit cards, refusals and prices (D25)', () => {
+  let fixture: ComponentFixture<UnitCardHost>;
+  let host: UnitCardHost;
+  let el: HTMLElement;
+
+  async function mount(setup?: (host: UnitCardHost) => void) {
+    await TestBed.configureTestingModule({ imports: [UnitCardHost] }).compileComponents();
+    fixture = TestBed.createComponent(UnitCardHost);
+    host = fixture.componentInstance;
+    setup?.(host);
+    el = fixture.nativeElement as HTMLElement;
+    await flush();
+  }
+  const flush = async () => {
+    for (let i = 0; i < 3; i++) {
+      fixture.detectChanges();
+      await fixture.whenStable();
+    }
+  };
+  const control = (id: string) =>
+    el.querySelector<SVGGElement>(`g.kerusi-group--whole[data-group-id="${id}"]`)!;
+  const seatOf = (id: string) => el.querySelector<SVGGElement>(`[data-seat-id="${id}"]`)!;
+  const card = (kind: 'hover' | 'click') =>
+    el.querySelector<HTMLElement>(`.kerusi-seat-card--${kind}:not([hidden])`);
+  const pointer = async (target: Element, type: 'pointerover' | 'pointerout') => {
+    target.dispatchEvent(
+      new PointerEvent(type, { pointerType: 'mouse', pointerId: 1, bubbles: true }),
+    );
+    await flush();
+  };
+  const click = async (target: Element) => {
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await flush();
+  };
+  const key = async (target: Element, k: string) => {
+    target.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+    await flush();
+  };
+  const live = () => el.querySelector('[aria-live]')!.textContent!.trim().replace(/ /g, ' ');
+  const said = (text: string | null | undefined) => text?.replace(/ /g, ' ');
+
+  it('opens a hover card on the control, with the unit, and points the control at it', async () => {
+    await mount((h) => h.unitHover.set(true));
+    const table = control('table-3');
+    await pointer(table, 'pointerover');
+
+    const hover = card('hover')!;
+    expect(hover.textContent!.trim()).toBe('Table 3: 4 seats:hover');
+    expect(hover.getAttribute('role')).toBe('tooltip');
+    expect(hover.dataset['groupId']).toBe('table-3');
+    expect(hover.dataset['groupKind']).toBe('table');
+    expect(hover.hasAttribute('data-seat-id')).toBe(false);
+    expect(table.getAttribute('aria-describedby')).toBe(hover.id);
+    // The control is no seat: seatHover hears nothing of it.
+    expect(host.hovered).toEqual([]);
+
+    await pointer(table, 'pointerout');
+    expect(card('hover')).toBeNull();
+    expect(table.hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('follows focus with hoverCardOnFocus, and is dismissed by Escape', async () => {
+    await mount((h) => {
+      h.unitHover.set(true);
+      h.onFocus.set(true);
+    });
+    const table = control('table-3');
+    table.focus();
+    await flush();
+    expect(card('hover')!.textContent!.trim()).toBe('Table 3: 4 seats:focus');
+    await key(table, 'Escape');
+    expect(card('hover')).toBeNull();
+    table.blur();
+    table.focus();
+    await flush();
+    expect(card('hover')).not.toBeNull();
+    table.blur();
+    await flush();
+    expect(card('hover')).toBeNull();
+  });
+
+  it('leaves the control alone with only seat cards set, and seat cards as they were', async () => {
+    await mount((h) => h.seatHover.set(true));
+    await pointer(control('table-3'), 'pointerover');
+    expect(card('hover')).toBeNull();
+    expect(control('table-3').hasAttribute('aria-describedby')).toBe(false);
+    await pointer(seatOf('T1'), 'pointerover');
+    expect(card('hover')!.textContent!.trim()).toBe('T1');
+  });
+
+  it('opens a click card on a press that still books the table, and closes on the next', async () => {
+    await mount((h) => h.unitClick.set('generic'));
+    await click(control('table-3'));
+    const dialog = card('click')!;
+    expect(dialog.getAttribute('role')).toBe('dialog');
+    expect(said(dialog.getAttribute('aria-label'))).toBe(
+      'Table 3, book the whole table, 4 seats, MYR 180.00',
+    );
+    expect(dialog.textContent!.trim()).toBe('booked whole');
+    expect(control('table-3').getAttribute('aria-pressed')).toBe('true');
+
+    await click(control('table-3'));
+    expect(card('click')).toBeNull();
+    expect(control('table-3').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('moves focus into a click card opened from the keyboard, and back on Escape', async () => {
+    await mount((h) => h.unitClick.set('details'));
+    const table = control('table-3');
+    table.focus();
+    await key(table, 'Enter');
+    expect(document.activeElement?.textContent).toBe('Details');
+    await key(document.activeElement!, 'Escape');
+    expect(card('click')).toBeNull();
+    expect(document.activeElement).toBe(control('table-3'));
+  });
+
+  it('emits wholeUnitDisallowed for a refused press, by click or key, and still announces', async () => {
+    await mount((h) => h.maxSelection.set(3));
+    await click(control('sofa'));
+    expect(host.refused.at(-1)).toMatchObject({ reason: 'unit-unavailable' });
+    expect(host.refused.at(-1)!.unit.id).toBe('sofa');
+    expect(host.refused.at(-1)!.group.id).toBe('sofa');
+    expect(live()).toBe('Sofa cannot be booked whole: a seat in it is unavailable.');
+
+    await key(control('table-3'), ' ');
+    expect(host.refused.at(-1)).toMatchObject({ reason: 'unit-too-large' });
+    expect(live()).toBe('Table 3 has more seats than the seat limit allows.');
+
+    await click(control('bench'));
+    expect(host.refused).toHaveLength(2);
+  });
+
+  it('says the app’s price in the control’s name in place of the map’s', async () => {
+    await mount((h) => h.price.set((unit) => (unit.id === 'table-3' ? 'EUR 800.00' : undefined)));
+    expect(control('table-3').getAttribute('aria-label')).toBe(
+      'Table 3, book the whole table, 4 seats, EUR 800.00',
+    );
+    expect(control('bench').getAttribute('aria-label')).toBe('book the whole bench, 2 seats');
+  });
+
+  it('opens nothing on a read-only map, which draws no control', async () => {
+    await mount((h) => {
+      h.interactive.set(false);
+      h.unitHover.set(true);
+    });
+    await pointer(el.querySelector('g.kerusi-group[data-group-id="table-3"]')!, 'pointerover');
+    expect(card('hover')).toBeNull();
   });
 });
 

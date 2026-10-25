@@ -25,6 +25,7 @@ import {
   outermostWholeUnits,
   SCENARIOS,
   seatCardText,
+  blobSeats,
   toggleWholeUnitButton,
   WholeUnitButton,
   wholeUnitButtons,
@@ -70,6 +71,9 @@ export class App {
   /** Draws every seat as a circle through `seatStyle`. */
   protected readonly circleShape = signal(false);
   protected readonly circleSeats: SeatStyleFn = () => ({ shape: 'circle' });
+  /** Draws every seat as a blob, through a function `seatStyle` shape. */
+  protected readonly customShape = signal(false);
+  protected readonly blobSeats = blobSeats;
   /** Shows a card while a seat is hovered (or focused), through a `kerusiSeatHoverCard` template. */
   protected readonly hoverCard = signal(false);
   /** Opens a card on a click, tap or Enter, through a `kerusiSeatClickCard` template. */
@@ -79,7 +83,7 @@ export class App {
   protected readonly showSource = signal(false);
 
   /** How many switches the options panel has, and how many are on. */
-  protected readonly optionCount = 11;
+  protected readonly optionCount = 12;
   protected readonly optionsOn = computed(
     () =>
       [
@@ -89,6 +93,7 @@ export class App {
         this.maximizable(),
         this.goldPremium(),
         this.circleShape(),
+        this.customShape(),
         this.aisleCss(),
         this.roundSeats(),
         this.hoverCard(),
@@ -105,6 +110,7 @@ export class App {
     this.maximizable.set(true);
     this.goldPremium.set(false);
     this.circleShape.set(false);
+    this.customShape.set(false);
     this.aisleCss.set(false);
     this.roundSeats.set(false);
     this.hoverCard.set(false);

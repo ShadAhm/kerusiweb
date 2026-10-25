@@ -15,6 +15,7 @@ import {
   outermostWholeUnits,
   SCENARIOS,
   seatCardText,
+  blobSeats,
   toggleWholeUnitButton,
   wholeUnitButtons as wholeUnitButtonsOf,
   wholeUnitCardText,
@@ -40,6 +41,7 @@ export function App() {
   const [aisleCss, setAisleCss] = useState(false);
   const [goldPremium, setGoldPremium] = useState(false);
   const [circleShape, setCircleShape] = useState(false);
+  const [customShape, setCustomShape] = useState(false);
   const [hoverCard, setHoverCard] = useState(false);
   const [clickCard, setClickCard] = useState(false);
   const [restyledCards, setRestyledCards] = useState(false);
@@ -264,6 +266,14 @@ export function App() {
       initial: false,
     },
     {
+      key: 'customShape',
+      label: 'Custom seat shape',
+      hint: 'seatStyle',
+      value: customShape,
+      set: setCustomShape,
+      initial: false,
+    },
+    {
       key: 'aisleCss',
       label: 'Aisle seats via CSS',
       hint: 'Data attributes, no code',
@@ -388,7 +398,7 @@ export function App() {
                 zoomable={zoomable}
                 maximizable={maximizable}
                 seatTypeStyles={seatTypeStyles}
-                seatStyle={circleShape ? circleSeats : undefined}
+                seatStyle={customShape ? blobSeats : circleShape ? circleSeats : undefined}
                 renderSeat={roundSeats ? renderRoundSeat : undefined}
                 renderHoverCard={hoverCard ? renderHoverCard : undefined}
                 renderClickCard={clickCard ? renderClickCard : undefined}
@@ -612,7 +622,7 @@ interface Option {
 /** How the options panel groups its switches. */
 const OPTION_GROUPS: readonly { name: string; keys: readonly string[] }[] = [
   { name: 'Map', keys: ['typeColors', 'showLegend', 'zoomable', 'maximizable'] },
-  { name: 'Seats', keys: ['goldPremium', 'circleShape', 'aisleCss', 'roundSeats'] },
+  { name: 'Seats', keys: ['goldPremium', 'circleShape', 'customShape', 'aisleCss', 'roundSeats'] },
   { name: 'Seat cards', keys: ['hoverCard', 'clickCard', 'restyledCards'] },
 ];
 

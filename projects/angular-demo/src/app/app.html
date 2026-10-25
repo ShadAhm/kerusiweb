@@ -65,6 +65,7 @@
           [showLegend]="showLegend()"
           [zoomable]="zoomable()"
           [maximizable]="maximizable()"
+          [view]="rowsView() ? 'rows' : 'canonical'"
           [seatTypeStyles]="seatTypeStyles()"
           [seatStyle]="customShape() ? blobSeats : circleShape() ? circleSeats : undefined"
           [hoverCardOnFocus]="hoverCard()"
@@ -361,6 +362,17 @@
             <span class="toggle__text">
               <span class="toggle__label">Full screen</span>
               <span class="toggle__hint">Adds an expand button</span>
+            </span>
+          </label>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="rowsView()"
+              (change)="rowsView.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Rows view</span>
+              <span class="toggle__hint">view: 'rows'</span>
             </span>
           </label>
         </fieldset>

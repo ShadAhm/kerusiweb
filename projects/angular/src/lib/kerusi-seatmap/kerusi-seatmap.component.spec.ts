@@ -29,6 +29,7 @@ import {
   PARITY_FORMS_STATE,
   PARITY_MAP,
   PARITY_SELECTION,
+  PARITY_ROWS_SIGNATURE,
   PARITY_SIGNATURE,
   PARITY_STATE,
   svgSignature,
@@ -1498,6 +1499,16 @@ describe('KerusiSeatmapComponent SVG parity with the React binding', () => {
       selection: PARITY_SELECTION,
     });
     expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(PARITY_SIGNATURE);
+  });
+
+  it('draws the town hall in the rows view exactly as the shared signature says', () => {
+    const el = renderAlone({
+      map: PARITY_MAP,
+      state: PARITY_STATE,
+      selection: PARITY_SELECTION,
+      view: 'rows',
+    });
+    expect(svgSignature(el.querySelector('svg.kerusi-seatmap__svg')!)).toBe(PARITY_ROWS_SIGNATURE);
   });
 
   it('draws the seat forms exactly as the shared signature says', () => {

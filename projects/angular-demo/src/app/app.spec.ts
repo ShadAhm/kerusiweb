@@ -92,6 +92,23 @@ describe('App', () => {
     expect(d.split(' A ').length - 1).toBe(2);
   });
 
+  it('switches to the rows view from its toggle, and back to the canonical view', () => {
+    const svg = () => el.querySelector('svg.kerusi-seatmap__svg')!;
+    const canonical = svg().getAttribute('viewBox');
+    const toggle = toggleNamed('Rows view');
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(el.querySelector('.kerusi-seatmap--rows')).not.toBeNull();
+    expect(svg().getAttribute('viewBox')).not.toBe(canonical);
+    expect(el.querySelectorAll('.kerusi-row-label').length).toBeGreaterThan(0);
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(el.querySelector('.kerusi-seatmap--rows')).toBeNull();
+    expect(svg().getAttribute('viewBox')).toBe(canonical);
+  });
+
   it('draws every seat as a custom blob from its toggle, and back off again', () => {
     const box = () => el.querySelector('.kerusi-seat__box')!.getAttribute('d')!;
     const stock = box();

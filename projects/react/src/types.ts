@@ -7,6 +7,7 @@ import type {
   KerusiSeatContext,
   KerusiWholeUnitCardContext,
   KerusiSeatmapColors,
+  KerusiSeatmapView,
   KerusiSelectionChange,
   KerusiSession,
   KerusiState,
@@ -141,6 +142,17 @@ export interface KerusiSeatmapProps {
   locale?: string;
   /** Right-to-left rendering. `auto` derives it from the resolved locale. */
   rtl?: boolean | 'auto';
+
+  // --- view -----------------------------------------------------------------
+
+  /**
+   * Which view to draw (§4.5.1). `canonical`, the default, draws every seat at
+   * its document `x`/`y`. `rows` straightens every row into a line, in row
+   * order, for a narrow screen: aisles stay as gaps, and elements and group
+   * footprints are not drawn. Switch it from the app; the canonical view is
+   * never replaced on its own.
+   */
+  view?: KerusiSeatmapView;
   /** Overrides the built-in English announcement strings. */
   ariaStrings?: SeatAriaStrings;
   /**

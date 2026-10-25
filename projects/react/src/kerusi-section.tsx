@@ -29,9 +29,9 @@ export interface KerusiSectionProps {
   /** The section's name: its accessible name, and its drawn label when one is shown. */
   label?: string;
   /**
-   * Draw `label` inside the SVG, at the top-left of the section's bounds. Only
-   * a section that declares `bounds` gets one (D5); otherwise the label is the
-   * group's accessible name alone.
+   * Draw `label` inside the SVG, at the top-left of the section's bounds. In
+   * the canonical view only a section that declares `bounds` gets one (D5);
+   * otherwise the label is the group's accessible name alone.
    */
   showLabel?: boolean;
   /** Currently selected seat ids. */
@@ -176,7 +176,7 @@ export function KerusiSection({
       aria-label={label ?? section.id}
       data-section-id={section.id}
     >
-      {showLabel && label && section.boundsDeclared && (
+      {showLabel && label && layout.drawsLabel && (
         /* Hidden from assistive technology: the group already carries the
            same text as its accessible name. */
         <text
@@ -192,6 +192,23 @@ export function KerusiSection({
           {label}
         </text>
       )}
+
+      {/* The rows view's row labels. Hidden: each seat's name already says its row. */}
+      {layout.rowLabels.map((row) => (
+        <text
+          key={row.rowId}
+          className="kerusi-row-label"
+          aria-hidden="true"
+          textAnchor="middle"
+          dominantBaseline="central"
+          x={row.x}
+          y={row.y}
+          fontSize={row.fontSize}
+          style={{ fill: elementTextFill(elementStyle('label').tone, colors) }}
+        >
+          {row.label}
+        </text>
+      ))}
 
       {/* Elements first, so a screen or stage sits behind the seats it faces. */}
       {layout.elements.map((placed) => (

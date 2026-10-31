@@ -629,6 +629,12 @@ main {
   color: var(--ink-dim);
 }
 
+.source__note {
+  margin: 0.8rem 0 0;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
 .source pre {
   margin: 0.8rem 0 0;
   max-height: 26rem;

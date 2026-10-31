@@ -1,6 +1,6 @@
 /**
  * Kerusi availability document types, transcribed from the Kerusi Seat Map and
- * Availability Format v1.0.0-draft, §5. These describe the dynamic, per-seat
+ * Availability Format v1.0.0-draft rev 17, §5. These describe the dynamic, per-seat
  * booking status that is merged onto a static {@link KerusiMap} by `Seat.id`.
  */
 

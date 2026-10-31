@@ -9,6 +9,7 @@
  * See docs/kerusi.md and the full standard for details.
  */
 
+export * from './kerusi-spec.js';
 export * from './kerusi-map.model.js';
 export * from './kerusi-state.model.js';
 export * from './kerusi-violation.js';

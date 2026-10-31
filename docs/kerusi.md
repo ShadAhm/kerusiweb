@@ -9,6 +9,14 @@ Kerusi is a vendor-neutral, domain-agnostic JSON format (cinema, flight, bus,
 theatre, stadium, train), and this page shows how each part of it turns into
 something on screen. See the standard for the normative rules.
 
+This library follows **Kerusi v1.0.0-draft, rev 17**. A document's `kerusi`
+member stays `"1.0"` through every 1.0 draft revision, as the standard
+requires, so it cannot tell you which revision a map was written for. When you
+show people which standard a map follows (a receipt, an export, a footer),
+use `KERUSI_SPEC.label` from `@kerusiweb/core` ("Kerusi v1.0.0-draft, rev
+17"), not the `kerusi` member alone. `KERUSI_SPEC.schemaVersion`
+(`1.0.0-draft.17`) is the version of the standard's JSON Schemas.
+
 Everything below is framework-neutral unless it says otherwise: the documents
 are just JSON, the resolution rules live in core, and the component inputs are
 named identically in every binding: written `[input]="value"` in an Angular

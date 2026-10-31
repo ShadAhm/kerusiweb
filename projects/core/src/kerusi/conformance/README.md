@@ -25,8 +25,9 @@ in `corpus/` beside the other documents.
 Only whitespace differs from the source: the repository runs Prettier over the
 corpus along with everything else.
 
-To refresh after a spec revision: copy `examples/` over `corpus/`, run
-`npm run test:core`, and reconcile `corpus.spec.ts`. Every file has an explicit
+To refresh after a spec revision: copy `examples/` over `corpus/`, update the
+table above and `KERUSI_SPEC` in `kerusi-spec.ts` (a test fails while the two
+disagree), run `npm run test:core`, and reconcile `corpus.spec.ts`. Every file has an explicit
 expectation there, and a coverage test fails on any file without one, so a new
 or changed fixture shows up as a failure rather than passing silently.
 

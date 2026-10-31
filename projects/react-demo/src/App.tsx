@@ -1,4 +1,4 @@
-import { buildRenderModel, formatMoney, summarizeSelection } from '@kerusiweb/core';
+import { buildRenderModel, formatMoney, KERUSI_SPEC, summarizeSelection } from '@kerusiweb/core';
 import type {
   Bounds,
   KerusiSeatCardContext,
@@ -598,7 +598,13 @@ export function App() {
           </div>
 
           <details className="source">
-            <summary>The KerusiMap behind this view</summary>
+            <summary>The KerusiMap behind this view ({KERUSI_SPEC.label})</summary>
+            <p className="source__note">
+              Written to {KERUSI_SPEC.label}. Its <code>"kerusi": "1.0"</code> member is the format
+              version, which the standard keeps at <code>"1.0"</code> through every 1.0 draft
+              revision. The standard's JSON Schemas, <code>{KERUSI_SPEC.schemaVersion}</code>, carry
+              the revision.
+            </p>
             <pre>
               <code>{sourceJson}</code>
             </pre>

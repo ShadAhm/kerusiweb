@@ -6,6 +6,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`KERUSI_SPEC`** in core: the exact standard this library implements
+  (`version: '1.0.0-draft'`, `revision: 17`, `schemaVersion: '1.0.0-draft.17'`,
+  and a `label`, "Kerusi v1.0.0-draft, rev 17"). A document's `kerusi` member is
+  `"1.0"` through every 1.0 draft revision, so use this, not that member, when
+  telling people which standard a map follows. A test keeps it in step with the
+  vendored conformance corpus.
+
+### Changed
+
+- Both demos label the KerusiMap they show with the full version, "Kerusi
+  v1.0.0-draft, rev 17", and explain that `"kerusi": "1.0"` is the format
+  version the standard requires for every 1.0 draft. The documents themselves
+  are unchanged and still declare `"1.0"`.
+
 ## [4.1.0] - 2026-10-25
 
 ### Added

@@ -474,7 +474,13 @@
     </div>
 
     <details class="source" [open]="showSource()">
-      <summary>The KerusiMap behind this view</summary>
+      <summary>The KerusiMap behind this view ({{ spec.label }})</summary>
+      <p class="source__note">
+        Written to {{ spec.label }}. Its <code>"kerusi": "1.0"</code> member is the format version,
+        which the standard keeps at <code>"1.0"</code> through every 1.0 draft revision. The
+        standard's JSON Schemas, <code>{{ spec.schemaVersion }}</code
+        >, carry the revision.
+      </p>
       <pre><code>{{ sourceJson() }}</code></pre>
     </details>
   </section>

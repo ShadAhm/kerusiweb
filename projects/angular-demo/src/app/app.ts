@@ -3,6 +3,7 @@ import {
   Bounds,
   buildRenderModel,
   formatMoney,
+  KERUSI_SPEC,
   KerusiSeatCardContext,
   KerusiViolation,
   KerusiWholeUnitCardContext,
@@ -225,6 +226,9 @@ export class App {
   protected toggleWholeUnit(button: WholeUnitButton): void {
     this.onSelectionChange(toggleWholeUnitButton(this.selection(), button));
   }
+
+  /** The exact standard the map follows, which its `kerusi` member alone cannot say. */
+  protected readonly spec = KERUSI_SPEC;
 
   /** The scenario's map as JSON, so the standard itself is visible on the page. */
   protected readonly sourceJson = computed(() => JSON.stringify(this.scenario().map, null, 2));

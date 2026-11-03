@@ -19,11 +19,13 @@ import {
   viewChild,
 } from '@angular/core';
 import {
+  Bounds,
   buildNavigationGraph,
   buildRenderModel,
   canvasRectToContent,
   clampViewport,
   computeViewLayout,
+  contentBounds,
   controlStyle,
   cssVar,
   DEFAULT_MAX_ZOOM,
@@ -38,6 +40,7 @@ import {
   GestureEvent,
   GestureState,
   HoverCardDelay,
+  KerusiSeatmapFit,
   KerusiSeatmapView,
   IDLE_GESTURE,
   IDLE_SEAT_HOVER,
@@ -260,6 +263,17 @@ export class KerusiSeatmapComponent {
    */
   readonly unitScale = input<number>(1);
   /**
+   * What the view fits (#63, D29): `'canvas'`, the whole canvas, or
+   * `'content'`, the box around every seat, element, group footprint and
+   * shown section label, plus `contentPadding`. The map draws, resets to and
+   * goes full screen on that box, and is never zoomed out past it. Hiding a
+   * section or changing `view` reframes it. Core's `mapContentBounds()` gives
+   * the same box, to size a container by. Default `'canvas'`.
+   */
+  readonly fit = input<KerusiSeatmapFit>('canvas');
+  /** The margin round the content under `fit="content"`, in canvas units. Default: the map's `seatSize`. */
+  readonly contentPadding = input<number | undefined>(undefined);
+  /**
    * Draws each section's label inside the map, at the top-left of its `bounds`.
    * Only sections that declare `bounds` get one; every section's label is its
    * group's accessible name either way. Default `true`.
@@ -472,14 +486,16 @@ export class KerusiSeatmapComponent {
       }
     });
 
-    // The two views share no geometry, so a zoom into one means nothing in the other.
-    let shownView: KerusiSeatmapView | undefined;
+    // The two views share no geometry, so a zoom into one means nothing in the
+    // other; nor does a zoom into one frame mean anything in another.
+    let shown: { view: KerusiSeatmapView; fit: KerusiSeatmapFit } | undefined;
     effect(() => {
       const view = this.view();
-      if (shownView !== undefined && shownView !== view) {
+      const fit = this.fit();
+      if (shown !== undefined && (shown.view !== view || shown.fit !== fit)) {
         untracked(() => this.resetZoom());
       }
-      shownView = view;
+      shown = { view, fit };
     });
 
     // Keep every section's tab stop pointing at a seat that still exists.
@@ -967,14 +983,33 @@ export class KerusiSeatmapComponent {
     computeViewLayout(this.renderMap(), this.view(), { rtl: this.isRtl() }),
   );
 
-  protected readonly viewBox = computed(() => `0 0 ${this.layout().width} ${this.layout().height}`);
+  /**
+   * The part of the canvas the map draws and fits (D29): the whole canvas, or
+   * under `fit="content"` the box around what is drawn. It is the `viewBox`.
+   */
+  protected readonly frame = computed<Bounds>(() => {
+    const layout = this.layout();
+    if (this.fit() !== 'content') {
+      return { x: 0, y: 0, width: layout.width, height: layout.height };
+    }
+    return contentBounds(layout, {
+      padding: this.contentPadding() ?? this.renderMap().seatSize,
+      rtl: this.isRtl(),
+      sectionLabels: this.showSectionLabels() ? (section) => this.labelFor(section) : false,
+    });
+  });
+
+  protected readonly viewBox = computed(() => {
+    const { x, y, width, height } = this.frame();
+    return `${x} ${y} ${width} ${height}`;
+  });
 
   /** `unitScale` CSS pixels per canvas unit, at most. */
-  protected readonly naturalWidth = computed(() => this.layout().width * this.unitScale());
+  protected readonly naturalWidth = computed(() => this.frame().width * this.unitScale());
 
-  /** The canvas's width over its height, so a maximized map can fit the whole canvas. */
+  /** The frame's width over its height, so a maximized map can fit what it draws. */
   protected readonly canvasAspect = computed(() =>
-    String(this.layout().width / this.layout().height),
+    String(this.frame().width / this.frame().height),
   );
 
   protected readonly backdrop = computed(() => cssVar('backdrop', this.resolvedColors().backdrop));
@@ -1456,10 +1491,12 @@ export class KerusiSeatmapComponent {
    * section that is not rendered.
    */
   zoomToSection(sectionId: string): void {
-    const layout = this.layout();
-    const placed = layout.sections.find((s) => s.section.id === sectionId);
+    const placed = this.layout().sections.find((s) => s.section.id === sectionId);
     if (placed) {
-      this.zoomToCanvasRect(placed.bounds, layout);
+      // The SVG draws `frame`, so the section is placed relative to its corner.
+      const frame = this.frame();
+      const { bounds } = placed;
+      this.zoomToCanvasRect({ ...bounds, x: bounds.x - frame.x, y: bounds.y - frame.y }, frame);
     }
   }
 

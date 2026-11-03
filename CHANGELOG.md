@@ -8,6 +8,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Fit to content (#63, D29).** A new `fit` input/prop, `'canvas'` (the
+  default, unchanged) or `'content'`, and `contentPadding` (canvas units,
+  default the map's `seatSize`), identical in both bindings. Under `'content'`
+  the map's `viewBox` is the box around what is drawn (seat footprints turned
+  as they are, elements, group footprints, shown section labels, the rows
+  view's row labels) plus the padding, kept on the canvas. Fit, reset (`0`)
+  and full screen all frame that box, and it is the zoom's floor. Hiding a
+  section or switching `view` reframes the map. Core exports
+  `contentBounds(layout, options)`, `mapContentBounds(map, options)` (so a
+  host can size its container to the content's proportions) and the
+  `KerusiSeatmapFit` type.
+
 - **`KERUSI_SPEC`** in core: the exact standard this library implements
   (`version: '1.0.0-draft'`, `revision: 17`, `schemaVersion: '1.0.0-draft.17'`,
   and a `label`, "Kerusi v1.0.0-draft, rev 17"). A document's `kerusi` member is

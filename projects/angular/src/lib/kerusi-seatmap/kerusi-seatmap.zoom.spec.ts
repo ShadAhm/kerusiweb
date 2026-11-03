@@ -1,7 +1,15 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { KerusiControlStrings, KerusiMap, KerusiViewport, viewportForRect } from '@kerusiweb/core';
+import {
+  canvasRectToContent,
+  KerusiControlStrings,
+  KerusiMap,
+  KerusiSeatmapFit,
+  KerusiViewport,
+  mapContentBounds,
+  viewportForRect,
+} from '@kerusiweb/core';
 import { KerusiSeatmapComponent } from './kerusi-seatmap.component';
 
 /** A 10 x 30 lattice: 300 seats, the size the issue calls out. */
@@ -52,6 +60,9 @@ function bigMap(rows = 10, cols = 30): KerusiMap {
       [maxZoom]="maxZoom()"
       [showZoomControls]="showZoomControls()"
       [controlStrings]="controlStrings()"
+      [fit]="fit()"
+      [contentPadding]="contentPadding()"
+      [unitScale]="unitScale()"
       (viewportChange)="viewports.push($event)"
       (maximizedChange)="maximizedEvents.push($event)"
     />
@@ -66,6 +77,9 @@ class Host {
   readonly maxZoom = signal(4);
   readonly showZoomControls = signal(true);
   readonly controlStrings = signal<Partial<KerusiControlStrings>>({});
+  readonly fit = signal<KerusiSeatmapFit>('canvas');
+  readonly contentPadding = signal<number | undefined>(undefined);
+  readonly unitScale = signal(1);
   readonly viewports: KerusiViewport[] = [];
   readonly maximizedEvents: boolean[] = [];
 }
@@ -664,6 +678,102 @@ describe('KerusiSeatmapComponent: zoom, pan and maximize', () => {
       settle();
       host.seatmap().zoomToSection('left');
       expect(current()).toEqual({ zoom: 1, x: 0, y: 0 });
+    });
+  });
+
+  describe('fit to content (#63, D29)', () => {
+    /**
+     * Two seats near the front of a large room. Content box at no padding:
+     * x 100..340, y 80..150; with the default (one seat size, 20), x 80..360,
+     * y 60..170.
+     */
+    const ROOM: KerusiMap = {
+      kerusi: '1.0',
+      id: 'room',
+      canvas: { width: 1000, height: 800 },
+      seatSize: 20,
+      legend: [{ id: 'standard' }],
+      sections: [
+        {
+          id: 'front',
+          seats: [
+            { id: 'F1', x: 110, y: 90, type: 'standard' },
+            { id: 'F2', x: 330, y: 140, type: 'standard' },
+          ],
+        },
+      ],
+    };
+    const svg = () => el.querySelector<SVGSVGElement>('svg.kerusi-seatmap__svg')!;
+
+    beforeEach(() => {
+      host.map.set(ROOM);
+      settle();
+    });
+
+    it('keeps the whole canvas by default', () => {
+      expect(svg().getAttribute('viewBox')).toBe('0 0 1000 800');
+      expect(svg().style.maxWidth).toBe('1000px');
+    });
+
+    it('draws the content box plus one seat size, capped by unitScale on its width', () => {
+      host.fit.set('content');
+      host.unitScale.set(2);
+      settle();
+      expect(svg().getAttribute('viewBox')).toBe('80 60 280 110');
+      expect(svg().style.maxWidth).toBe('560px');
+      expect(mapContentBounds(ROOM)).toEqual({ x: 80, y: 60, width: 280, height: 110 });
+    });
+
+    it('takes contentPadding as the margin', () => {
+      host.fit.set('content');
+      host.contentPadding.set(0);
+      settle();
+      expect(svg().getAttribute('viewBox')).toBe('100 80 240 70');
+    });
+
+    it('publishes the box proportions, so full screen fits the box', () => {
+      host.fit.set('content');
+      host.contentPadding.set(0);
+      host.zoomable.set(true);
+      settle();
+      expect(viewport()!.style.getPropertyValue('--kerusi-canvas-aspect')).toBe(String(240 / 70));
+      expect(transform()).toBe('translate(0px, 0px) scale(1)');
+    });
+
+    it('resets the zoom when fit changes, as the box is a new fit', () => {
+      host.zoomable.set(true);
+      settle();
+      button('Zoom in')!.click();
+      settle();
+      expect(current().zoom).toBeGreaterThan(1);
+      host.fit.set('content');
+      settle();
+      expect(current()).toEqual({ zoom: 1, x: 0, y: 0 });
+    });
+
+    it('zooms to a section within the box', () => {
+      host.map.set({
+        ...ROOM,
+        sections: [
+          ...ROOM.sections,
+          { id: 'back', seats: [{ id: 'B1', x: 600, y: 500, type: 'standard' }] },
+        ],
+      });
+      host.fit.set('content');
+      host.contentPadding.set(0);
+      host.zoomable.set(true);
+      settle();
+      host.seatmap().zoomToSection('back');
+      // Box x 100..610, y 80..510; the section is B1's footprint, 590..610 by 490..510.
+      const frame = { width: 510, height: 430 };
+      const drawn = { width: (SIZE.height * frame.width) / frame.height, height: SIZE.height };
+      expect(current()).toEqual(
+        viewportForRect(
+          canvasRectToContent({ x: 490, y: 410, width: 20, height: 20 }, frame, drawn),
+          SIZE,
+          SIZE,
+        ),
+      );
     });
   });
 

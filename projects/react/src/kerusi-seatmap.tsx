@@ -2,6 +2,7 @@ import {
   buildNavigationGraph,
   buildRenderModel,
   computeViewLayout,
+  contentBounds,
   controlStyle,
   cssVar,
   DEFAULT_MAX_ZOOM,
@@ -30,6 +31,7 @@ import {
   wholeUnitDisallowedAnnouncement,
 } from '@kerusiweb/core';
 import type {
+  Bounds,
   KerusiState,
   KerusiViolation,
   MapLayout,
@@ -110,6 +112,8 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       seatStyle,
       renderSeat,
       unitScale = 1,
+      fit = 'canvas',
+      contentPadding,
       showSectionLabels = true,
       showLegend = false,
       showLegendPrices = true,
@@ -278,6 +282,28 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       [renderMap, view, isRtl],
     );
 
+    const labelFor = useCallback(
+      (section: RenderSection): string | undefined =>
+        sectionOverrides[section.id]?.label ?? section.label,
+      [sectionOverrides],
+    );
+
+    /**
+     * The part of the canvas the map draws and fits (D29): the whole canvas, or
+     * under `fit="content"` the box around what is drawn. It is the `viewBox`.
+     */
+    const frame = useMemo<Bounds>(
+      () =>
+        fit === 'content'
+          ? contentBounds(layout, {
+              padding: contentPadding ?? renderMap.seatSize,
+              rtl: isRtl,
+              sectionLabels: showSectionLabels ? labelFor : false,
+            })
+          : { x: 0, y: 0, width: layout.width, height: layout.height },
+      [fit, layout, contentPadding, renderMap.seatSize, isRtl, showSectionLabels, labelFor],
+    );
+
     /** Navigation graphs per section — arrows move within, Tab moves between. */
     const graphs = useMemo<ReadonlyMap<string, NavigationGraph>>(
       () =>
@@ -394,14 +420,17 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       onViewportChange,
       onGestureStart: cards.gesture,
     });
-    // The two views share no geometry, so a zoom into one means nothing in the other.
+    // The two views share no geometry, so a zoom into one means nothing in the
+    // other; nor does a zoom into one frame mean anything in another.
     const shownView = useRef(view);
+    const shownFit = useRef(fit);
     useEffect(() => {
-      if (shownView.current !== view) {
+      if (shownView.current !== view || shownFit.current !== fit) {
         shownView.current = view;
+        shownFit.current = fit;
         zoom.resetZoom();
       }
-    }, [view, zoom.resetZoom]);
+    }, [view, fit, zoom.resetZoom]);
     const { maximized, toggleMaximized, setMaximized } = useMaximized({
       enabled: maximizable,
       rootRef,
@@ -701,10 +730,12 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
       (sectionId: string) => {
         const placed = layout.sections.find((s) => s.section.id === sectionId);
         if (placed) {
-          zoom.zoomToCanvasRect(placed.bounds, layout);
+          // The SVG draws `frame`, so the section is placed relative to its corner.
+          const { bounds } = placed;
+          zoom.zoomToCanvasRect({ ...bounds, x: bounds.x - frame.x, y: bounds.y - frame.y }, frame);
         }
       },
-      [layout, zoom.zoomToCanvasRect],
+      [layout, frame, zoom.zoomToCanvasRect],
     );
 
     useImperativeHandle(
@@ -765,9 +796,6 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
 
     // --- render -------------------------------------------------------------
 
-    const labelFor = (section: RenderSection): string | undefined =>
-      sectionOverrides[section.id]?.label ?? section.label;
-
     /** The whole map: one `<svg>` on the document's canvas, a group per section (D1). */
     const mapSvg = (
       <svg
@@ -775,7 +803,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
         className="kerusi-seatmap__svg"
         role="presentation"
         focusable="false"
-        viewBox={`0 0 ${layout.width} ${layout.height}`}
+        viewBox={`${frame.x} ${frame.y} ${frame.width} ${frame.height}`}
         preserveAspectRatio="xMidYMid meet"
         style={
           {
@@ -783,7 +811,7 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
             // so the `colors` prop can reach a rule it cannot otherwise see.
             '--kerusi-focus-ring-input': resolvedColors.focusRing,
             // `unitScale` CSS pixels per canvas unit, at most.
-            maxWidth: layout.width * unitScale,
+            maxWidth: frame.width * unitScale,
           } as CSSProperties
         }
       >
@@ -948,8 +976,8 @@ export const KerusiSeatmap = forwardRef<KerusiSeatmapHandle, KerusiSeatmapProps>
                 style={
                   {
                     ...focusRing,
-                    // Lets a maximized map fit the whole canvas to the screen.
-                    '--kerusi-canvas-aspect': layout.width / layout.height,
+                    // Lets a maximized map fit what it draws to the screen.
+                    '--kerusi-canvas-aspect': frame.width / frame.height,
                     touchAction: viewportTouchAction(zoom.viewport, maximized),
                   } as CSSProperties
                 }

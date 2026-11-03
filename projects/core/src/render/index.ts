@@ -14,3 +14,4 @@ export * from './navigation-order.js';
 export * from './element-shapes.js';
 export * from './group-shapes.js';
 export * from './seat-shapes.js';
+export * from './content-bounds.js';

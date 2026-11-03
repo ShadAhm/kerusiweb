@@ -66,6 +66,7 @@
           [zoomable]="zoomable()"
           [maximizable]="maximizable()"
           [view]="rowsView() ? 'rows' : 'canonical'"
+          [fit]="fitContent() ? 'content' : 'canvas'"
           [seatTypeStyles]="seatTypeStyles()"
           [seatStyle]="customShape() ? blobSeats : circleShape() ? circleSeats : undefined"
           [hoverCardOnFocus]="hoverCard()"
@@ -373,6 +374,17 @@
             <span class="toggle__text">
               <span class="toggle__label">Rows view</span>
               <span class="toggle__hint">view: 'rows'</span>
+            </span>
+          </label>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="fitContent()"
+              (change)="fitContent.set($any($event.target).checked)"
+            />
+            <span class="toggle__text">
+              <span class="toggle__label">Fit to content</span>
+              <span class="toggle__hint">fit: 'content'</span>
             </span>
           </label>
         </fieldset>

@@ -7,9 +7,10 @@
  * The bindings own the measuring and the event listeners; this owns what a
  * wheel tick, a key press or a pinch *means*.
  *
- * Zoom 1 is "fit": the whole canvas (§4.5) exactly as it lays out without
- * zooming. It is also the minimum, so the map can never be shrunk below the
- * container.
+ * Zoom 1 is "fit": the map exactly as it lays out without zooming, which is
+ * the whole canvas (§4.5), or under `fit: 'content'` the box around what is
+ * drawn (`contentBounds`, D29). It is also the minimum, so the map can never
+ * be shrunk below the container.
  *
  * Positions come in two frames. *Content* coordinates are CSS pixels on the
  * unzoomed map, with the canvas's top-left at the origin; convert a canvas

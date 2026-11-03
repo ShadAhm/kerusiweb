@@ -65,6 +65,7 @@ export class App {
   protected readonly maximizable = signal(true);
   /** Draws the rows view (§4.5.1) in place of the canonical drawing. */
   protected readonly rowsView = signal(false);
+  protected readonly fitContent = signal(false);
   /** Draws round seats through a `kerusiSeat` template. */
   protected readonly roundSeats = signal(false);
   /** Recolours aisle seats from a stylesheet rule (`styles.css`). */
@@ -86,7 +87,7 @@ export class App {
   protected readonly showSource = signal(false);
 
   /** How many switches the options panel has, and how many are on. */
-  protected readonly optionCount = 13;
+  protected readonly optionCount = 14;
   protected readonly optionsOn = computed(
     () =>
       [
@@ -95,6 +96,7 @@ export class App {
         this.zoomable(),
         this.maximizable(),
         this.rowsView(),
+        this.fitContent(),
         this.goldPremium(),
         this.circleShape(),
         this.customShape(),
@@ -113,6 +115,7 @@ export class App {
     this.zoomable.set(true);
     this.maximizable.set(true);
     this.rowsView.set(false);
+    this.fitContent.set(false);
     this.goldPremium.set(false);
     this.circleShape.set(false);
     this.customShape.set(false);

@@ -1,4 +1,4 @@
-import { viewportForRect } from '@kerusiweb/core';
+import { canvasRectToContent, mapContentBounds, viewportForRect } from '@kerusiweb/core';
 import type { KerusiMap, KerusiViewport } from '@kerusiweb/core';
 import { act, fireEvent, render } from '@testing-library/react';
 import { createRef, useState } from 'react';
@@ -617,6 +617,88 @@ describe('KerusiSeatmap: zoom, pan and maximize', () => {
       mount({ map: TWO });
       act(() => handle.current!.zoomToSection('left'));
       expect(current()).toEqual({ zoom: 1, x: 0, y: 0 });
+    });
+  });
+
+  describe('fit to content (#63, D29)', () => {
+    /**
+     * Two seats near the front of a large room. Content box at no padding:
+     * x 100..340, y 80..150; with the default (one seat size, 20), x 80..360,
+     * y 60..170.
+     */
+    const ROOM: KerusiMap = {
+      kerusi: '1.0',
+      id: 'room',
+      canvas: { width: 1000, height: 800 },
+      seatSize: 20,
+      legend: [{ id: 'standard' }],
+      sections: [
+        {
+          id: 'front',
+          seats: [
+            { id: 'F1', x: 110, y: 90, type: 'standard' },
+            { id: 'F2', x: 330, y: 140, type: 'standard' },
+          ],
+        },
+      ],
+    };
+    const svg = () => container.querySelector<SVGSVGElement>('svg.kerusi-seatmap__svg')!;
+
+    it('keeps the whole canvas by default', () => {
+      mount({ map: ROOM });
+      expect(svg().getAttribute('viewBox')).toBe('0 0 1000 800');
+      expect(svg().style.maxWidth).toBe('1000px');
+    });
+
+    it('draws the content box plus one seat size, capped by unitScale on its width', () => {
+      mount({ map: ROOM, fit: 'content', unitScale: 2 });
+      expect(svg().getAttribute('viewBox')).toBe('80 60 280 110');
+      expect(svg().style.maxWidth).toBe('560px');
+      expect(mapContentBounds(ROOM)).toEqual({ x: 80, y: 60, width: 280, height: 110 });
+    });
+
+    it('takes contentPadding as the margin', () => {
+      mount({ map: ROOM, fit: 'content', contentPadding: 0 });
+      expect(svg().getAttribute('viewBox')).toBe('100 80 240 70');
+    });
+
+    it('publishes the box proportions, so full screen fits the box', () => {
+      mount({ map: ROOM, fit: 'content', contentPadding: 0, zoomable: true });
+      expect(viewport()!.style.getPropertyValue('--kerusi-canvas-aspect')).toBe(String(240 / 70));
+      expect(transform()).toBe('translate(0px, 0px) scale(1)');
+    });
+
+    it('resets the zoom when fit changes, as the box is a new fit', () => {
+      const { update } = mount({ map: ROOM, zoomable: true });
+      fireEvent.click(button('Zoom in')!);
+      expect(current().zoom).toBeGreaterThan(1);
+      act(() => update({ fit: 'content' }));
+      expect(current()).toEqual({ zoom: 1, x: 0, y: 0 });
+    });
+
+    it('zooms to a section within the box', () => {
+      const map: KerusiMap = {
+        ...ROOM,
+        sections: [
+          ...ROOM.sections,
+          {
+            id: 'back',
+            seats: [{ id: 'B1', x: 600, y: 500, type: 'standard' }],
+          },
+        ],
+      };
+      mount({ map, fit: 'content', contentPadding: 0, zoomable: true });
+      act(() => handle.current!.zoomToSection('back'));
+      // Box x 100..610, y 80..510; the section is B1's footprint, 590..610 by 490..510.
+      const frame = { width: 510, height: 430 };
+      const drawn = { width: (SIZE.height * frame.width) / frame.height, height: SIZE.height };
+      expect(current()).toEqual(
+        viewportForRect(
+          canvasRectToContent({ x: 490, y: 410, width: 20, height: 20 }, frame, drawn),
+          SIZE,
+          SIZE,
+        ),
+      );
     });
   });
 

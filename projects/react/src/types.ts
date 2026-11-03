@@ -7,6 +7,7 @@ import type {
   KerusiSeatContext,
   KerusiWholeUnitCardContext,
   KerusiSeatmapColors,
+  KerusiSeatmapFit,
   KerusiSeatmapView,
   KerusiSelectionChange,
   KerusiSession,
@@ -196,6 +197,17 @@ export interface KerusiSeatmapProps {
    */
   unitScale?: number;
   /**
+   * What the view fits (#63, D29): `'canvas'`, the whole canvas, or
+   * `'content'`, the box around every seat, element, group footprint and
+   * shown section label, plus `contentPadding`. The map draws, resets to and
+   * goes full screen on that box, and is never zoomed out past it. Hiding a
+   * section or changing `view` reframes it. Core's `mapContentBounds()` gives
+   * the same box, to size a container by. Default `'canvas'`.
+   */
+  fit?: KerusiSeatmapFit;
+  /** The margin round the content under `fit="content"`, in canvas units. Default: the map's `seatSize`. */
+  contentPadding?: number;
+  /**
    * Draws each section's label inside the map, at the top-left of its `bounds`.
    * Only sections that declare `bounds` get one; every section's label is its
    * group's accessible name either way. Default `true`.
@@ -249,7 +261,10 @@ export interface KerusiSeatmapProps {
    * and on-screen buttons. A tap still selects at every zoom level. Default `false`.
    */
   zoomable?: boolean;
-  /** The zoom ceiling, relative to fit-to-container. The floor is always fit. Default `4`. */
+  /**
+   * The zoom ceiling, relative to fit-to-container. The floor is always fit:
+   * the canvas, or the content box under `fit="content"`. Default `4`.
+   */
   maxZoom?: number;
   /**
    * The built-in zoom buttons. Turn this off to supply your own, anywhere on the

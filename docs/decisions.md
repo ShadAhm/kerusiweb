@@ -58,6 +58,7 @@ or follow its steps by hand.
 | [D26](#d26-a-visible-cue-on-the-whole-unit-control-is-separate)      | A visible cue on the whole-unit control is separate        | Accepted          |
 | [D27](#d27-the-rows-view-is-a-view-input-set-by-the-app)             | The rows view is a `view` input, set by the app            | Accepted          |
 | [D28](#d28-the-rows-view-draws-seats-and-labels-only)                | The rows view draws seats and labels only                  | Accepted          |
+| [D29](#d29-fit-to-content-crops-the-viewbox-and-is-the-zoom-floor)   | Fit to content crops the `viewBox` and is the zoom floor   | Accepted          |
 
 ---
 
@@ -495,3 +496,34 @@ drawing code shared and the parity test meaningful.
 **Why:** rowless seats as a last line is the maintainer's call in #38, so they
 stay bookable in this view. Elements and footprints have no `row` or `col` to
 place them by.
+
+## Fit to content
+
+From [#63](https://github.com/ShadAhm/kerusiweb/issues/63), 2026-11-03.
+
+### D29. Fit to content crops the `viewBox` and is the zoom floor
+
+- **Status:** Accepted
+- **Source:** [#63](https://github.com/ShadAhm/kerusiweb/issues/63)
+
+- **Bindings.** A `fit` input/prop spelled the same in both, `'canvas'` (the
+  default, unchanged) or `'content'`, and `contentPadding`, in canvas units,
+  defaulting to the map's `seatSize`. Under `'content'` the map's `<svg>`
+  `viewBox` is the content box, so a map that isn't `zoomable` is framed too.
+  Fit, reset (`0`) and full screen all frame the box, and zoom resets when
+  `fit` changes.
+- **The box is the floor.** The customer cannot zoom out past it to the whole
+  canvas; outside it there is only backdrop.
+- **Core.** `contentBounds(layout, options)` is the box around every seat
+  footprint and element, turned as drawn, every group footprint, the section
+  labels drawn when asked, and the rows view's row labels. It adds the padding
+  and is kept on the canvas. A layout that draws nothing gives the whole canvas.
+  `mapContentBounds(map, options)` gives the same box from a document, so a host
+  can size its container to it. `KerusiSeatmapFit` is `'canvas' | 'content'`.
+- **It follows what is drawn.** Hiding a section or switching `view` reframes
+  the map. A host that wants a stable frame keeps `'canvas'`.
+
+**Why:** #63 left the floor to the library. Cropping the `viewBox` makes "zoom
+1 is the SVG as laid out" mean the box, so the floor, reset, full screen,
+clamping and gestures need no new viewport arithmetic, and the keyboard, hover
+cards and accessible names don't change.

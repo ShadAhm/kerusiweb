@@ -58,16 +58,18 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 
 **Appearance**
 
-| Input                             | Type                  | Default          |                                                                                                                                                                             |
-| --------------------------------- | --------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `colors`                          | `KerusiSeatmapColors` | theme defaults   | Per-status fills, element tones, focus ring, backdrop. See [Theming](#theming) for the CSS custom properties.                                                               |
-| `typeColors`                      | `boolean`             | `true`           | Let an available seat take its `SeatType.color` (§4.7).                                                                                                                     |
-| `seatTypeStyles`                  | `SeatTypeStyles`      | —                | Styles for every seat of a type, keyed by `SeatType.id`. Also shown in the legend. See [From code](#from-code).                                                             |
-| `seatStyle`                       | `SeatStyleFn`         | —                | A style for one seat, over its type's. Never recolours a selected or blocked seat. See [From code](#from-code).                                                             |
-| `<ng-template kerusiSeat>`        | content child         | —                | Draws the inside of every seat yourself. See [Custom seat content](#custom-seat-content).                                                                                   |
-| `unitScale`                       | `number`              | `1`              | CSS pixels per canvas unit, at most: the map never draws wider than `canvas.width × unitScale`. The only sizing control; the document fixes every seat's size and position. |
-| `showSectionLabels`               | `boolean`             | `true`           | Draw each section's label just above its `bounds`. Only sections that declare `bounds` get one; every section's label is its group's accessible name either way.            |
-| `showLegend` / `showLegendPrices` | `boolean`             | `false` / `true` |                                                                                                                                                                             |
+| Input                             | Type                    | Default          |                                                                                                                                                                             |
+| --------------------------------- | ----------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `colors`                          | `KerusiSeatmapColors`   | theme defaults   | Per-status fills, element tones, focus ring, backdrop. See [Theming](#theming) for the CSS custom properties.                                                               |
+| `typeColors`                      | `boolean`               | `true`           | Let an available seat take its `SeatType.color` (§4.7).                                                                                                                     |
+| `seatTypeStyles`                  | `SeatTypeStyles`        | —                | Styles for every seat of a type, keyed by `SeatType.id`. Also shown in the legend. See [From code](#from-code).                                                             |
+| `seatStyle`                       | `SeatStyleFn`           | —                | A style for one seat, over its type's. Never recolours a selected or blocked seat. See [From code](#from-code).                                                             |
+| `<ng-template kerusiSeat>`        | content child           | —                | Draws the inside of every seat yourself. See [Custom seat content](#custom-seat-content).                                                                                   |
+| `unitScale`                       | `number`                | `1`              | CSS pixels per canvas unit, at most: the map never draws wider than `canvas.width × unitScale`. The only sizing control; the document fixes every seat's size and position. |
+| `fit`                             | `'canvas' \| 'content'` | `'canvas'`       | What the view fits: the whole canvas, or the box around what is drawn plus `contentPadding`. See [Zoom, pan and maximize](#zoom-pan-and-maximize).                          |
+| `contentPadding`                  | `number`                | `seatSize`       | The margin round the content under `fit="content"`, in canvas units.                                                                                                        |
+| `showSectionLabels`               | `boolean`               | `true`           | Draw each section's label just above its `bounds`. Only sections that declare `bounds` get one; every section's label is its group's accessible name either way.            |
+| `showLegend` / `showLegendPrices` | `boolean`               | `false` / `true` |                                                                                                                                                                             |
 
 **Sections**
 
@@ -90,13 +92,13 @@ import { KerusiSeatmapComponent } from '@kerusiweb/angular';
 
 **Zoom, pan and maximize** (both off by default; see [Zoom, pan and maximize](#zoom-pan-and-maximize))
 
-| Input              | Type                            | Default |                                                                                        |
-| ------------------ | ------------------------------- | ------- | -------------------------------------------------------------------------------------- |
-| `zoomable`         | `boolean`                       | `false` | Pinch, Ctrl/Cmd + wheel and drag to zoom and pan; `+` `-` `0` keys; on-screen buttons. |
-| `maxZoom`          | `number`                        | `4`     | The zoom ceiling, relative to fit. The floor is always fit.                            |
-| `showZoomControls` | `boolean`                       | `true`  | The built-in zoom buttons. Turn off to supply your own.                                |
-| `maximizable`      | `boolean`                       | `false` | A button that fills the screen with the map.                                           |
-| `controlStrings`   | `Partial<KerusiControlStrings>` | English | The names of the zoom and maximize buttons, for translation.                           |
+| Input              | Type                            | Default |                                                                                                   |
+| ------------------ | ------------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `zoomable`         | `boolean`                       | `false` | Pinch, Ctrl/Cmd + wheel and drag to zoom and pan; `+` `-` `0` keys; on-screen buttons.            |
+| `maxZoom`          | `number`                        | `4`     | The zoom ceiling, relative to fit. The floor is always fit (see [`fit`](#zoom-pan-and-maximize)). |
+| `showZoomControls` | `boolean`                       | `true`  | The built-in zoom buttons. Turn off to supply your own.                                           |
+| `maximizable`      | `boolean`                       | `false` | A button that fills the screen with the map.                                                      |
+| `controlStrings`   | `Partial<KerusiControlStrings>` | English | The names of the zoom and maximize buttons, for translation.                                      |
 
 ### Outputs
 
@@ -654,6 +656,31 @@ On a phone a map of several hundred seats is drawn at fit-to-width, so a seat is
 too small to tap. `[zoomable]="true"` lets the reader zoom in and pan; `[maximizable]="true"` adds a button
 that fills the screen.
 
+**Fit to content.** A map whose seats fill only part of its canvas, such as
+twenty seats near the front of a large room, is drawn small in a lot of empty
+space. `fit="content"` frames what is drawn instead: every seat footprint (turned
+as it is), element and group footprint, and the section labels when they are
+shown, plus a `contentPadding` margin (default one `seatSize`). The map's
+`viewBox` becomes that box, so a map that isn't zoomable is framed too, and
+fit, reset (`0`) and full screen all frame it. The box is the zoom's floor:
+there is nothing to zoom out to (D29). Hiding a section or switching `view`
+reframes the map; keep the default `fit="canvas"` for a frame that never moves.
+
+```html
+<kerusi-seatmap [map]="map" fit="content" [zoomable]="true" />
+```
+
+To size a container to the content's proportions before the map renders, use
+core's `mapContentBounds(map)`, which returns the same box in canvas units
+(`contentBounds(layout)` does the same from a layout you already have):
+
+```ts
+import { mapContentBounds } from '@kerusiweb/core';
+
+const box = mapContentBounds(map); // { x, y, width, height }
+const aspectRatio = box.width / box.height;
+```
+
 **Zoom and pan.**
 
 - **Pinch** with two fingers on a touch screen. **Ctrl/Cmd + wheel**, or a
@@ -665,7 +692,8 @@ that fills the screen.
   `zoomable`. Anything that moves further is a drag, and a drag never selects the
   seat under it.
 - **Limits.** The floor is fit-to-container, the ceiling is `maxZoom` (default
-  `4`), and panning stays inside the map. A map smaller than its container, which
+  `4`), and panning stays inside the map. Fit is the whole canvas, or under
+  `fit="content"` the content box (see **Fit to content** above). A map smaller than its container, which
   happens when it is maximized on a large screen, is centred.
 - **Gestures and the page.** `touch-action` is `pan-y` at fit, so a one-finger
   vertical swipe still scrolls the page while a pinch is the map's; once zoomed in

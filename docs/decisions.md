@@ -56,9 +56,9 @@ or follow its steps by hand.
 | [D24](#d24-seat-form-outlines-are-drawn-in-house)                    | Seat form outlines are drawn in-house                      | Shipped 4.0.0     |
 | [D25](#d25-whole-unit-controls-get-cards-of-their-own)               | Whole-unit controls get cards of their own                 | Accepted          |
 | [D26](#d26-a-visible-cue-on-the-whole-unit-control-is-separate)      | A visible cue on the whole-unit control is separate        | Accepted          |
-| [D27](#d27-the-rows-view-is-a-view-input-set-by-the-app)             | The rows view is a `view` input, set by the app            | Accepted          |
-| [D28](#d28-the-rows-view-draws-seats-and-labels-only)                | The rows view draws seats and labels only                  | Accepted          |
-| [D29](#d29-fit-to-content-crops-the-viewbox-and-is-the-zoom-floor)   | Fit to content crops the `viewBox` and is the zoom floor   | Accepted          |
+| [D27](#d27-the-rows-view-is-a-view-input-set-by-the-app)             | The rows view is a `view` input, set by the app            | Shipped 4.1.0     |
+| [D28](#d28-the-rows-view-draws-seats-and-labels-only)                | The rows view draws seats and labels only                  | Shipped 4.1.0     |
+| [D29](#d29-fit-to-content-crops-the-viewbox-and-is-the-zoom-floor)   | Fit to content crops the `viewBox` and is the zoom floor   | Shipped 4.2.0     |
 
 ---
 
@@ -459,7 +459,7 @@ From [#38](https://github.com/ShadAhm/kerusiweb/issues/38), 2026-10-25.
 
 ### D27. The rows view is a `view` input, set by the app
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.1.0
 - **Source:** [#38](https://github.com/ShadAhm/kerusiweb/issues/38)
 
 Replaces D9: the §4.5.1 rows view ships as an option beside the canonical view.
@@ -479,7 +479,7 @@ drawing code shared and the parity test meaningful.
 
 ### D28. The rows view draws seats and labels only
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.1.0
 - **Source:** [#38](https://github.com/ShadAhm/kerusiweb/issues/38)
 
 - Every row is one straight line in §4.2.1 order, seats in `col` order with no
@@ -503,7 +503,7 @@ From [#63](https://github.com/ShadAhm/kerusiweb/issues/63), 2026-11-03.
 
 ### D29. Fit to content crops the `viewBox` and is the zoom floor
 
-- **Status:** Accepted
+- **Status:** Shipped in 4.2.0
 - **Source:** [#63](https://github.com/ShadAhm/kerusiweb/issues/63)
 
 - **Bindings.** A `fit` input/prop spelled the same in both, `'canvas'` (the

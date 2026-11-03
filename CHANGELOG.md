@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-11-03
+
 ### Added
 
 - **Fit to content (#63, D29).** A new `fit` input/prop, `'canvas'` (the
@@ -1049,6 +1051,7 @@ Carried over from the legacy directive:
 - Rendering is per-instance (no global element id lookup), so multiple pickers
   can coexist on one page.
 
+[4.2.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v4.2.0
 [4.1.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v4.1.0
 [4.0.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v4.0.0
 [3.1.0]: https://github.com/ShadAhm/kerusiweb/releases/tag/v3.1.0
